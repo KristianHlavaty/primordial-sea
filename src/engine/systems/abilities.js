@@ -139,6 +139,55 @@ export function activateAbility(game, idx) {
     game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.55, R, color: '#9fdcff', dir: 'out', width: 4 });
     game.shake = Math.min(16, game.shake + 4);
   }
+  else if (id === 'pounce') {
+    // leap onto prey ahead: lunge forward, then a heavy landing that wounds + knocks down
+    const st = p.species.stats;
+    p.jetT = 0.32; p.vx += Math.cos(p.angle) * 820; p.vy += Math.sin(p.angle) * 820;
+    const reach = p.radius + st.reach * 2, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
+    for (const c of game.creatures.slice()) {
+      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
+      if (d < reach + c.radius) {
+        const dot = (dx * fx + dy * fy) / (d || 1);
+        if (dot > 0.1) {
+          c.takeDamage(game, st.dmg * p.atkMul * 1.8, p.x, p.y, true);
+          if (!c.boss) c.stunT = Math.max(c.stunT || 0, 1);
+          c.vx += dx / (d || 1) * 220; c.vy += dy / (d || 1) * 220;
+          burst(game, c.x, c.y, '#ffb04e', 8, 150);
+        }
+      }
+    }
+    game.shake = Math.min(12, game.shake + 4);
+  }
+  else if (id === 'burrow') { p.burrowT = ab.dur; burst(game, p.x, p.y, '#6a4e2c', 16, 150); game.shake = Math.min(8, game.shake + 2); }
+  else if (id === 'stomp') {
+    // ground slam: shockwave that damages, staggers and hurls everything back
+    const R = p.radius + 90;
+    for (const c of game.creatures.slice()) {
+      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
+      if (d < R + c.radius) {
+        const k = 1 - d / (R + c.radius);
+        c.takeDamage(game, 14, p.x, p.y, true);
+        if (!c.boss) c.stunT = Math.max(c.stunT || 0, 1.2);
+        c.vx += dx / (d || 1) * 520 * k; c.vy += dy / (d || 1) * 520 * k;
+      }
+    }
+    game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.5, R, color: '#e0a060', dir: 'out', width: 5 });
+    game.shake = Math.min(16, game.shake + 6);
+  }
+  else if (id === 'tailsweep') {
+    // full-circle tail whip: knock every nearby animal off its feet
+    const R = p.radius + 70;
+    for (const c of game.creatures.slice()) {
+      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
+      if (d < R + c.radius) {
+        c.takeDamage(game, 8, p.x, p.y, true);
+        c.vx += dx / (d || 1) * 360; c.vy += dy / (d || 1) * 360;
+      }
+    }
+    game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.4, R, color: '#9fd0a0', dir: 'out', width: 4 });
+    burst(game, p.x, p.y, '#9fd0a0', 10, 150);
+  }
+  else if (id === 'sprint') { p.sprintT = ab.dur; burst(game, p.x, p.y, '#9ce0a0', 8, 130); }
 
   p.acd[id] = ab.cd; game.sfx.play('power'); game.pushHud(true);
 }

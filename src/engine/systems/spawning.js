@@ -1,9 +1,11 @@
-/* Population control: initial world seeding and the steady drip that keeps
-   the sea stocked as things die (or get eaten). */
+/* Population control: seeds a map's creatures/plants/bosses and keeps them
+   topped up. Everything here is stage-aware — it only spawns species whose
+   `stage` matches the current map, and spawns the current map's dedicated
+   boss(es) from data/maps.js. */
 import { Creature } from '../entities/Creature.js';
 import { Boss } from '../entities/Boss.js';
-import { NPCS, PLANTS } from '../../data/npcs.js';
-import { BOSS_AGE } from '../../data/bosses.js';
+import { NPCS, PLANTS, npcStage, plantStage } from '../../data/npcs.js';
+import { MAPS } from '../../data/maps.js';
 import { TAU, rand } from '../../core/math.js';
 
 export function creatureTarget(era) { return Math.min(26 + era * 4, 54); }
@@ -17,20 +19,35 @@ export function offscreenPoint(game) {
   return { x: rand(120, game.W - 120), y: rand(120, game.H - 120) };
 }
 
-function eligibleNpcs(era) { return Object.keys(NPCS).filter(k => NPCS[k].minEra <= era); }
+function eligibleNpcs(game) { return Object.keys(NPCS).filter(k => npcStage(k) === game.stage && NPCS[k].minEra <= game.era); }
 
-/* Weighted roll over every species unlocked in this era. */
-function weightedNpc(era) {
-  const el = eligibleNpcs(era);
+/* Weighted roll over every species of this stage unlocked in this era. */
+function weightedNpc(game) {
+  const el = eligibleNpcs(game);
   let tot = 0; for (const k of el) tot += NPCS[k].weight;
   let r = Math.random() * tot;
   for (const k of el) { r -= NPCS[k].weight; if (r <= 0) return k; }
   return el[0];
 }
 
+/* The two easy-food species used to keep prey around, per stage. */
+function easyPrey(game) {
+  return game.stage === 'land'
+    ? (Math.random() < 0.6 ? 'springtail' : 'mudskipper')
+    : (Math.random() < 0.6 ? 'plankton' : 'silverfish');
+}
+function plantKinds(game) {
+  return Object.keys(PLANTS).filter(k => plantStage(k) === game.stage);
+}
+function randomPlantKind(game) {
+  const ks = plantKinds(game);
+  // first kind (algae/moss) is the common one; second (kelp/fern) rarer
+  return Math.random() < 0.72 ? ks[0] : (ks[1] || ks[0]);
+}
+
 export function spawnRandomNpc(game) {
   const p = offscreenPoint(game);
-  game.creatures.push(Creature.spawn(weightedNpc(game.era), p.x, p.y, game.era));
+  game.creatures.push(Creature.spawn(weightedNpc(game), p.x, p.y, game.era));
 }
 
 export function spawnPlant(game, x, y, kind) {
@@ -43,11 +60,12 @@ export function spawnInitial(game) {
   const target = creatureTarget(game.era);
   for (let i = 0; i < target; i++) spawnRandomNpc(game);
   // seed some easy food near the player at start
-  for (let i = 0; i < 6; i++) game.creatures.push(Creature.spawn('plankton', game.player.x + rand(-260, 260), game.player.y + rand(-200, 200), game.era));
+  for (let i = 0; i < 6; i++) game.creatures.push(Creature.spawn(easyPrey(game), game.player.x + rand(-260, 260), game.player.y + rand(-200, 200), game.era));
   const floorY = game.H - 30;
-  for (let i = 0; i < 12; i++) { const kind = Math.random() < 0.72 ? 'algae' : 'kelp'; spawnPlant(game, rand(120, game.W - 120), floorY, kind); }
+  for (let i = 0; i < 12; i++) spawnPlant(game, rand(120, game.W - 120), floorY, randomPlantKind(game));
+  game.bubbles.length = 0;
   for (let i = 0; i < 120; i++) game.bubbles.push({ x: rand(0, game.vw), y: rand(0, game.vh), r: rand(0.6, 2.6), sp: rand(6, 26), ph: rand(0, TAU) });
-  for (const k of (BOSS_AGE[game.age] || [])) if (!game.bossesDefeated.has(k)) game.creatures.push(new Boss(k, game));
+  for (const k of (MAPS[game.mapId].bosses || [])) if (!game.bossesDefeated.has(k)) game.creatures.push(new Boss(k, game));
 }
 
 /* Runs every half second of sim time: top up creatures, easy prey and
@@ -58,9 +76,9 @@ export function spawnMaintain(game, dt) {
   if (alive < target) { const n = Math.min(3, target - alive); for (let i = 0; i < n; i++) spawnRandomNpc(game); }
   // keep some easy prey around
   const prey = game.creatures.filter(c => c.role === 'prey').length;
-  if (prey < 8) { const p = offscreenPoint(game); game.creatures.push(Creature.spawn(Math.random() < 0.6 ? 'plankton' : 'silverfish', p.x, p.y, game.era)); }
+  if (prey < 8) { const p = offscreenPoint(game); game.creatures.push(Creature.spawn(easyPrey(game), p.x, p.y, game.era)); }
   // top up plants (slowly — plants persist and regrow in place, so this is really a total cap)
-  if (game.plants.length < 12) spawnPlant(game, rand(120, game.W - 120), game.H - 30, Math.random() < 0.72 ? 'algae' : 'kelp');
+  if (game.plants.length < 12) spawnPlant(game, rand(120, game.W - 120), game.H - 30, randomPlantKind(game));
   // recycle far creatures if far over cap
   if (game.creatures.length > target + 6) {
     let fi = -1, fd = 0;

@@ -1,5 +1,9 @@
-/* Evolution choice cards. The preview canvases are registered with the
-   engine, which animates them from the render loop (renderWorld.js). */
+/* Evolution choice cards. Two modes:
+   - normal: pick the next form within your stage.
+   - ascend: "crawl ashore" — pick a land pioneer, or stay in the sea for now
+     (a button that dismisses the prompt but leaves it re-openable).
+   The preview canvases are registered with the engine, which animates them
+   from the render loop (renderWorld.js). */
 import { html } from '../react.js';
 import { SPECIES, STAT_MAX } from '../../data/species.js';
 import { ABILITIES, ABILITY_SETS } from '../../data/abilities.js';
@@ -7,20 +11,22 @@ import { BRANCH_WORD } from '../../data/branches.js';
 import { StatRow } from '../components/StatRow.js';
 
 const MAX = STAT_MAX;
-const BRANCH_TAG = BRANCH_WORD;
 
 export function EvolveModal({ engine, hud }) {
   const cur = engine.player.species.stats;
+  const ascend = hud.evolveMode === 'ascend';
   return html`
     <div className="scrim">
       <div className="card">
-        <div className="evolveTitle">✦ EVOLUTION ✦</div>
-        <div className="subtitle">Your egg quivers and splits — choose the shape of the next generation</div>
+        <div className="evolveTitle">${ascend ? '🏝 CRAWL ASHORE 🏝' : '✦ EVOLUTION ✦'}</div>
+        <div className="subtitle">${ascend
+          ? 'The tide draws back and the shore beckons — choose the shape that first leaves the water'
+          : 'Your egg quivers and splits — choose the shape of the next generation'}</div>
         <div className="choices">
           ${hud.choices.map(id => {
             const sp = SPECIES[id];
             const bcls = (sp.branch === '-') ? '' : sp.branch;
-            const blabel = BRANCH_TAG[sp.branch] || '';
+            const blabel = BRANCH_WORD[sp.branch] || '';
             return html`
               <div key=${id} className=${'choice ' + bcls} onClick=${() => engine.chooseEvolution(id)}>
                 <canvas width="200" height="120" ref=${el => engine.registerPreview(id, el)}/>
@@ -38,6 +44,11 @@ export function EvolveModal({ engine, hud }) {
               </div>`;
           })}
         </div>
+        ${ascend && html`
+          <div className="ascendStay">
+            <button className="stayBtn" onClick=${() => engine.dismissAscend()}>Not yet — stay in the sea</button>
+            <div className="ascendHint">Finish hunting the deep (bosses, kills…) and reopen this from the <b>🏝 Ashore</b> button anytime.</div>
+          </div>`}
       </div>
     </div>`;
 }

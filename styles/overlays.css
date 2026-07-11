@@ -18,6 +18,8 @@
 .choice.chord:hover{border-color:var(--chord)}
 .choice.cnid:hover{border-color:var(--cnid)}
 .choice.moll:hover{border-color:var(--moll)}
+.choice.tetra:hover{border-color:var(--tetra)}
+.choice.myria:hover{border-color:var(--myria)}
 .choice canvas{width:100%; height:120px; display:block; background:radial-gradient(circle at 50% 45%,#0d2c40,#071722); border-radius:10px; border:1px solid #12324a}
 .choice .cname{font-size:16px; font-weight:800; margin-top:10px}
 .choice .ctag{font-size:10px; font-weight:800; letter-spacing:1px; text-transform:uppercase; padding:1px 8px; border-radius:10px; margin-left:6px}
@@ -25,6 +27,8 @@
 .ctag.chord{background:#132a44; color:var(--chord)}
 .ctag.cnid{background:#241a3a; color:var(--cnid)}
 .ctag.moll{background:#0f3a30; color:var(--moll)}
+.ctag.tetra{background:#22360f; color:var(--tetra)}
+.ctag.myria{background:#331f0e; color:var(--myria)}
 .choice .cdesc{font-size:12px; color:var(--dim); margin:6px 0 10px; line-height:1.45; min-height:50px}
 .stat{display:flex; align-items:center; gap:6px; font-size:12px; margin:3px 0}
 .stat .sl{width:46px; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.5px}
@@ -38,3 +42,22 @@
 .statgrid div{display:flex; justify-content:space-between; border-bottom:1px dashed var(--line); padding:4px 0; font-size:13px}
 .statgrid b{color:var(--acc2)}
 .pausewrap{gap:14px; display:flex; flex-direction:column; align-items:center}
+
+/* crawl-ashore "stay in the sea" footer of the evolve modal */
+.ascendStay{margin-top:20px; display:flex; flex-direction:column; align-items:center; gap:6px}
+.stayBtn{pointer-events:auto; cursor:pointer; background:#0a1c2b; color:#c4d6e6; border:1px solid var(--line); border-radius:10px; padding:9px 22px; font-size:13px; font-weight:700; letter-spacing:.5px; transition:border-color .12s, color .12s}
+.stayBtn:hover{border-color:var(--acc); color:#eaf4ff}
+.ascendHint{font-size:11.5px; color:var(--dim)}
+.ascendHint b{color:var(--tetra)}
+
+/* start-screen "skip to land" */
+.skipRow{margin-top:14px; display:flex; flex-direction:column; align-items:center; gap:10px}
+.skipToggle{pointer-events:auto; cursor:pointer; background:transparent; color:var(--dim); border:none; font-size:13px; font-weight:700; letter-spacing:.5px; text-decoration:underline dotted}
+.skipToggle:hover{color:var(--tetra)}
+.skipChoices{display:flex; flex-direction:column; align-items:center; gap:8px}
+.skipLabel{font-size:12px; color:var(--dim)}
+.skipBtns{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
+.skipBtn{pointer-events:auto; cursor:pointer; background:#0a1c2b; color:#dfeaf5; border:1px solid var(--line); border-left:3px solid var(--tetra); border-radius:10px; padding:8px 16px; font-size:13px; font-weight:800; display:flex; flex-direction:column; align-items:flex-start; line-height:1.2; transition:transform .1s, border-color .1s}
+.skipBtn:hover{transform:translateY(-2px)}
+.skipBtn small{font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--dim)}
+.skipBtn.tetra{border-left-color:var(--tetra)} .skipBtn.myria{border-left-color:var(--myria)}

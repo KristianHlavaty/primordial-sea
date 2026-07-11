@@ -5,11 +5,12 @@ import { clamp } from '../../core/math.js';
 import { AbilityBar } from './AbilityBar.js';
 import { AbilityIcon } from './AbilityIcon.js';
 
-export function Hud({ hud, engine, onOpenTree }) {
+export function Hud({ hud, engine, onOpenTree, onOpenAtlas }) {
   return html`
     <div className="hud">
       <div className="topleft">
-        <div className="name">${hud.name}<br/><small>Lv ${hud.level} · Era ${hud.era} · Tier ${hud.tier}</small></div>
+        <div className="name">${hud.name}<br/><small>Lv ${hud.level} · Era ${hud.era} · Tier ${hud.tier}</small>
+          <div className="mapline">📍 ${hud.mapName} <span>· ${hud.stageName}</span></div></div>
         <div className="bars">
           ${hud.shield > 0 && html`
             <div className="bar shield">
@@ -36,10 +37,14 @@ export function Hud({ hud, engine, onOpenTree }) {
       <div className="topright">
         <div className="kills">${hud.kills} <span>kills</span></div>
         <button className="iconbtn" onClick=${onOpenTree} title="Evolution tree (T)">🧬</button>
+        <button className="iconbtn" onClick=${onOpenAtlas} title="World atlas (B)">🗺</button>
         <button className=${'iconbtn' + (hud.showLevels ? ' on' : '')} onClick=${() => engine.toggleLevels()} title="Toggle level labels (L)">Lv</button>
         <button className="iconbtn" onClick=${() => engine.toggleMute()} title="Mute (M)">${hud.muted ? '🔇' : '🔊'}</button>
         <button className="iconbtn" onClick=${() => engine.togglePause()} title="Pause (P)">⏸</button>
       </div>
+      ${hud.ascendAvailable && html`
+        <button className="ashoreBtn" onClick=${() => engine.openAscend()} title="Crawl ashore — evolve onto the land">🏝 Ashore</button>`}
+      ${hud.nearEdge && html`<div className="edgePrompt">▸ crossing to <b>${hud.nearEdge}</b>…</div>`}
       <div className="hint">Steer <b>mouse</b>/<b>WASD</b> · <b>Click / Space</b> bite & dash · Powers <b>1 2 3</b> · Eat to <b>level up</b> — reach <b>Lv 10</b> to evolve</div>
       <${AbilityBar} abilities=${hud.abilities} engine=${engine}/>
     </div>`;

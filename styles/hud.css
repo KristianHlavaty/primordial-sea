@@ -3,6 +3,8 @@
 .hud .topleft{position:absolute; top:14px; left:16px; display:flex; flex-direction:column; gap:8px}
 .name{font-size:20px; font-weight:800; letter-spacing:.5px; text-shadow:0 2px 8px #000a}
 .name small{font-size:12px; font-weight:600; color:var(--dim); letter-spacing:1px}
+.mapline{font-size:12px; font-weight:700; color:#bcd; letter-spacing:.3px; margin-top:2px}
+.mapline span{color:var(--dim); font-weight:600}
 .badges{display:flex; gap:7px}
 .badge{background:#0009; border:1px solid var(--line); border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--dim)}
 .badge b{color:var(--acc2)}
@@ -22,6 +24,18 @@
 .hint{position:absolute; bottom:16px; left:50%; transform:translateX(-50%); background:#0008; border:1px solid var(--line); border-radius:10px; padding:7px 16px; font-size:12px; color:var(--dim); letter-spacing:.4px; animation:fade 1s ease 9s forwards}
 .hint b{color:var(--acc)}
 @keyframes fade{to{opacity:0}}
+
+/* crawl-ashore button (appears once you're a maxed sea apex that stayed) */
+.ashoreBtn{position:absolute; top:70px; right:16px; pointer-events:auto; cursor:pointer;
+  background:linear-gradient(#2f6b3a,#1f4a29); color:#dfffe6; border:1px solid #8fce6a; border-radius:10px;
+  padding:8px 16px; font-size:13px; font-weight:800; letter-spacing:.6px; box-shadow:0 0 18px -4px #8fce6a;
+  animation:ashorePulse 1.8s ease-in-out infinite}
+.ashoreBtn:hover{transform:translateY(-1px); box-shadow:0 0 24px -2px #8fce6a}
+@keyframes ashorePulse{0%,100%{box-shadow:0 0 14px -5px #8fce6a} 50%{box-shadow:0 0 26px -2px #8fce6a}}
+/* edge-crossing prompt */
+.edgePrompt{position:absolute; bottom:96px; left:50%; transform:translateX(-50%); background:#0b1f14dd; border:1px solid #8fce6a;
+  border-radius:10px; padding:6px 16px; font-size:13px; font-weight:700; color:#dfffe6; letter-spacing:.5px}
+.edgePrompt b{color:#bff0a0}
 
 /* ---------- ability bar ---------- */
 .abilbar{position:absolute; bottom:18px; left:50%; transform:translateX(-50%); display:flex; gap:10px; pointer-events:none}

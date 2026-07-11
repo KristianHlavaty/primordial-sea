@@ -202,7 +202,68 @@ export const SPECIES = {
     plan: P({ kind: 'jelly', len: 36, wid: 30, body: '#7a9fe8', accent: '#f4f8ff', glow: '#a8e0ff', tentacles: 14 }),
     evolvesTo: []
   },
+
+  /* ============================================================
+     LAND STAGE — reached by "crawling ashore" from any sea apex.
+     Land tiers restart at 1..3 (each stage has its own tier space).
+     Two branches: tetrapods (the amphibian road) and myriapods
+     (the land-arthropod road). Power steps are deliberately small —
+     many more land tiers can slot in later without a difficulty cliff.
+     ============================================================ */
+
+  // --- tetrapods (from the chordate/fish lineages) ---
+  tiktaalik: {
+    name: 'Tiktaalik', tier: 1, branch: 'tetra', stage: 'land', landfall: true,
+    desc: 'A fish that learned to prop itself up and gulp air — the first lurch onto the mudflats.',
+    stats: { hp: 230, accel: 980, maxSpeed: 250, dmg: 36, reach: 15, radius: 22, dashCd: 0.42, dashPow: 430, turn: 12 },
+    plan: P({ kind: 'tetrapod', len: 26, wid: 12, body: '#7a8f5a', accent: '#cfe0a0', teeth: true, tail: 1.1 }),
+    evolvesTo: ['ichthyostega']
+  },
+  ichthyostega: {
+    name: 'Ichthyostega', tier: 2, branch: 'tetra', stage: 'land',
+    desc: 'A stout early amphibian with real limbs and ribs — equally at home in mud and shallows.',
+    stats: { hp: 285, accel: 980, maxSpeed: 255, dmg: 43, reach: 16, radius: 25, dashCd: 0.42, dashPow: 440, turn: 12 },
+    plan: P({ kind: 'tetrapod', len: 30, wid: 14, body: '#6f8a4f', accent: '#c8dc95', teeth: true, tail: 1 }),
+    evolvesTo: ['eryops']
+  },
+  eryops: {
+    name: 'Eryops', tier: 3, branch: 'tetra', stage: 'land',
+    desc: 'A heavy, wide-jawed amphibian ambush predator — the apex of the coastal swamps.',
+    stats: { hp: 360, accel: 960, maxSpeed: 250, dmg: 54, reach: 18, radius: 29, dashCd: 0.4, dashPow: 470, turn: 11 },
+    plan: P({ kind: 'tetrapod', len: 36, wid: 18, body: '#5f7a45', accent: '#bcd08a', teeth: true, tail: 0.95 }),
+    evolvesTo: []
+  },
+
+  // --- myriapods (from the arthropod lineages) ---
+  kampecaris: {
+    name: 'Kampecaris', tier: 1, branch: 'myria', stage: 'land', landfall: true,
+    desc: 'An armored little myriapod — among the very first animals to breathe air and walk the shore.',
+    stats: { hp: 250, accel: 940, maxSpeed: 235, dmg: 33, reach: 13, radius: 21, dashCd: 0.46, dashPow: 400, turn: 11 },
+    plan: P({ kind: 'arthro', len: 26, wid: 12, body: '#b57a3f', accent: '#e8bd7a', segments: 10, legs: 14, eyes: 2 }),
+    evolvesTo: ['arthropleura']
+  },
+  arthropleura: {
+    name: 'Arthropleura', tier: 2, branch: 'myria', stage: 'land',
+    desc: 'A millipede the length of a canoe, armored in overlapping plates that shrug off blows.',
+    stats: { hp: 320, accel: 900, maxSpeed: 230, dmg: 40, reach: 15, radius: 27, dashCd: 0.48, dashPow: 410, turn: 10 },
+    plan: P({ kind: 'arthro', len: 40, wid: 16, body: '#9c6836', accent: '#d8a35c', segments: 14, legs: 20, spikes: 3, eyes: 2 }),
+    evolvesTo: ['pulmonoscorpius']
+  },
+  pulmonoscorpius: {
+    name: 'Pulmonoscorpius', tier: 3, branch: 'myria', stage: 'land',
+    desc: 'A metre-long land scorpion with lungs and a stinger — the terror of the fern forests.',
+    stats: { hp: 370, accel: 1000, maxSpeed: 260, dmg: 52, reach: 18, radius: 28, dashCd: 0.4, dashPow: 470, turn: 12 },
+    plan: P({ kind: 'scorpion', len: 40, wid: 17, body: '#7a5a2f', accent: '#e0b070', segments: 9, claws: true, spikes: 3, legs: 8, eyes: 2 }),
+    evolvesTo: []
+  },
 };
+
+/* The land-stage "pioneers" — the tier-1 forms you can crawl ashore into,
+   and the roster the start screen's "skip to land" offers. */
+export const LAND_PIONEERS = Object.keys(SPECIES).filter(id => SPECIES[id].stage === 'land' && SPECIES[id].tier === 1);
+
+/* The stage a species belongs to (sea species omit the field). */
+export const speciesStage = id => (SPECIES[id] && SPECIES[id].stage) || 'sea';
 
 /* Highest value of each display stat across all species — the UI scales its
    stat bars against these, so new species never overflow the bars. */

@@ -237,6 +237,52 @@ export function drawCreature(ctx, o) {
       if (o.eyes) for (const s of [-1, 1]) { ctx.strokeStyle = shade(body, -0.2); ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(L * 0.55, s * W * 0.4); ctx.lineTo(L * 0.7, s * W * 0.85); ctx.stroke(); eye(ctx, L * 0.72, s * W * 0.85, W * 0.24); }
       break;
     }
+    case 'tetrapod': {
+      // salamander-like body facing +X: tail (-X) -> body -> rounded head (+X),
+      // two pairs of splayed walking legs, optional teeth.
+      const m = o.mouth || 0; const tf = (o.tail || 1);
+      const step = Math.sin(t * 6);
+      // tail
+      ctx.strokeStyle = shade(body, -0.15); ctx.lineWidth = W * 0.7;
+      const ty = Math.sin(t * 3) * W * 0.5;
+      ctx.beginPath(); ctx.moveTo(-L * 0.3, 0); ctx.quadraticCurveTo(-L * 0.8, ty * 0.6, -L * (0.95 + 0.4 * tf), ty); ctx.stroke();
+      // legs (front pair near head, rear pair near hips), alternating gait
+      ctx.strokeStyle = shade(body, -0.3); ctx.lineWidth = W * 0.28; ctx.lineCap = 'round';
+      const legAt = (lx, phase) => {
+        for (const s of [-1, 1]) {
+          const beat = Math.sin(t * 6 + phase + (s > 0 ? 0 : Math.PI)) * 0.4;
+          ctx.beginPath(); ctx.moveTo(lx, s * W * 0.6);
+          ctx.quadraticCurveTo(lx + beat * 6, s * W * 1.25, lx - W * 0.3 + beat * 8, s * W * 1.7); ctx.stroke();
+        }
+      };
+      legAt(L * 0.42, 0); legAt(-L * 0.12, Math.PI);
+      // body
+      const g = ctx.createLinearGradient(0, -W, 0, W); g.addColorStop(0, shade(body, 0.28)); g.addColorStop(.5, body); g.addColorStop(1, shade(body, -0.3));
+      ctx.fillStyle = g; ctx.strokeStyle = shade(body, -0.4); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(L * 0.85, 0);
+      ctx.quadraticCurveTo(L * 0.5, -W, -L * 0.1, -W * 0.85);
+      ctx.quadraticCurveTo(-L * 0.4, -W * 0.5, -L * 0.3, 0);
+      ctx.quadraticCurveTo(-L * 0.4, W * 0.5, -L * 0.1, W * 0.85);
+      ctx.quadraticCurveTo(L * 0.5, W, L * 0.85, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // dappled back
+      ctx.fillStyle = withA(shade(body, -0.2), 0.5);
+      for (let i = 0; i < 4; i++) { const x = lerp(L * 0.5, -L * 0.15, i / 3); ctx.beginPath(); ctx.ellipse(x, (i % 2 ? 1 : -1) * W * 0.3, W * 0.22, W * 0.16, 0, 0, TAU); ctx.fill(); }
+      // broad head
+      const hg = ctx.createRadialGradient(L * 0.85, -W * 0.2, 1, L * 0.8, 0, W * 1.4);
+      hg.addColorStop(0, shade(body, 0.32)); hg.addColorStop(1, body);
+      ctx.fillStyle = hg; ctx.strokeStyle = shade(body, -0.4); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(L * 0.9, 0, L * 0.28, W * 0.85, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      // wide mouth line + teeth
+      ctx.strokeStyle = shade(body, -0.5); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(L * 1.16, 0); ctx.lineTo(L * 0.7, W * 0.18 + m * W * 0.28); ctx.stroke();
+      if (o.teeth) {
+        ctx.fillStyle = '#f6fbff';
+        for (let i = 0; i < 4; i++) { const x = lerp(L * 1.12, L * 0.74, i / 3); ctx.beginPath(); ctx.moveTo(x, W * 0.04); ctx.lineTo(x - 1.6, W * 0.24 + m * W * 0.28); ctx.lineTo(x + 1.6, W * 0.04); ctx.closePath(); ctx.fill(); }
+      }
+      // bulging eyes set high on the skull
+      for (const s of [-1, 1]) eye(ctx, L * 0.86, s * W * 0.42, Math.max(2.4, W * 0.24));
+      break;
+    }
     default: { // fish
       const wag = Math.sin(t * 2.4), ty = wag * W * 0.5, m = o.mouth || 0;
       // tail fin

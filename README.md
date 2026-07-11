@@ -1,9 +1,17 @@
 # Primordial Sea — an evolution game
 
 A 2D canvas game: you start as a single cell, eat to level up, and evolve
-along the arthropod / chordate / cnidarian branches while the whole sea
-evolves with you. This folder is the modular rewrite of the original
-single-file `evolution.html`.
+along the arthropod / chordate / cnidarian / mollusc branches while the whole
+sea evolves with you. Reach the apex of any sea branch and you can **crawl
+ashore** — onto the **land stage**, a set of walk-between maps with their own
+creatures, powers and dedicated bosses. This folder is the modular rewrite of
+the original single-file `evolution.html`.
+
+**Stages & maps.** The world is a set of MAPS (`src/data/maps.js`) grouped into
+STAGES (`sea`, `land`). The sea is one map; the land has two (`The Tidal Coast`,
+`The Fern Lowlands`) that you cross by walking off a shared edge. Each map has a
+dedicated boss. Sea → land is a one-way *evolution* (crawling ashore), not an
+edge walk. Open the **world atlas** (🗺 / `B`) to see every map and its boss.
 
 ## How to run
 
@@ -29,12 +37,13 @@ src/
   main.js             boots the React app
   core/               math.js, color.js — pure helpers
   data/               ALL game content as plain data (no logic):
-    species.js          player evolution tree
-    npcs.js             NPC species + plants
-    abilities.js        power catalogue + per-species power sets
-    bosses.js           minibosses, perks, boss-per-age table
+    species.js          player evolution tree (sea + land) + LAND_PIONEERS + STAT_MAX
+    maps.js             stages (sea/land), maps, sizes, themes, boss lists, edge links
+    npcs.js             NPC species + plants, each tagged with its `stage`
+    abilities.js        power catalogue + per-species power sets + active-timer map
+    bosses.js           minibosses & perks (referenced by map boss lists)
     plans.js            the parametric "body plan" factory
-    branches.js         branch colors/labels
+    branches.js         branch colors/labels (sea + land branches)
     progression.js      XP curve, level cap
   engine/
     Engine.js           orchestrator: world state, update loop, evolution, HUD snapshots
@@ -49,10 +58,10 @@ src/
       abilities.js        what each active power actually does
       effects.js          particle bursts, floating text
   render/
-    drawCreature.js     the one parametric creature renderer (all species)
-    drawPlant.js        algae + kelp
+    drawCreature.js     the one parametric creature renderer (incl. land tetrapods)
+    drawPlant.js        sea + land flora (algae/kelp, moss/fern)
     drawAbilityIcon.js  vector icons for powers
-    renderWorld.js      full frame draw (background → world → fx → markers)
+    renderWorld.js      full frame draw; sea + land backgrounds by theme
   ui/                   React components (htm templates, JSX-like, no build)
     react.js            single React/htm import point
     App.js              root — picks which screens/overlays to show
@@ -60,8 +69,8 @@ src/
     input.js            keyboard/mouse bindings
     debug.js            window.__game console API for testing
     components/         Hud, AbilityBar, AbilityIcon, AchievementToast, StatRow, CreatureCanvas
-    overlays/           StartScreen, PauseOverlay, GameOverScreen, EvolveModal
-    tree/               TreeModal, TreeNode, TreeDetail (the T-key wiki)
+    overlays/           StartScreen, PauseOverlay, GameOverScreen, EvolveModal, AtlasModal
+    tree/               TreeModal (Sea/Land toggle), TreeNode, TreeDetail (the T-key wiki)
 ```
 
 ### Architecture in one paragraph
@@ -76,14 +85,34 @@ renders overlays from them — the UI never mutates engine internals directly.
 
 ## How to extend
 
-- **New player species**: add an entry in `data/species.js`, reference it in
-  some `evolvesTo`, give it powers in `ABILITY_SETS` (`data/abilities.js`).
-  The tree wiki, evolve modal and renderer pick it up automatically.
-- **New NPC**: add to `data/npcs.js` with a `minEra` gate.
+- **New player species**: add an entry in `data/species.js` (give land forms
+  `stage: 'land'`; land tiers restart at 1), reference it in some `evolvesTo`,
+  give it powers in `ABILITY_SETS` (`data/abilities.js`). The tree wiki, evolve
+  modal and renderer pick it up automatically. A tier-1 land species is
+  auto-added to `LAND_PIONEERS` (the crawl-ashore / skip-to-land roster).
+- **New NPC**: add to `data/npcs.js` with a `minEra` gate and a `stage`
+  (defaults to `'sea'`); it only spawns on maps of that stage.
 - **New power**: describe it in `data/abilities.js`, implement its effect in
   `engine/systems/abilities.js` (actives) or check `hasAbility()` where it
-  applies (passives), and add an icon case in `render/drawAbilityIcon.js`.
-- **New boss / new age**: add to `BOSSES` and `BOSS_AGE` in `data/bosses.js`.
+  applies (passives), add an icon case in `render/drawAbilityIcon.js`, and — if
+  it has a duration — map it to a Player timer field in `ACTIVE_TIMER`.
+- **New map**: add a `MAPS` entry in `data/maps.js` (size, theme, `bosses`,
+  and `neighbors` for edge links) plus its boss in `data/bosses.js`. The atlas
+  and edge-crossing pick it up automatically.
+- **New stage**: add a `STAGES` entry, some species with that `stage`, and at
+  least one map (with `STAGE_FIRST_MAP`). The tree wiki gains a stage tab.
+- **New boss**: add to `BOSSES` in `data/bosses.js` and list its id in a map's
+  `bosses` array. Boss ids must be unique across the whole game.
+
+## Reaching the land (flow)
+
+1. Evolve up any sea branch to its apex (a form with no `evolvesTo`).
+2. At Lv 10 the **🏝 Crawl Ashore** prompt appears — pick a land pioneer, or
+   **stay in the sea** to keep hunting (finish bosses, kills…). If you stay, a
+   **🏝 Ashore** button re-opens the prompt anytime.
+3. Ashore, you play the land maps; walk off a connected edge to cross between
+   them. Each land map has its own dedicated boss.
+4. The start screen's **▸ skip to land** jumps straight in as a land pioneer.
 
 ## Console debug API
 

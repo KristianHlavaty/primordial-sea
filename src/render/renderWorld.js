@@ -9,7 +9,14 @@ import { drawCreature } from './drawCreature.js';
 import { drawPlant } from './drawPlant.js';
 import { SPECIES } from '../data/species.js';
 
+/* Ground palettes for the land themes (top-down dirt/moss). */
+const LAND_THEMES = {
+  coast: { ground: '#9c8452', patch: '#7a6238', pebble: '#b8a06a', mote: 'rgba(240,228,180,0.16)' },
+  swamp: { ground: '#33482a', patch: '#22331b', pebble: '#4a6238', mote: 'rgba(180,220,150,0.14)' },
+};
+
 function drawBackground(E) {
+  if (E.stage === 'land') { drawLandBackground(E); return; }
   const ctx = E.ctx;
   const g = ctx.createLinearGradient(0, 0, 0, E.vh);
   const topDepth = clamp(E.cam.y / E.H, 0, 1);
@@ -30,8 +37,40 @@ function drawBackground(E) {
   }
 }
 
+/* Top-down terrain: a ground gradient plus world-anchored dirt patches and
+   pebbles (positions derived from index so they don't flicker frame to frame). */
+function drawLandBackground(E) {
+  const ctx = E.ctx; const T = LAND_THEMES[E.theme] || LAND_THEMES.coast;
+  const g = ctx.createLinearGradient(0, 0, 0, E.vh);
+  g.addColorStop(0, shade(T.ground, 0.10)); g.addColorStop(1, shade(T.ground, -0.16));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, E.vw, E.vh);
+  // dirt patches
+  ctx.fillStyle = withA(T.patch, 0.55);
+  for (let i = 0; i < 46; i++) {
+    const wx = (i * 613.0) % E.W, wy = (i * 971.0) % E.H;
+    const sx = wx - E.cam.x, sy = wy - E.cam.y;
+    if (sx < -160 || sx > E.vw + 160 || sy < -120 || sy > E.vh + 120) continue;
+    const rw = 60 + (i % 5) * 24, rh = rw * 0.55;
+    ctx.beginPath(); ctx.ellipse(sx, sy, rw, rh, (i % 7) * 0.4, 0, TAU); ctx.fill();
+  }
+  // scattered pebbles
+  ctx.fillStyle = withA(T.pebble, 0.5);
+  for (let i = 0; i < 60; i++) {
+    const wx = (i * 271.0 + 90) % E.W, wy = (i * 457.0 + 40) % E.H;
+    const sx = wx - E.cam.x, sy = wy - E.cam.y;
+    if (sx < -20 || sx > E.vw + 20 || sy < -20 || sy > E.vh + 20) continue;
+    ctx.beginPath(); ctx.arc(sx, sy, 2 + (i % 3), 0, TAU); ctx.fill();
+  }
+}
+
 function drawBubbles(E) {
   const ctx = E.ctx;
+  if (E.stage === 'land') {
+    // drifting dust / pollen motes instead of bubbles
+    ctx.fillStyle = (LAND_THEMES[E.theme] || LAND_THEMES.coast).mote;
+    for (const b of E.bubbles) { ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); }
+    return;
+  }
   ctx.fillStyle = 'rgba(200,235,255,0.18)';
   for (const b of E.bubbles) { ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); }
 }
@@ -69,12 +108,14 @@ export function renderWorld(E) {
   const shX = (Math.random() * 2 - 1) * E.shake, shY = (Math.random() * 2 - 1) * E.shake;
   ctx.save(); ctx.translate(shX, shY);
 
-  // sea floor
-  const floorScreenY = E.H - 120 - E.cam.y;
-  if (floorScreenY < E.vh) {
-    ctx.fillStyle = '#071a13'; ctx.fillRect(0, floorScreenY + 60, E.vw, E.vh);
-    ctx.fillStyle = '#0c2a1e';
-    for (let i = 0; i < 8; i++) { const x = ((i * 0.14 + 0.03) * E.W - E.cam.x); ctx.beginPath(); ctx.ellipse(x, floorScreenY + 70, 120, 40, 0, 0, TAU); ctx.fill(); }
+  // sea floor (sea stage only; land terrain is the whole background)
+  if (E.stage !== 'land') {
+    const floorScreenY = E.H - 120 - E.cam.y;
+    if (floorScreenY < E.vh) {
+      ctx.fillStyle = '#071a13'; ctx.fillRect(0, floorScreenY + 60, E.vw, E.vh);
+      ctx.fillStyle = '#0c2a1e';
+      for (let i = 0; i < 8; i++) { const x = ((i * 0.14 + 0.03) * E.W - E.cam.x); ctx.beginPath(); ctx.ellipse(x, floorScreenY + 70, 120, 40, 0, 0, TAU); ctx.fill(); }
+    }
   }
 
   // plants
@@ -160,7 +201,18 @@ export function renderWorld(E) {
     ctx.beginPath(); ctx.arc(gx, gy, pr + 7, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
     if (PL.frenzyT > 0) { const fp = 0.5 + 0.5 * Math.sin(E.time * 12); ctx.strokeStyle = withA('#ff6a7a', 0.25 + 0.4 * fp); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(gx, gy, pr + 11, 0, TAU); ctx.stroke(); }
     if (PL.stealthT > 0) ctx.globalAlpha = 0.45;   // half-vanished in the ink cloud
-    if (PL.enrollT > 0) {
+    if (PL.burrowT > 0) {
+      // underground: only a dirt mound and dust show where you are
+      ctx.save(); ctx.translate(gx, gy);
+      const mg = ctx.createRadialGradient(-pr * 0.3, -pr * 0.3, 1, 0, 0, pr * 1.3);
+      mg.addColorStop(0, '#9c7a4a'); mg.addColorStop(1, '#5a4126');
+      ctx.fillStyle = mg; ctx.beginPath(); ctx.ellipse(0, pr * 0.2, pr * 1.15, pr * 0.75, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = withA('#c79a5e', 0.5); ctx.setLineDash([4, 5]); ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(0, 0, pr + 6, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = withA('#6a4e2c', 0.8);
+      for (let i = 0; i < 5; i++) { const a = E.time * 3 + i * 1.3; ctx.beginPath(); ctx.arc(Math.cos(a) * pr * 0.7, Math.sin(a) * pr * 0.5 - pr * 0.4, 2.2, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    } else if (PL.enrollT > 0) {
       // rolled into an armored ball — replaces the creature entirely
       ctx.save(); ctx.translate(gx, gy); ctx.rotate(E.time * 1.2); const r = pr * 1.12;
       const bg = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 1, 0, 0, r * 1.2); bg.addColorStop(0, shade(pc, 0.35)); bg.addColorStop(1, shade(pc, -0.32));

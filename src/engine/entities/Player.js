@@ -25,6 +25,7 @@ export class Player extends Entity {
     this.enrollT = 0; this.burstT = 0; this.frenzyT = 0; this.bloomT = 0; this.bloomTick = 0;
     this.withdrawT = 0; this.stealthT = 0; this.ramT = 0; this.jetT = 0; this.ramHit = null;
     this.vortexT = 0; this.vortexTick = 0;
+    this.burrowT = 0; this.sprintT = 0;   // land: Burrow (invuln dig), Sprint (haste)
     this.rebirthUsed = false;   // Colony Rebirth fires once per life
     this.applyLevelStats(); this.hp = this.maxHp;
   }
@@ -109,6 +110,7 @@ export class Player extends Entity {
   takeHit(game, dmg, fromx, fromy, attacker) {
     if (this.hp <= 0) return;
     if (this.enrollT > 0) { burst(game, this.x, this.y, '#ffe6b0', 4, 60); return; }
+    if (this.burrowT > 0) { burst(game, this.x, this.y, '#c79a5e', 4, 60); return; }   // underground — untouchable
     const dodgeCh = (this.hasAbility('evasion') ? 0.25 : 0) + game.perks.dodge;
     if (dodgeCh > 0 && Math.random() < dodgeCh) {
       for (let i = 0; i < 7; i++) game.particles.push({ x: this.x + rand(-6, 6), y: this.y + rand(-6, 6), vx: rand(-60, 60), vy: rand(-60, 60), life: 0.3, max: 0.3, size: 2.2, color: 'rgba(138,255,208,0.75)' });
@@ -125,6 +127,7 @@ export class Player extends Entity {
       burst(game, attacker.x, attacker.y, '#c79bff', 4, 70);
     }
     if (game.perks.dmgReduce) dmg *= (1 - game.perks.dmgReduce);   // Ironhide trophy
+    if (this.hasAbility('thickhide')) dmg *= 0.85;                 // cornified armored skin
     if (this.withdrawT > 0) dmg *= 0.3;                            // tucked into the shell
     this.knockbackFrom(fromx, fromy, 130);
     if (this.shield > 0) {
@@ -169,10 +172,12 @@ export class Player extends Entity {
     this.withdrawT = Math.max(0, this.withdrawT - dt); this.stealthT = Math.max(0, this.stealthT - dt);
     this.ramT = Math.max(0, this.ramT - dt); this.jetT = Math.max(0, this.jetT - dt);
     this.vortexT = Math.max(0, this.vortexT - dt);
-    const enrolled = this.enrollT > 0, withdrawn = this.withdrawT > 0;
-    const accMul = enrolled ? 0.25 : withdrawn ? 0.35 : (this.burstT > 0 ? 1.6 : 1);
+    this.burrowT = Math.max(0, this.burrowT - dt); this.sprintT = Math.max(0, this.sprintT - dt);
+    const enrolled = this.enrollT > 0, withdrawn = this.withdrawT > 0, burrowed = this.burrowT > 0;
+    const hasted = this.burstT > 0 || this.sprintT > 0;   // Burst (aquatic) or Sprint (land)
+    const accMul = enrolled ? 0.25 : withdrawn ? 0.35 : burrowed ? 1.5 : (hasted ? 1.6 : 1);
     const baseSpd = st.maxSpeed * this.spdMul;
-    const spdCap = enrolled ? baseSpd * 0.5 : withdrawn ? baseSpd * 0.55 : (this.burstT > 0 ? baseSpd * 1.8 : baseSpd);
+    const spdCap = enrolled ? baseSpd * 0.5 : withdrawn ? baseSpd * 0.55 : burrowed ? baseSpd * 1.5 : (hasted ? baseSpd * 1.8 : baseSpd);
 
     // keyboard wins; otherwise steer toward the mouse (dead zone of 24px)
     let ix = 0, iy = 0;
@@ -184,9 +189,9 @@ export class Player extends Entity {
       if (l > 24) { tx = dx / l; ty = dy / l; moving = true; }
     }
     if (moving) { this.vx += tx * st.accel * accMul * dt; this.vy += ty * st.accel * accMul * dt; this.faceTarget = Math.atan2(ty, tx); }
-    this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * st.turn * (this.burstT > 0 ? 1.3 : 1)));
+    this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * st.turn * (hasted ? 1.3 : 1)));
 
-    if (game.biteHeld && !enrolled && !withdrawn) this.bite(game);
+    if (game.biteHeld && !enrolled && !withdrawn && !burrowed) this.bite(game);
     this.cd = Math.max(0, this.cd - dt); this.biteT = Math.max(0, this.biteT - dt);
     this.biteAnim = Math.max(0, this.biteAnim - dt * 3); this.mouth = this.biteAnim; this.hurt = Math.max(0, this.hurt - dt * 3);
     const lunging = this.biteT > 0 || this.jetT > 0 || this.ramT > 0;   // dash windows lift the speed cap
@@ -212,8 +217,8 @@ export class Player extends Entity {
     // Withdraw — mend inside the shell
     if (withdrawn) this.hp = Math.min(this.maxHp, this.hp + 8 * dt);
 
-    // burst-swim wake
-    if (this.burstT > 0 && game.particles.length < 300)
+    // burst-swim / sprint wake
+    if (hasted && game.particles.length < 300)
       game.particles.push({ x: this.x, y: this.y, vx: 0, vy: 0, life: 0.3, max: 0.3, size: this.radius * 0.55, color: withA(this.plan.accent, 0.35) });
 
     // Tentacle Bloom — periodic AoE sting + shove
@@ -260,5 +265,10 @@ export class Player extends Entity {
 
     // passive regen once out of combat
     if (game.time - game.lastHurt > 3 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 6 * dt);
+    // Regenerate — amphibian regrowth that knits wounds even mid-fight
+    if (this.hasAbility('regen') && this.hp < this.maxHp) {
+      const inCombat = game.time - game.lastHurt < 3;
+      this.hp = Math.min(this.maxHp, this.hp + (inCombat ? 5 : 12) * dt);
+    }
   }
 }

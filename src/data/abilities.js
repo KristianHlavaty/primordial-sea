@@ -30,6 +30,14 @@ export const ABILITIES = {
   venom:      { name: 'Venom',          passive: true,  cd: 0,  dur: 0,   color: '#b0e05e', desc: 'Nematocyst-laced bites — everything you sting keeps burning after you let go.' },
   camo:       { name: 'Chromatophores', passive: true,  cd: 0,  dur: 0,   color: '#9bb8c8', desc: 'Skin that mimics the sea itself — other animals must come twice as close to notice you.' },
   whirlpool:  { name: 'Whirlpool',      passive: false, cd: 15, dur: 2.6, color: '#6fd0e8', desc: 'Spin the siphon into a raging vortex that drags the sea itself toward you and grinds it.' },
+  // --- land powers ---
+  pounce:     { name: 'Pounce',    passive: false, cd: 8,  dur: 0,   color: '#ffb04e', desc: 'Leap onto prey ahead — a heavy landing that wounds and knocks down whatever you hit.' },
+  burrow:     { name: 'Burrow',    passive: false, cd: 13, dur: 2.4, color: '#c79a5e', desc: 'Dig underground — untouchable and quick, but unable to bite until you surface.' },
+  stomp:      { name: 'Stomp',     passive: false, cd: 10, dur: 0,   color: '#e0a060', desc: 'Slam the ground — a shockwave that damages, staggers and hurls back everything around you.' },
+  tailsweep:  { name: 'Tail Sweep',passive: false, cd: 9,  dur: 0,   color: '#9fd0a0', desc: 'Whip your tail in a full circle, battering every animal near you off their feet.' },
+  sprint:     { name: 'Sprint',    passive: false, cd: 8,  dur: 3,   color: '#9ce0a0', desc: 'A bounding land-sprint — a burst of much greater speed and acceleration.' },
+  regen:      { name: 'Regenerate',passive: true,  cd: 0,  dur: 0,   color: '#8affb0', desc: 'Amphibian regrowth — you knit wounds back together quickly, even mid-fight.' },
+  thickhide:  { name: 'Thick Hide',passive: true,  cd: 0,  dur: 0,   color: '#c9a06a', desc: 'Cornified armored skin — every blow that lands on you is blunted.' },
 };
 
 /* Which powers each player form carries (length grows with tier; capped at 3).
@@ -46,8 +54,11 @@ export const ABILITY_SETS = {
   cladoselache: ['bloodscent', 'burst', 'frenzy'],
   jaekelopterus: ['impale', 'harden', 'barbs'], dunkleosteus: ['crush', 'frenzy', 'evasion'],
   siphonophore: ['rebirth', 'shock', 'bloom'], cameroceras: ['whirlpool', 'ram', 'grasp'],
+  // land forms
+  tiktaalik: ['pounce', 'regen'], ichthyostega: ['pounce', 'regen', 'tailsweep'], eryops: ['frenzy', 'pounce', 'thickhide'],
+  kampecaris: ['burrow', 'thickhide'], arthropleura: ['stomp', 'enroll', 'thickhide'], pulmonoscorpius: ['impale', 'stomp', 'sprint'],
 };
 
 /* Maps a duration-based ability to the Player timer field that tracks it
    (used by the HUD to show the "active" state). */
-export const ACTIVE_TIMER = { harden: 'shieldT', enroll: 'enrollT', burst: 'burstT', frenzy: 'frenzyT', bloom: 'bloomT', withdraw: 'withdrawT', ink: 'stealthT', ram: 'ramT', whirlpool: 'vortexT' };
+export const ACTIVE_TIMER = { harden: 'shieldT', enroll: 'enrollT', burst: 'burstT', frenzy: 'frenzyT', bloom: 'bloomT', withdraw: 'withdrawT', ink: 'stealthT', ram: 'ramT', whirlpool: 'vortexT', burrow: 'burrowT', sprint: 'sprintT' };

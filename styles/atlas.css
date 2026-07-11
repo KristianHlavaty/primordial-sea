@@ -1,0 +1,23 @@
+/* ---------- world atlas overlay ---------- */
+.atlasScrim{background:radial-gradient(120% 100% at 50% 30%, #05141fee, #010a12fb)}
+.atlasCard{background:linear-gradient(#0e2537,#091622); border:1px solid var(--line); border-radius:16px; padding:15px 17px; width:min(94vw,960px); max-height:92vh; display:flex; flex-direction:column; box-shadow:0 30px 90px #000b}
+.atlasBody{overflow-y:auto; display:flex; flex-direction:column; gap:18px; padding:4px 2px}
+.atlasStage{display:flex; flex-direction:column; gap:10px}
+.atlasStageHead{display:flex; align-items:baseline; gap:10px; border-bottom:1px solid var(--line); padding-bottom:6px}
+.atlasStageName{font-size:15px; font-weight:900; letter-spacing:1px}
+.atlasStageName.sea{color:var(--acc)} .atlasStageName.land{color:var(--tetra)}
+.atlasStageBlurb{font-size:12px; color:var(--dim)}
+.atlasMaps{display:flex; gap:14px; flex-wrap:wrap}
+.atlasMap{width:250px; background:#08161f; border:1px solid var(--line); border-radius:12px; padding:11px; display:flex; flex-direction:column; gap:8px}
+.atlasMap.here{border-color:var(--acc); box-shadow:0 0 0 1px var(--acc), 0 10px 26px #0007}
+.atlasSwatch{position:relative; height:70px; border-radius:9px; border:1px solid #12324a; overflow:hidden}
+.atlasYouHere{position:absolute; top:6px; right:8px; font-size:10px; font-weight:900; letter-spacing:1px; color:#fff; background:#04121ecc; border:1px solid var(--acc); border-radius:6px; padding:1px 7px}
+.atlasMapName{font-size:14px; font-weight:800; color:#eaf2fb}
+.atlasBosses{display:flex; flex-direction:column; gap:5px}
+.atlasBoss{display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:#e6c07a}
+.atlasBoss.slain{color:var(--dim)}
+.atlasBossMark{width:16px; text-align:center; color:var(--bad)}
+.atlasBoss.slain .atlasBossMark{color:var(--good)}
+.atlasBossName{flex:1}
+.atlasBossTag{font-size:9px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--good); border:1px solid var(--good); border-radius:5px; padding:0 5px}
+.atlasLinks{font-size:11px; color:var(--dim); font-weight:600; margin-top:auto; border-top:1px dashed var(--line); padding-top:6px}

@@ -104,6 +104,42 @@ export function drawAbilityIcon(ctx, id, size, color) {
       ctx.stroke();
     }
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, r * 0.14, 0, TAU); ctx.fill();
+  } else if (id === 'pounce') {   // arced leap onto a target
+    ctx.setLineDash([size * 0.05, size * 0.05]); ctx.lineWidth = size * 0.06;
+    ctx.beginPath(); ctx.moveTo(-r, r * 0.7); ctx.quadraticCurveTo(0, -r * 1.3, r * 0.6, r * 0.1); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(r * 0.6, r * 0.45, r * 0.26, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-r, r * 0.7); ctx.lineTo(-r * 0.55, r * 0.55); ctx.lineTo(-r * 0.78, r); ctx.closePath(); ctx.fill();
+  } else if (id === 'burrow') {   // arrow diving under a ground line
+    ctx.lineWidth = size * 0.07;
+    ctx.beginPath(); ctx.moveTo(-r, -r * 0.55); ctx.lineTo(r, -r * 0.55); ctx.stroke();       // ground
+    ctx.beginPath(); ctx.moveTo(0, -r * 0.9); ctx.lineTo(0, r * 0.65); ctx.stroke();          // shaft down
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, r); ctx.lineTo(-r * 0.32, r * 0.5); ctx.lineTo(r * 0.32, r * 0.5); ctx.closePath(); ctx.fill();
+  } else if (id === 'stomp') {    // impact star with radiating cracks
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, r * 0.2, r * 0.28, 0, TAU); ctx.fill();
+    ctx.lineWidth = size * 0.06;
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * 0.35, r * 0.2 + Math.sin(a) * r * 0.35); ctx.lineTo(Math.cos(a) * r * 1.02, r * 0.2 + Math.sin(a) * r * 0.7); ctx.stroke(); }
+  } else if (id === 'tailsweep') { // sweeping circular arc with a tail tip
+    ctx.lineWidth = size * 0.08; ctx.beginPath(); ctx.arc(0, 0, r * 0.85, -0.4, Math.PI + 0.4); ctx.stroke();
+    ctx.fillStyle = col; const ex = Math.cos(Math.PI + 0.4) * r * 0.85, ey = Math.sin(Math.PI + 0.4) * r * 0.85;
+    ctx.beginPath(); ctx.arc(ex, ey, r * 0.2, 0, TAU); ctx.fill();
+  } else if (id === 'sprint') {   // running legs / motion streaks
+    ctx.lineWidth = size * 0.09;
+    for (let i = 0; i < 3; i++) { const y = (i - 1) * r * 0.55; ctx.beginPath(); ctx.moveTo(-r * 1.0 + i * r * 0.15, y); ctx.lineTo(r * 0.2 + i * r * 0.15, y); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(r * 0.2, -r * 0.6); ctx.lineTo(r * 0.95, 0); ctx.lineTo(r * 0.2, r * 0.6); ctx.stroke();
+  } else if (id === 'regen') {    // heart / regrowth cross with spark
+    ctx.fillStyle = col;
+    ctx.fillRect(-r * 0.22, -r * 0.75, r * 0.44, r * 1.5);
+    ctx.fillRect(-r * 0.75, -r * 0.22, r * 1.5, r * 0.44);
+    ctx.strokeStyle = col; ctx.globalAlpha = 0.5; ctx.lineWidth = size * 0.05;
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.98, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+  } else if (id === 'thickhide') { // layered plates / scute shield
+    for (let i = 0; i < 3; i++) {
+      const rr = r * (1 - i * 0.28);
+      ctx.beginPath(); ctx.moveTo(-rr, r * 0.4 - i * r * 0.28);
+      ctx.quadraticCurveTo(0, -rr - i * r * 0.1, rr, r * 0.4 - i * r * 0.28);
+      i === 0 ? ctx.fill() : null; ctx.stroke();
+    }
   }
   ctx.restore();
 }

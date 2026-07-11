@@ -8,9 +8,13 @@ export function installDebugApi(engine, ui) {
   window.__game = {
     eng: engine,
     start: () => engine.start(),
+    startAt: id => engine.startAt(id),
     step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) engine.update(dt); engine.render(); },
     render: () => engine.render(),
     choose: id => engine.chooseEvolution(id),
+    ascend: () => engine.openAscend(),
+    stay: () => engine.dismissAscend(),
+    loadMap: (id, via) => engine.loadMap(id, via),
     addXp: v => { engine.player && engine.player.addXp(engine, v); },
     key: (k, v) => engine.setKey(k, v), bite: v => engine.setBite(v), mouse: (x, y) => engine.setMouse(x, y),
     ability: i => engine.useAbility(i),
@@ -28,7 +32,9 @@ export function installDebugApi(engine, ui) {
       const p = engine.player;
       return {
         phase: ui.current.phase, playing: engine.playing, dead: engine.dead, paused: engine.paused,
-        pendingEvolve: engine.pendingEvolve, choices: engine.choices.slice(), era: engine.era,
+        pendingEvolve: engine.pendingEvolve, evolveMode: engine.evolveMode, choices: engine.choices.slice(), era: engine.era,
+        stage: engine.stage, mapId: engine.mapId, nearEdge: engine.nearEdge,
+        canAscend: engine.isSeaApex(), ascendAvailable: engine.ascendAvailable,
         species: p && p.species.name, tier: p && p.species.tier, hp: p && Math.round(p.hp), maxHp: p && p.maxHp, x: p && Math.round(p.x), y: p && Math.round(p.y),
         abilities: p && p.abilities.slice(), shield: p && Math.round(p.shield),
         level: p && p.level, xp: p && Math.round(p.xp), xpNeed: p && xpNeed(p.level), atkMul: p && +p.atkMul.toFixed(2),

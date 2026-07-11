@@ -18,10 +18,13 @@ export function attachInput(engine, canvas, ui) {
     if (e.code === 'Digit3') { engine.useAbility(2); return; }
     const k = e.key.toLowerCase();
     const u = ui.current;
-    if (k === 't') { if (u.treeOpen) { u.closeTree && u.closeTree(); } else { u.openTree && u.openTree(); } return; }
+    const anyModal = u.treeOpen || u.atlasOpen;
+    // T / B toggle the tree wiki and world atlas (only one open at a time)
+    if (k === 't') { if (u.treeOpen) u.closeTree && u.closeTree(); else if (!u.atlasOpen) u.openTree && u.openTree(); return; }
+    if (k === 'b') { if (u.atlasOpen) u.closeAtlas && u.closeAtlas(); else if (!u.treeOpen) u.openAtlas && u.openAtlas(); return; }
     if (k === ' ') engine.setBite(true);
-    else if (k === 'escape') { if (u.treeOpen) u.closeTree && u.closeTree(); else engine.togglePause(); }
-    else if (k === 'p') { if (!u.treeOpen) engine.togglePause(); }   // ignore P while the wiki is open — it manages pause itself
+    else if (k === 'escape') { if (u.treeOpen) u.closeTree && u.closeTree(); else if (u.atlasOpen) u.closeAtlas && u.closeAtlas(); else engine.togglePause(); }
+    else if (k === 'p') { if (!anyModal) engine.togglePause(); }   // ignore P while an overlay is open — it manages pause itself
     else if (k === 'm') engine.toggleMute();
     else if (k === 'l') engine.toggleLevels();
     else if (KEYMAP[k]) engine.setKey(KEYMAP[k], true);

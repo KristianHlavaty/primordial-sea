@@ -3,6 +3,12 @@
    receives UI state through the onHud callback — plain snapshot objects,
    so the UI never reaches into live entities.
 
+   The world is one of many MAPS (data/maps.js), grouped into STAGES (sea, land).
+   loadMap() swaps the active map — resizing the world, reseeding stage-matched
+   creatures/plants and the map's dedicated boss(es). You move between land maps
+   by walking off a connected edge; you move from sea to land by "crawling
+   ashore" (an evolution that changes stage).
+
    World structure:
    - player            Player entity (entities/Player.js)
    - creatures         Creature/Boss entities
@@ -12,6 +18,8 @@
 import { Player } from './entities/Player.js';
 import { ABILITIES, ACTIVE_TIMER } from '../data/abilities.js';
 import { PERKS } from '../data/bosses.js';
+import { MAPS, STAGES, firstMapOf, OPPOSITE_EDGE } from '../data/maps.js';
+import { LAND_PIONEERS, speciesStage } from '../data/species.js';
 import { MAX_LEVEL, xpNeed } from '../data/progression.js';
 import { clamp, lerp, hyp } from '../core/math.js';
 import { spawnInitial, spawnMaintain, spawnRandomNpc } from './systems/spawning.js';
@@ -27,7 +35,8 @@ export class Engine {
     this.onHud = onHud;
     this.sfx = new Sfx();
 
-    // world + viewport
+    // current map / viewport
+    this.mapId = 'sea_shallows'; this.stage = 'sea'; this.theme = 'sea';
     this.W = 4400; this.H = 2700;
     this.vw = 0; this.vh = 0; this.dpr = 1;
 
@@ -44,11 +53,16 @@ export class Engine {
 
     // flow state
     this.playing = false; this.paused = false; this.dead = false;
-    this.pendingEvolve = false; this.choices = [];
+    this.pendingEvolve = false; this.choices = []; this.evolveMode = 'normal';   // 'normal' | 'ascend'
     this.kills = 0; this.lastHurt = -99; this.spawnT = 0; this.hudT = 0;
 
-    // ages, boss trophies, achievements
-    this.age = 0; this.perks = { dmgReduce: 0, dodge: 0, list: [] };
+    // stage transitions (crawling ashore)
+    this.ascendOffered = false; this.ascendAvailable = false;
+    // map edge crossings
+    this.transitionCd = 0; this.edgeDwell = 0; this.nearEdge = null; this.visitedMaps = new Set();
+
+    // boss trophies, achievements
+    this.perks = { dmgReduce: 0, dodge: 0, list: [] };
     this.bossesDefeated = new Set(); this.achievement = null; this.achT = 0; this.achId = 0;
 
     // UI-facing bits
@@ -67,18 +81,59 @@ export class Engine {
 
   /* ---------------- run control ---------------- */
 
-  start() {
-    this.era = 0; this.kills = 0; this.dead = false; this.paused = false; this.pendingEvolve = false; this.choices = [];
-    this.age = 0; this.perks = { dmgReduce: 0, dodge: 0, list: [] }; this.bossesDefeated = new Set(); this.achievement = null; this.achT = 0;
-    this.creatures.length = 0; this.food.length = 0; this.particles.length = 0; this.eggs.length = 0; this.fx.length = 0; this.floaters.length = 0;
+  /* Reset flow/progress state shared by every fresh run (start / startAt). */
+  resetRun() {
+    this.era = 0; this.kills = 0; this.dead = false; this.paused = false;
+    this.pendingEvolve = false; this.choices = []; this.evolveMode = 'normal';
+    this.perks = { dmgReduce: 0, dodge: 0, list: [] }; this.bossesDefeated = new Set();
+    this.achievement = null; this.achT = 0;
+    this.ascendOffered = false; this.ascendAvailable = false;
+    this.transitionCd = 0; this.edgeDwell = 0; this.nearEdge = null; this.visitedMaps = new Set();
     this.time = 0; this.lastHurt = -99;
-    this.player = null; this.makePlayer('protocell');
-    this.cam.x = clamp(this.player.x - this.vw / 2, 0, Math.max(0, this.W - this.vw));
-    this.cam.y = clamp(this.player.y - this.vh / 2, 0, Math.max(0, this.H - this.vh));
     this.mouse.x = this.vw / 2; this.mouse.y = this.vh / 2;
-    spawnInitial(this);
-    this.playing = true;
-    this.sfx.unlock();
+  }
+
+  start() {
+    this.resetRun();
+    this.player = null; this.makePlayer('protocell');
+    this.loadMap('sea_shallows');
+    this.playing = true; this.sfx.unlock(); this.pushHud(true);
+  }
+
+  /* "Skip to land": begin already ashore as one of the land pioneers. */
+  startAt(speciesId) {
+    this.resetRun();
+    this.era = 4;                       // land NPCs scale to a mid-game difficulty
+    this.ascendOffered = true;          // already ashore — no crawl-ashore prompt
+    this.player = null; this.makePlayer(speciesId);
+    this.loadMap(firstMapOf('land'));
+    this.playing = true; this.sfx.unlock(); this.pushHud(true);
+  }
+
+  /* Swap the active map. `via` is the edge the player LEFT through (they arrive
+     at the opposite edge of the new map); omit it for a fresh/landfall entry
+     (player is centered). */
+  loadMap(mapId, via) {
+    const m = MAPS[mapId];
+    this.mapId = mapId; this.stage = m.stage; this.theme = m.theme; this.W = m.W; this.H = m.H;
+    const p = this.player;
+    if (!via) { p.x = this.W / 2; p.y = this.H * 0.5; }
+    else {
+      const arrive = OPPOSITE_EDGE[via];
+      if (arrive === 'right') p.x = this.W - p.radius - 90;
+      else if (arrive === 'left') p.x = p.radius + 90;
+      else if (arrive === 'top') p.y = p.radius + 90;
+      else if (arrive === 'bottom') p.y = this.H - p.radius - 90;
+      p.x = clamp(p.x, p.radius, this.W - p.radius);
+      p.y = clamp(p.y, p.radius, this.H - p.radius);
+    }
+    p.vx = 0; p.vy = 0;
+    this.food.length = 0; this.fx.length = 0; this.floaters.length = 0;
+    spawnInitial(this);                 // clears + reseeds creatures/plants/particles/eggs/bubbles + bosses
+    this.cam.x = clamp(p.x - this.vw / 2, 0, Math.max(0, this.W - this.vw));
+    this.cam.y = clamp(p.y - this.vh / 2, 0, Math.max(0, this.H - this.vh));
+    this.transitionCd = 1.2; this.edgeDwell = 0; this.nearEdge = null;
+    this.visitedMaps.add(mapId);
     this.pushHud(true);
   }
 
@@ -97,19 +152,53 @@ export class Engine {
 
   /* ---------------- evolution ---------------- */
 
+  /* True when the player is a sea apex that can still crawl ashore. */
+  isSeaApex() {
+    const p = this.player;
+    return !!p && this.stage === 'sea' && p.level >= MAX_LEVEL && p.species.evolvesTo.length === 0 && LAND_PIONEERS.length > 0;
+  }
+
   triggerEvolve() {
-    this.pendingEvolve = true; this.paused = true; this.choices = this.player.species.evolvesTo.slice();
+    this.pendingEvolve = true; this.paused = true; this.evolveMode = 'normal';
+    this.choices = this.player.species.evolvesTo.slice();
     this.eggs.push({ x: this.player.x, y: this.player.y + this.player.radius + 10, t: 0 });
     this.sfx.play('egg'); this.pushHud(true);
   }
 
+  /* Offer the crawl-ashore choice (auto the first time, or re-opened by the
+     player after they chose to stay in the sea). */
+  triggerAscend() {
+    this.pendingEvolve = true; this.paused = true; this.evolveMode = 'ascend';
+    this.choices = LAND_PIONEERS.slice();
+    this.eggs.push({ x: this.player.x, y: this.player.y + this.player.radius + 10, t: 0 });
+    this.sfx.play('egg'); this.pushHud(true);
+  }
+  openAscend() { if (this.playing && !this.dead && !this.pendingEvolve) this.triggerAscend(); }
+
+  /* "Stay in the sea for now" — dismiss the crawl-ashore prompt but leave it
+     re-openable so you can finish sea bosses first. */
+  dismissAscend() {
+    this.pendingEvolve = false; this.paused = false; this.evolveMode = 'normal';
+    this.eggs.length = 0; this.choices = [];
+    this.ascendOffered = true; this.ascendAvailable = true;
+    this.pushHud(true);
+  }
+
   chooseEvolution(id) {
     if (!this.pendingEvolve) return;
+    const fromStage = this.stage, toStage = speciesStage(id);
     this.makePlayer(id); this.era++;
-    this.pendingEvolve = false; this.paused = false; this.eggs.length = 0; this.choices = [];
-    burst(this, this.player.x, this.player.y, '#8affd0', 30, 240); this.shake = 8; this.sfx.play('evolve');
-    // the world evolves with you: new species become available + harder population
-    for (let i = 0; i < 4; i++) spawnRandomNpc(this);
+    this.pendingEvolve = false; this.paused = false; this.eggs.length = 0; this.choices = []; this.evolveMode = 'normal';
+    if (toStage !== fromStage) {
+      // crawl ashore — enter the new stage's first map
+      this.ascendOffered = true; this.ascendAvailable = false;
+      this.loadMap(firstMapOf(toStage));
+      burst(this, this.player.x, this.player.y, '#c2e89a', 30, 240); this.shake = 10; this.sfx.play('evolve');
+    } else {
+      burst(this, this.player.x, this.player.y, '#8affd0', 30, 240); this.shake = 8; this.sfx.play('evolve');
+      // the world evolves with you: new species become available + harder population
+      for (let i = 0; i < 4; i++) spawnRandomNpc(this);
+    }
     this.pushHud(true);
   }
 
@@ -132,12 +221,32 @@ export class Engine {
 
   /* ---------------- simulation step ---------------- */
 
+  /* Cross to a neighboring map when the player dwells against a connected edge.
+     Returns true if a transition happened (caller skips the rest of the frame). */
+  maybeCrossEdge(dt) {
+    if (this.transitionCd > 0) this.transitionCd -= dt;
+    const nb = MAPS[this.mapId].neighbors, p = this.player;
+    let via = null;
+    if (nb.left && p.x <= p.radius + 6) via = 'left';
+    else if (nb.right && p.x >= this.W - p.radius - 6) via = 'right';
+    else if (nb.top && p.y <= p.radius + 6) via = 'top';
+    else if (nb.bottom && p.y >= this.H - p.radius - 6) via = 'bottom';
+    this.nearEdge = via ? MAPS[nb[via]].name : null;
+    if (via && this.transitionCd <= 0) {
+      this.edgeDwell += dt;
+      if (this.edgeDwell > 0.3) { this.loadMap(nb[via], via); return true; }
+    } else this.edgeDwell = 0;
+    return false;
+  }
+
   update(dt) {
     this.time += dt;
     const p = this.player; if (!p) return;
     this.worldMouse.x = this.cam.x + this.mouse.x; this.worldMouse.y = this.cam.y + this.mouse.y;
 
     p.update(this, dt);
+
+    if (this.maybeCrossEdge(dt)) return;   // walked off the map edge — new map loaded this frame
 
     // creatures (list may shrink mid-loop when something dies)
     this.danger = Math.max(0, this.danger - dt * 0.6);
@@ -181,8 +290,9 @@ export class Engine {
     for (const b of this.bubbles) { b.y -= b.sp * dt; b.x += Math.sin(this.time + b.ph) * 6 * dt; if (b.y < -4) { b.y = this.vh + 4; b.x = Math.random() * this.vw; } }
     if (this.achT > 0) { this.achT -= dt; if (this.achT <= 0) this.achievement = null; }
 
-    // reached max level with somewhere to go -> lay egg & evolve
+    // max level: evolve within the stage, or (sea apex) offer to crawl ashore
     if (!this.pendingEvolve && !this.dead && p.level >= MAX_LEVEL && p.species.evolvesTo.length) this.triggerEvolve();
+    else if (!this.pendingEvolve && !this.dead && !this.ascendOffered && this.isSeaApex()) this.triggerAscend();
 
     // camera follows with a soft lag
     const camtx = clamp(p.x - this.vw / 2, 0, Math.max(0, this.W - this.vw));
@@ -219,11 +329,15 @@ export class Engine {
       level: p ? p.level : 1, xp: p ? Math.round(p.xp) : 0, xpNeed: p ? xpNeed(p.level) : 1,
       canEvolve: p ? p.species.evolvesTo.length > 0 : false, showLevels: this.showLevels,
       name: p ? p.species.name : '', branch: p ? p.species.branch : '-', tier: p ? p.species.tier : 0, era: this.era,
-      kills: this.kills, dead: this.dead, paused: this.paused, pendingEvolve: this.pendingEvolve,
+      kills: this.kills, dead: this.dead, paused: this.paused, pendingEvolve: this.pendingEvolve, evolveMode: this.evolveMode,
       choices: this.choices.slice(), muted: this.sfx.muted,
       abilities: abils, shield: p ? Math.round(p.shield) : 0, shieldMax: p ? p.shieldMax : 0,
       perks: this.perks.list.map(x => ({ id: x.id, name: x.name, icon: x.icon, color: x.color, blurb: x.blurb })),
-      achievement: this.achievement
+      achievement: this.achievement,
+      // stage / map
+      stage: this.stage, stageName: STAGES[this.stage] ? STAGES[this.stage].name : '',
+      mapId: this.mapId, mapName: MAPS[this.mapId] ? MAPS[this.mapId].name : '',
+      canAscend: this.isSeaApex(), ascendAvailable: this.ascendAvailable, nearEdge: this.nearEdge
     });
   }
 }

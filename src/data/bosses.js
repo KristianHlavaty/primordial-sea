@@ -1,15 +1,19 @@
-/* Minibosses & perks. Two edge-of-map guardians per age. Big, power-using,
-   dangerous; they drop a huge meat payout and, on death, grant a tiny
-   PERMANENT passive (a showoff trophy) plus an achievement popup.
-   Extensible: add a BOSS_AGE entry (age -> [ids]) plus BOSSES entries. */
+/* Minibosses & perks. Each map lists its dedicated boss(es) in data/maps.js.
+   Bosses are big, power-using, leashed guardians; they drop a huge meat payout
+   and, on death, grant a tiny PERMANENT passive (a showoff trophy) plus an
+   achievement popup. Extensible: add a BOSSES entry and reference its id from
+   a map's `bosses` array. Boss ids must be unique across the whole game. */
 import { P } from './plans.js';
 
 export const PERKS = {
-  ironhide: { name: 'Ironhide', icon: 'harden',  color: '#7fd8ff', dmgReduce: 0.06, blurb: '+6% damage resistance' },
-  reflexes: { name: 'Reflexes', icon: 'evasion', color: '#8affd0', dodge: 0.08,     blurb: '+8% dodge chance' },
+  ironhide:  { name: 'Ironhide',   icon: 'harden',    color: '#7fd8ff', dmgReduce: 0.06, blurb: '+6% damage resistance' },
+  reflexes:  { name: 'Reflexes',   icon: 'evasion',   color: '#8affd0', dodge: 0.08,     blurb: '+8% dodge chance' },
+  thickskin: { name: 'Thick Skin', icon: 'thickhide', color: '#c9a06a', dmgReduce: 0.06, blurb: '+6% damage resistance' },
+  swiftstep: { name: 'Swift Step', icon: 'sprint',    color: '#9ce0a0', dodge: 0.08,     blurb: '+8% dodge chance' },
 };
 
 export const BOSSES = {
+  // --- sea (The Primordial Sea) ---
   bulwark: {
     title: 'Kolossos, the Bulwark', short: 'Bulwark', kind: 'arthro', at: { x: 0.10, y: 0.85 },
     radius: 46, hp: 820, dmg: 30, accel: 720, maxSpeed: 150, sense: 560, leash: 840, perk: 'ironhide', meat: 120,
@@ -20,6 +24,17 @@ export const BOSSES = {
     radius: 42, hp: 660, dmg: 37, accel: 1150, maxSpeed: 305, sense: 660, leash: 900, perk: 'reflexes', meat: 110,
     plan: P({ kind: 'scorpion', len: 58, wid: 24, body: '#5a2c38', accent: '#ff8676', segments: 9, claws: true, spikes: 4, legs: 8, eyes: 2 })
   },
-};
 
-export const BOSS_AGE = { 0: ['bulwark', 'render'] };  // age 0 = sea stage (add age 1 = land later)
+  // --- land: The Tidal Coast ---
+  tidewarden: {
+    title: 'Ambulos, the Tidewarden', short: 'Tidewarden', kind: 'tetrapod', at: { x: 0.14, y: 0.5 },
+    radius: 46, hp: 950, dmg: 42, accel: 820, maxSpeed: 200, sense: 620, leash: 940, perk: 'thickskin', meat: 140,
+    plan: P({ kind: 'tetrapod', len: 60, wid: 30, body: '#556b3a', accent: '#c2d488', teeth: true, tail: 1 })
+  },
+  // --- land: The Fern Lowlands ---
+  sovereign: {
+    title: 'Titanopod, the Sovereign', short: 'Sovereign', kind: 'arthro', at: { x: 0.86, y: 0.5 },
+    radius: 48, hp: 1050, dmg: 46, accel: 900, maxSpeed: 235, sense: 660, leash: 980, perk: 'swiftstep', meat: 150,
+    plan: P({ kind: 'arthro', len: 64, wid: 30, body: '#8a5c2e', accent: '#e0aa5e', segments: 16, spikes: 5, legs: 24, eyes: 2, stalks: true })
+  },
+};
