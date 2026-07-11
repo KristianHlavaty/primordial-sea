@@ -1,7 +1,9 @@
 /* Active-power effects. The catalogue (cooldowns, colors, text) lives in
-   data/abilities.js; this is what actually happens when a power fires. */
+   data/abilities.js; this is what actually happens when a power fires.
+   Passives live where they hook in: Player (barbs/nettle/evasion/bloodscent/
+   venom/rebirth), Creature (camo/ink senses), Engine (filter feeding). */
 import { ABILITIES } from '../../data/abilities.js';
-import { hyp } from '../../core/math.js';
+import { hyp, rand } from '../../core/math.js';
 import { burst } from './effects.js';
 
 export function activateAbility(game, idx) {
@@ -51,6 +53,80 @@ export function activateAbility(game, idx) {
     game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.45, R, color: '#8fe6c8', dir: 'in', width: 3 });
   }
   else if (id === 'bloom') { p.bloomT = ab.dur; p.bloomTick = 0; burst(game, p.x, p.y, '#c9a0ff', 10, 120); }
+  else if (id === 'jet') {
+    // violent siphon blast forward; jetT briefly lifts the speed cap
+    p.jetT = 0.4;
+    p.vx += Math.cos(p.angle) * 900; p.vy += Math.sin(p.angle) * 900;
+    const bx = p.x - Math.cos(p.angle) * p.radius, by = p.y - Math.sin(p.angle) * p.radius;
+    for (let i = 0; i < 10; i++)
+      game.particles.push({ x: bx, y: by, vx: -Math.cos(p.angle) * rand(60, 160) + rand(-40, 40), vy: -Math.sin(p.angle) * rand(60, 160) + rand(-40, 40), life: 0.4, max: 0.4, size: rand(2, 4), color: 'rgba(160,240,255,0.6)' });
+  }
+  else if (id === 'withdraw') { p.withdrawT = ab.dur; burst(game, p.x, p.y, '#e8c98a', 10, 110); }
+  else if (id === 'whirlpool') {
+    p.vortexT = ab.dur; p.vortexTick = 0;
+    game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.5, R: 260, color: '#6fd0e8', dir: 'in', width: 4 });
+    game.shake = Math.min(10, game.shake + 3);
+  }
+  else if (id === 'ink') {
+    p.stealthT = ab.dur;
+    for (let i = 0; i < 26; i++) {
+      if (game.particles.length > 320) game.particles.shift();
+      game.particles.push({ x: p.x + rand(-20, 20), y: p.y + rand(-20, 20), vx: rand(-50, 50), vy: rand(-50, 50), life: rand(1.2, 2.4), max: 2.4, size: rand(8, 20), color: 'rgba(20,26,44,0.55)' });
+    }
+  }
+  else if (id === 'grasp') {
+    // seize the nearest animal: drag it in, crush it, leave it reeling
+    let best = null, bd = 150 + p.radius;
+    for (const c of game.creatures) { if (c.boss) continue; const d = hyp(c.x - p.x, c.y - p.y); if (d < bd) { bd = d; best = c; } }
+    if (best) {
+      const d = bd || 1;
+      best.vx += (p.x - best.x) / d * 760; best.vy += (p.y - best.y) / d * 760;
+      best.stunT = Math.max(best.stunT || 0, 1.5);
+      best.takeDamage(game, p.species.stats.dmg * p.atkMul * 1.2, p.x, p.y, true);
+    }
+    game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.4, R: 150 + p.radius, color: '#c98ae0', dir: 'in', width: 3 });
+  }
+  else if (id === 'ram') {
+    p.ramT = ab.dur; p.ramHit = new Set();
+    p.vx += Math.cos(p.angle) * 700; p.vy += Math.sin(p.angle) * 700;
+    burst(game, p.x, p.y, '#ffb36a', 10, 140);
+  }
+  else if (id === 'impale') {
+    // skewering claw lunge — heavy cone damage in front
+    const st = p.species.stats;
+    p.jetT = 0.25; p.vx += Math.cos(p.angle) * 560; p.vy += Math.sin(p.angle) * 560;
+    const reach = p.radius + st.reach * 1.8, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
+    for (const c of game.creatures.slice()) {
+      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
+      if (d < reach + c.radius) {
+        const dot = (dx * fx + dy * fy) / (d || 1);
+        if (dot > 0.4) {
+          c.takeDamage(game, st.dmg * p.atkMul * 2, p.x, p.y, true);
+          if (!c.boss) c.stunT = Math.max(c.stunT || 0, 0.8);
+          burst(game, c.x, c.y, '#ffd27a', 8, 140);
+        }
+      }
+    }
+    game.shake = Math.min(12, game.shake + 3);
+  }
+  else if (id === 'crush') {
+    // the guillotine bite — one devastating shear in front
+    const st = p.species.stats;
+    const reach = p.radius + st.reach + 30, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
+    for (const c of game.creatures.slice()) {
+      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
+      if (d < reach + c.radius) {
+        const dot = (dx * fx + dy * fy) / (d || 1);
+        if (dot > 0.2) {
+          c.takeDamage(game, st.dmg * p.atkMul * 3, p.x, p.y, true);
+          c.vx += dx / (d || 1) * 250; c.vy += dy / (d || 1) * 250;
+          burst(game, c.x, c.y, '#ff8a5e', 10, 160);
+        }
+      }
+    }
+    game.fx.push({ x: p.x + fx * p.radius, y: p.y + fy * p.radius, t: 0, max: 0.4, R: reach, color: '#ff8a5e', dir: 'out', width: 4 });
+    game.shake = Math.min(16, game.shake + 6);
+  }
   else if (id === 'shock') {
     const R = 270;
     for (const c of game.creatures.slice()) {

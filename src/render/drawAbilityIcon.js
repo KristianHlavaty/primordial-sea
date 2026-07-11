@@ -51,6 +51,59 @@ export function drawAbilityIcon(ctx, id, size, color) {
     ctx.beginPath(); ctx.moveTo(0, -r); ctx.quadraticCurveTo(r * 0.7, r * 0.2, 0, r); ctx.quadraticCurveTo(-r * 0.7, r * 0.2, 0, -r); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.strokeStyle = col;
     for (let i = 0; i < 3; i++) { const a = -0.5 + i * 0.5; ctx.beginPath(); ctx.moveTo(Math.sin(a) * r * 0.5, Math.cos(a) * r * 0.2); ctx.lineTo(Math.sin(a) * r * 0.95, Math.cos(a) * r * 0.2 - r * 0.35); ctx.stroke(); }
+  } else if (id === 'jet') {     // siphon nozzle with thrust lines
+    ctx.beginPath(); ctx.moveTo(-r * 0.2, -r * 0.5); ctx.lineTo(r * 0.9, 0); ctx.lineTo(-r * 0.2, r * 0.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    for (let i = 0; i < 3; i++) { const y = (i - 1) * r * 0.4; ctx.beginPath(); ctx.moveTo(-r * 1.05, y); ctx.lineTo(-r * (0.45 - i % 2 * 0.12), y); ctx.stroke(); }
+  } else if (id === 'withdraw') { // shell cross-section, arcs closing inward
+    for (let i = 0; i < 3; i++) { const rr = r * (1 - i * 0.3); ctx.beginPath(); ctx.arc(0, 0, rr, 0.45 + i * 0.5, 0.45 + i * 0.5 + TAU * 0.78); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.16, 0, TAU); ctx.fill(); ctx.stroke();
+  } else if (id === 'ink') {     // billowing ink cloud
+    ctx.fillStyle = col;
+    for (const [x, y, rr] of [[-r * 0.4, r * 0.15, 0.5], [r * 0.3, r * 0.25, 0.42], [0, -r * 0.35, 0.55], [r * 0.55, -r * 0.3, 0.3]])
+      { ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(x, y, r * rr, 0, TAU); ctx.fill(); }
+    ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(-r * 0.15, -r * 0.05, r * 0.3, 0, TAU); ctx.fill();
+  } else if (id === 'grasp') {   // curling arm seizing a small prey dot
+    ctx.lineWidth = size * 0.085; ctx.beginPath(); ctx.moveTo(-r, r * 0.7);
+    ctx.quadraticCurveTo(r * 0.3, r * 0.6, r * 0.55, -r * 0.1); ctx.quadraticCurveTo(r * 0.6, -r * 0.7, 0, -r * 0.55); ctx.quadraticCurveTo(-r * 0.35, -r * 0.45, -r * 0.2, -r * 0.1); ctx.stroke();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(r * 0.05, -r * 0.15, r * 0.2, 0, TAU); ctx.fill();
+  } else if (id === 'ram') {     // charging cone with impact arcs
+    ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r * 0.5, -r * 0.6); ctx.lineTo(-r * 0.5, r * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke();
+    for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.arc(r * 0.55, 0, r * (0.55 + i * 0.32), -0.8, 0.8); ctx.stroke(); }
+  } else if (id === 'filter') {  // funnel with inflowing streams
+    ctx.beginPath(); ctx.moveTo(-r, -r * 0.7); ctx.lineTo(r, -r * 0.7); ctx.lineTo(r * 0.22, r * 0.15); ctx.lineTo(r * 0.22, r); ctx.lineTo(-r * 0.22, r); ctx.lineTo(-r * 0.22, r * 0.15); ctx.closePath(); ctx.fill(); ctx.stroke();
+    for (let i = 0; i < 3; i++) { const x = (i - 1) * r * 0.55; ctx.beginPath(); ctx.moveTo(x, -r * 1.05); ctx.lineTo(x * 0.7, -r * 0.75); ctx.stroke(); }
+  } else if (id === 'impale') {  // two converging claw spikes
+    ctx.fillStyle = col;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(-r, s * r * 0.75); ctx.quadraticCurveTo(r * 0.2, s * r * 0.55, r, s * r * 0.08); ctx.quadraticCurveTo(r * 0.1, s * r * 0.25, -r * 0.6, s * r * 0.35); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  } else if (id === 'crush') {   // guillotine jaw plates meeting
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(-r, -r); ctx.lineTo(r * 0.9, -r * 0.55); ctx.lineTo(r * 0.1, -r * 0.15); ctx.lineTo(-r * 0.5, -r * 0.3); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-r, r); ctx.lineTo(r * 0.9, r * 0.55); ctx.lineTo(r * 0.1, r * 0.15); ctx.lineTo(-r * 0.5, r * 0.3); ctx.closePath(); ctx.fill();
+  } else if (id === 'rebirth') { // colony ring regrowing its missing link
+    for (let i = 0; i < 6; i++) { const a = i / 7 * TAU + 0.5; ctx.beginPath(); ctx.arc(Math.cos(a) * r * 0.72, Math.sin(a) * r * 0.72, r * 0.2, 0, TAU); ctx.fill(); ctx.stroke(); }
+    const a2 = 6.35 / 7 * TAU + 0.5; ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(Math.cos(a2) * r * 0.72, Math.sin(a2) * r * 0.72, r * 0.12, 0, TAU); ctx.fill();
+  } else if (id === 'bloodscent') { // blood drop with scent ripples
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(-r * 0.35, -r * 0.8); ctx.quadraticCurveTo(r * 0.15, -r * 0.05, -r * 0.35, r * 0.25); ctx.quadraticCurveTo(-r * 0.85, -r * 0.05, -r * 0.35, -r * 0.8); ctx.closePath(); ctx.fill();
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(-r * 0.35, -r * 0.1, r * (0.5 + i * 0.28), -0.7, 0.7); ctx.stroke(); }
+  } else if (id === 'venom') {   // fangs with a falling drip
+    ctx.fillStyle = col;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * r * 0.55 - s * r * 0.25, -r); ctx.lineTo(s * r * 0.55, r * 0.15); ctx.lineTo(s * r * 0.55 + s * r * 0.25, -r); ctx.closePath(); ctx.fill(); }
+    ctx.beginPath(); ctx.moveTo(0, r * 0.25); ctx.quadraticCurveTo(r * 0.3, r * 0.7, 0, r); ctx.quadraticCurveTo(-r * 0.3, r * 0.7, 0, r * 0.25); ctx.closePath(); ctx.fill();
+  } else if (id === 'camo') {    // creature outline fading into dashes
+    ctx.beginPath(); ctx.ellipse(-r * 0.25, 0, r * 0.55, r * 0.38, 0, Math.PI * 0.5, Math.PI * 1.5); ctx.fill(); ctx.stroke();
+    ctx.setLineDash([size * 0.06, size * 0.07]);
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 0.8, r * 0.38, 0, -Math.PI * 0.5, Math.PI * 0.5); ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (id === 'whirlpool') { // vortex arms spiraling into the center
+    ctx.lineWidth = size * 0.07;
+    for (let i = 0; i < 3; i++) {
+      const off = i / 3 * TAU; ctx.beginPath();
+      for (let a = 0; a < 2.4; a += 0.2) { const rr = r * (1.05 - a * 0.36); const x = Math.cos(a + off) * rr, y = Math.sin(a + off) * rr; a ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke();
+    }
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, r * 0.14, 0, TAU); ctx.fill();
   }
   ctx.restore();
 }

@@ -9,8 +9,9 @@ export function StartScreen({ onBegin }) {
       <div className="body">
         You are a single cell adrift in an ancient ocean. <b>Hunt</b> smaller creatures and <b>graze</b> on algae to
         gain experience and <b>level up</b>. Reach <b>Lv 10</b> and you'll lay an <b>egg</b> — then choose how your lineage evolves.<br/><br/>
-        Two roads open the deep: the armored <b style=${{ color: 'var(--arth)' }}>arthropods</b> (→ trilobites) and the swift
-        <b style=${{ color: 'var(--chord)' }}> chordates</b> (→ fish). Each time you evolve, <b>the whole sea evolves with you</b> —
+        Four roads open the deep: the armored <b style=${{ color: 'var(--arth)' }}>arthropods</b>, the swift
+        <b style=${{ color: 'var(--chord)' }}> chordates</b>, the stinging <b style=${{ color: 'var(--cnid)' }}>cnidarians</b> and the
+        cunning <b style=${{ color: 'var(--moll)' }}>molluscs</b>. Each time you evolve, <b>the whole sea evolves with you</b> —
         new species appear and everything grows stronger. Every evolution also grants a new <b>power</b> — grounded, not
         magic (harden your shell, roll up, burst-swim, feeding frenzy…) — used with <span className="kbd">1</span><span className="kbd">2</span><span className="kbd">3</span> or by clicking its icon.
         <br/><br/>

@@ -69,6 +69,13 @@ export class Creature extends Entity {
     if (this.hpBarT > 0) this.hpBarT -= dt;
     if (this.stunT > 0) this.stunT -= dt;
     if (this.slowT > 0) this.slowT -= dt;
+    // player Venom — burns on after the bite
+    if ((this.poisonT || 0) > 0) {
+      this.poisonT -= dt; this.hp -= (this.poisonDps || 0) * dt; this.hpBarT = Math.max(this.hpBarT, 1.2);
+      if (game.particles.length < 300 && Math.random() < dt * 6)
+        game.particles.push({ x: this.x + rand(-6, 6), y: this.y + rand(-6, 6), vx: rand(-20, 20), vy: rand(-30, -6), life: 0.5, max: 0.5, size: 2, color: 'rgba(176,224,94,0.7)' });
+      if (this.hp <= 0) { this.die(game, true); return; }
+    }
     if (this.stunT > 0 && !this.boss) { this.integrate(game, dt, 5); return; }   // paralyzed by Shock/Engulf — frozen
     if (this.wanderT <= 0) { this.wanderT = rand(0.7, 2.0); this.wx = rand(-1, 1); this.wy = rand(-1, 1) - this.floaty; }
     this.act(game, dt);
@@ -79,10 +86,13 @@ export class Creature extends Entity {
     const p = game.player;
     let ax = this.wx, ay = this.wy, sc = 0.4;
     const pdx = p.x - this.x, pdy = p.y - this.y, pd = hyp(pdx, pdy);
+    // Chromatophores halve how far others notice the player; Ink hides them completely
+    const senseVsPlayer = p.hasAbility('camo') ? this.sense * 0.5 : this.sense;
+    const playerHidden = p.stealthT > 0;
     if (this.role === 'predator' && this.aggro) {
       // hunt nearest edible (player or smaller creature)
       let tgt = null, td = this.sense;
-      if (pd < this.sense && p.radius <= this.radius * 1.3) { tgt = 'player'; td = pd; }
+      if (pd < senseVsPlayer && p.radius <= this.radius * 1.3 && !playerHidden) { tgt = 'player'; td = pd; }
       for (const o of game.creatures) {
         if (o === this) continue; if (o.radius > this.radius * 1.05) continue;
         const d = hyp(o.x - this.x, o.y - this.y); if (d < td) { td = d; tgt = o; }
@@ -99,7 +109,7 @@ export class Creature extends Entity {
     } else if (this.role === 'prey') {
       // flee threats
       let fx = 0, fy = 0, threat = false;
-      if (pd < this.sense && p.radius >= this.radius * 0.85) { fx -= pdx / (pd || 1); fy -= pdy / (pd || 1); threat = true; }
+      if (pd < senseVsPlayer && p.radius >= this.radius * 0.85 && !playerHidden) { fx -= pdx / (pd || 1); fy -= pdy / (pd || 1); threat = true; }
       for (const o of game.creatures) {
         if (o === this || o.radius < this.radius * 1.05) continue;
         const dx = o.x - this.x, dy = o.y - this.y, d = hyp(dx, dy);

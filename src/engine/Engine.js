@@ -144,13 +144,16 @@ export class Engine {
     for (const c of this.creatures) c.update(this, dt);
 
     // food pellets: drift, get pulled toward the player, get eaten
+    // (Filter Feed widens the pull and makes each pellet nourish more)
+    const filterFeed = p.hasAbility('filter');
+    const pullR = filterFeed ? 230 : 130;
     for (let i = this.food.length - 1; i >= 0; i--) {
       const f = this.food[i]; f.life -= dt; f.vx *= Math.exp(-dt * 2); f.vy *= Math.exp(-dt * 2);
       const dx = p.x - f.x, dy = p.y - f.y, d = hyp(dx, dy);
-      if (d < 130) { const pull = (1 - d / 130) * 520; f.vx += dx / (d || 1) * pull * dt; f.vy += dy / (d || 1) * pull * dt; }
+      if (d < pullR) { const pull = (1 - d / pullR) * 520; f.vx += dx / (d || 1) * pull * dt; f.vy += dy / (d || 1) * pull * dt; }
       f.x += f.vx * dt; f.y += f.vy * dt;
       if (d < p.radius + 6) {
-        p.addXp(this, f.value); p.hp = Math.min(p.maxHp, p.hp + 3);
+        p.addXp(this, f.value); p.hp = Math.min(p.maxHp, p.hp + (filterFeed ? 6 : 3));
         burst(this, f.x, f.y, f.kind === 'meat' ? '#ff9a8a' : '#8fe89a', 5, 80);
         this.sfx.play('eat'); this.food.splice(i, 1); continue;
       }

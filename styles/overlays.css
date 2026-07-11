@@ -17,12 +17,14 @@
 .choice.arth:hover{border-color:var(--arth)}
 .choice.chord:hover{border-color:var(--chord)}
 .choice.cnid:hover{border-color:var(--cnid)}
+.choice.moll:hover{border-color:var(--moll)}
 .choice canvas{width:100%; height:120px; display:block; background:radial-gradient(circle at 50% 45%,#0d2c40,#071722); border-radius:10px; border:1px solid #12324a}
 .choice .cname{font-size:16px; font-weight:800; margin-top:10px}
 .choice .ctag{font-size:10px; font-weight:800; letter-spacing:1px; text-transform:uppercase; padding:1px 8px; border-radius:10px; margin-left:6px}
 .ctag.arth{background:#3a2a15; color:var(--arth)}
 .ctag.chord{background:#132a44; color:var(--chord)}
 .ctag.cnid{background:#241a3a; color:var(--cnid)}
+.ctag.moll{background:#0f3a30; color:var(--moll)}
 .choice .cdesc{font-size:12px; color:var(--dim); margin:6px 0 10px; line-height:1.45; min-height:50px}
 .stat{display:flex; align-items:center; gap:6px; font-size:12px; margin:3px 0}
 .stat .sl{width:46px; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.5px}

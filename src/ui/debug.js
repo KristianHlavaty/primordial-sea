@@ -1,7 +1,7 @@
 /* Headless-friendly debug API on window.__game (rAF is throttled in
    background tabs, so step() advances the sim manually). Not used by the
    game itself — it exists for testing from the console. */
-import { ABILITIES } from '../data/abilities.js';
+import { ABILITIES, ACTIVE_TIMER } from '../data/abilities.js';
 import { xpNeed } from '../data/progression.js';
 
 export function installDebugApi(engine, ui) {
@@ -21,8 +21,8 @@ export function installDebugApi(engine, ui) {
     },
     perks: () => ({ dmgReduce: engine.perks.dmgReduce, dodge: engine.perks.dodge, list: engine.perks.list.map(x => x.id) }),
     abState: () => {
-      const p = engine.player; const T = { harden: 'shieldT', enroll: 'enrollT', burst: 'burstT', frenzy: 'frenzyT' };
-      return p && p.abilities.map((id, i) => ({ i, id, cd: +(p.acd[id] || 0).toFixed(2), active: +((p[T[id]] || 0)).toFixed(2), passive: ABILITIES[id].passive }));
+      const p = engine.player;
+      return p && p.abilities.map((id, i) => ({ i, id, cd: +(p.acd[id] || 0).toFixed(2), active: +((p[ACTIVE_TIMER[id]] || 0)).toFixed(2), passive: ABILITIES[id].passive }));
     },
     state: () => {
       const p = engine.player;

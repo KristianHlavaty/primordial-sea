@@ -7,24 +7,29 @@ import { BRANCH_COL, BRANCH_ORDER, BRANCH_LABEL } from '../../data/branches.js';
 import { TreeNode } from './TreeNode.js';
 import { TreeDetail } from './TreeDetail.js';
 
-const NW = 152, NH = 90, COLW = 182, PADX = 22, PADY = 20, INNERH = 474, MAX_TIER = 3;
+const NW = 152, NH = 90, COLW = 182, PADX = 22, PADY = 20;
 
 export function TreeModal({ curId, onClose }) {
-  const [vis, setVis] = useState({ arth: true, chord: true, cnid: true });
+  const branches = Object.keys(BRANCH_LABEL);
+  const [vis, setVis] = useState(() => Object.fromEntries(branches.map(b => [b, true])));
   const [hoverId, setHoverId] = useState(curId || 'protocell');
 
   const all = Object.keys(SPECIES).map(id => Object.assign({ id }, SPECIES[id]));
+  const maxTier = all.reduce((m, n) => Math.max(m, n.tier), 0);
   const visible = all.filter(n => n.branch === '-' || vis[n.branch]);
   const byTier = {};
   visible.forEach(n => { (byTier[n.tier] = byTier[n.tier] || []).push(n); });
   Object.values(byTier).forEach(l => l.sort((a, b) => (BRANCH_ORDER[a.branch] - BRANCH_ORDER[b.branch]) || a.name.localeCompare(b.name)));
 
+  // the canvas grows with the fullest column so nodes never overlap
+  const maxRow = Object.values(byTier).reduce((m, l) => Math.max(m, l.length), 1);
+  const innerH = Math.max(474, PADY * 2 + maxRow * (NH + 14));
   const pos = {};
-  for (let t = 0; t <= MAX_TIER; t++) {
+  for (let t = 0; t <= maxTier; t++) {
     const list = byTier[t] || [], n = list.length || 1;
-    list.forEach((node, i) => { pos[node.id] = { x: PADX + t * COLW, yc: PADY + (i + 0.5) * (INNERH - PADY * 2) / n }; });
+    list.forEach((node, i) => { pos[node.id] = { x: PADX + t * COLW, yc: PADY + (i + 0.5) * (innerH - PADY * 2) / n }; });
   }
-  const treeW = PADX * 2 + MAX_TIER * COLW + NW, treeH = INNERH;
+  const treeW = PADX * 2 + maxTier * COLW + NW, treeH = innerH;
   const links = [];
   visible.forEach(n => (n.evolvesTo || []).forEach(cid => { if (pos[cid]) links.push({ from: n.id, to: cid, color: BRANCH_COL[SPECIES[cid].branch] }); }));
 
@@ -34,7 +39,7 @@ export function TreeModal({ curId, onClose }) {
         <div className="treeHead">
           <div className="treeTitle">🧬 EVOLUTION TREE</div>
           <div className="branchFilters"><span className="bfLabel">Show:</span>
-            ${['arth', 'chord', 'cnid'].map(b => html`
+            ${branches.map(b => html`
               <button key=${b} className=${'bfChip ' + (vis[b] ? 'on' : '')} style=${{ '--bc': BRANCH_COL[b] }}
                       onClick=${() => setVis(v => ({ ...v, [b]: !v[b] }))}>${BRANCH_LABEL[b]}</button>`)}
           </div>

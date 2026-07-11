@@ -1,12 +1,13 @@
 /* Evolution choice cards. The preview canvases are registered with the
    engine, which animates them from the render loop (renderWorld.js). */
 import { html } from '../react.js';
-import { SPECIES } from '../../data/species.js';
+import { SPECIES, STAT_MAX } from '../../data/species.js';
 import { ABILITIES, ABILITY_SETS } from '../../data/abilities.js';
+import { BRANCH_WORD } from '../../data/branches.js';
 import { StatRow } from '../components/StatRow.js';
 
-const MAX = { hp: 340, maxSpeed: 340, dmg: 42, radius: 26 };
-const BRANCH_TAG = { arth: 'arthropod', chord: 'chordate', cnid: 'cnidarian' };
+const MAX = STAT_MAX;
+const BRANCH_TAG = BRANCH_WORD;
 
 export function EvolveModal({ engine, hud }) {
   const cur = engine.player.species.stats;

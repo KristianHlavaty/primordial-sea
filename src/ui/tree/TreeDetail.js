@@ -2,13 +2,13 @@
    the species' powers. */
 import { html } from '../react.js';
 import { clamp } from '../../core/math.js';
-import { SPECIES } from '../../data/species.js';
+import { SPECIES, STAT_MAX } from '../../data/species.js';
 import { ABILITIES, ABILITY_SETS } from '../../data/abilities.js';
 import { BRANCH_COL, BRANCH_WORD } from '../../data/branches.js';
 import { CreatureCanvas } from '../components/CreatureCanvas.js';
 import { AbilityIcon } from '../components/AbilityIcon.js';
 
-const MAX = { hp: 340, maxSpeed: 340, dmg: 42, radius: 28 };
+const MAX = STAT_MAX;
 
 export function TreeDetail({ id }) {
   const sp = SPECIES[id]; if (!sp) return null;

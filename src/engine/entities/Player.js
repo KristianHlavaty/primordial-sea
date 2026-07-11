@@ -5,7 +5,7 @@ import { Entity } from './Entity.js';
 import { SPECIES } from '../../data/species.js';
 import { ABILITY_SETS } from '../../data/abilities.js';
 import { MAX_LEVEL, XP_MULT, xpNeed } from '../../data/progression.js';
-import { hyp, rand, angLerp } from '../../core/math.js';
+import { TAU, hyp, rand, angLerp } from '../../core/math.js';
 import { withA } from '../../core/color.js';
 import { burst, addFloater } from '../systems/effects.js';
 
@@ -23,6 +23,9 @@ export class Player extends Entity {
     this.abilities = (ABILITY_SETS[speciesId] || []).slice(); this.acd = {};   // acd = per-ability cooldowns
     this.shield = 0; this.shieldMax = 0; this.shieldT = 0;
     this.enrollT = 0; this.burstT = 0; this.frenzyT = 0; this.bloomT = 0; this.bloomTick = 0;
+    this.withdrawT = 0; this.stealthT = 0; this.ramT = 0; this.jetT = 0; this.ramHit = null;
+    this.vortexT = 0; this.vortexTick = 0;
+    this.rebirthUsed = false;   // Colony Rebirth fires once per life
     this.applyLevelStats(); this.hp = this.maxHp;
   }
 
@@ -66,12 +69,24 @@ export class Player extends Entity {
     const st = this.species.stats;
     const reach = this.radius + st.reach, dmg = st.dmg * this.atkMul * (this.frenzyT > 0 ? 1.6 : 1);
     const fx = Math.cos(this.angle), fy = Math.sin(this.angle);
+    const hasBloodscent = this.hasAbility('bloodscent'), hasVenom = this.hasAbility('venom');
     for (const c of game.creatures) {
       if (this.hitSet.has(c)) continue;
       const dx = c.x - this.x, dy = c.y - this.y, d = hyp(dx, dy);
       if (d < reach + c.radius) {
         const dot = (dx * fx + dy * fy) / (d || 1);
-        if (dot > 0.25) { this.hitSet.add(c); c.takeDamage(game, dmg, this.x, this.y, true); burst(game, c.x, c.y, '#ffdfe4', 6, 120); }
+        if (dot > 0.25) {
+          this.hitSet.add(c);
+          let dmgC = dmg;
+          if (hasBloodscent && c.hp < c.maxHp * 0.5) dmgC *= 1.3;   // Blood Scent: heavier bites on the wounded
+          c.takeDamage(game, dmgC, this.x, this.y, true);
+          if (hasVenom && c.hp > 0) {                               // Venom: the sting keeps burning
+            c.poisonT = 3; c.poisonDps = Math.max(c.poisonDps || 0, dmg * 0.25);
+            burst(game, c.x, c.y, '#b0e05e', 4, 70);
+          }
+          if (hasBloodscent && c.hp <= 0) this.hp = Math.min(this.maxHp, this.hp + 4);   // kill mends you
+          burst(game, c.x, c.y, '#ffdfe4', 6, 120);
+        }
       }
     }
     for (const pl of game.plants) {
@@ -110,6 +125,7 @@ export class Player extends Entity {
       burst(game, attacker.x, attacker.y, '#c79bff', 4, 70);
     }
     if (game.perks.dmgReduce) dmg *= (1 - game.perks.dmgReduce);   // Ironhide trophy
+    if (this.withdrawT > 0) dmg *= 0.3;                            // tucked into the shell
     this.knockbackFrom(fromx, fromy, 130);
     if (this.shield > 0) {
       this.shield -= dmg;
@@ -121,8 +137,23 @@ export class Player extends Entity {
       game.sfx.play('hurt'); burst(game, this.x, this.y, '#ff6a7a', 8, 120);
       addFloater(game, { x: this.x + rand(-6, 6), y: this.y - this.radius - 4, vx: rand(-16, 16), vy: -48, text: '' + Math.round(dmg), life: 0.9, max: 0.9, color: '#ff6a7a', size: 15 });
       if (this.hp <= 0) {
-        this.hp = 0; game.dead = true; game.paused = true;
-        burst(game, this.x, this.y, '#ffd2d2', 26, 220); game.pushHud(true);
+        if (this.hasAbility('rebirth') && !this.rebirthUsed) {
+          // Colony Rebirth: the surviving zooids rebuild you and scatter everything nearby
+          this.rebirthUsed = true;
+          this.hp = Math.round(this.maxHp * 0.45);
+          game.lastHurt = game.time;
+          for (const c of game.creatures.slice()) {
+            const dx = c.x - this.x, dy = c.y - this.y, d = hyp(dx, dy), rr = this.radius + c.radius + 90;
+            if (d < rr) { const k = 1 - d / rr; c.vx += dx / (d || 1) * 520 * k; c.vy += dy / (d || 1) * 520 * k; }
+          }
+          burst(game, this.x, this.y, '#a0ffd8', 30, 260);
+          game.fx.push({ x: this.x, y: this.y, t: 0, max: 0.6, R: this.radius + 90, color: '#a0ffd8', dir: 'out', width: 4 });
+          addFloater(game, { x: this.x, y: this.y - this.radius - 12, vx: 0, vy: -34, text: 'REBIRTH', life: 1.5, max: 1.5, color: '#a0ffd8', size: 16 });
+          game.shake = Math.min(12, game.shake + 6); game.sfx.play('evolve');
+        } else {
+          this.hp = 0; game.dead = true; game.paused = true;
+          burst(game, this.x, this.y, '#ffd2d2', 26, 220); game.pushHud(true);
+        }
       }
     }
   }
@@ -135,10 +166,13 @@ export class Player extends Entity {
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) { this.shieldT = 0; this.shield = 0; } }
     this.enrollT = Math.max(0, this.enrollT - dt); this.burstT = Math.max(0, this.burstT - dt);
     this.frenzyT = Math.max(0, this.frenzyT - dt); this.bloomT = Math.max(0, this.bloomT - dt);
-    const enrolled = this.enrollT > 0;
-    const accMul = enrolled ? 0.25 : (this.burstT > 0 ? 1.6 : 1);
+    this.withdrawT = Math.max(0, this.withdrawT - dt); this.stealthT = Math.max(0, this.stealthT - dt);
+    this.ramT = Math.max(0, this.ramT - dt); this.jetT = Math.max(0, this.jetT - dt);
+    this.vortexT = Math.max(0, this.vortexT - dt);
+    const enrolled = this.enrollT > 0, withdrawn = this.withdrawT > 0;
+    const accMul = enrolled ? 0.25 : withdrawn ? 0.35 : (this.burstT > 0 ? 1.6 : 1);
     const baseSpd = st.maxSpeed * this.spdMul;
-    const spdCap = enrolled ? baseSpd * 0.5 : (this.burstT > 0 ? baseSpd * 1.8 : baseSpd);
+    const spdCap = enrolled ? baseSpd * 0.5 : withdrawn ? baseSpd * 0.55 : (this.burstT > 0 ? baseSpd * 1.8 : baseSpd);
 
     // keyboard wins; otherwise steer toward the mouse (dead zone of 24px)
     let ix = 0, iy = 0;
@@ -152,11 +186,31 @@ export class Player extends Entity {
     if (moving) { this.vx += tx * st.accel * accMul * dt; this.vy += ty * st.accel * accMul * dt; this.faceTarget = Math.atan2(ty, tx); }
     this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * st.turn * (this.burstT > 0 ? 1.3 : 1)));
 
-    if (game.biteHeld && !enrolled) this.bite(game);
+    if (game.biteHeld && !enrolled && !withdrawn) this.bite(game);
     this.cd = Math.max(0, this.cd - dt); this.biteT = Math.max(0, this.biteT - dt);
     this.biteAnim = Math.max(0, this.biteAnim - dt * 3); this.mouth = this.biteAnim; this.hurt = Math.max(0, this.hurt - dt * 3);
-    this.integrate(game, dt, enrolled ? 3.4 : 2.4, this.biteT > 0 ? spdCap * 2.4 : spdCap);
+    const lunging = this.biteT > 0 || this.jetT > 0 || this.ramT > 0;   // dash windows lift the speed cap
+    this.integrate(game, dt, enrolled ? 3.4 : 2.4, lunging ? spdCap * 2.4 : spdCap);
     this.resolveBite(game);
+
+    // Ram — shell-first charge: batter everything hit once per charge
+    if (this.ramT > 0) {
+      for (const c of game.creatures.slice()) {
+        if (this.ramHit && this.ramHit.has(c)) continue;
+        const dx = c.x - this.x, dy = c.y - this.y, d = hyp(dx, dy);
+        if (d < this.radius + c.radius + 4) {
+          if (this.ramHit) this.ramHit.add(c);
+          c.takeDamage(game, st.dmg * this.atkMul * 1.5, this.x, this.y, true);
+          c.vx += dx / (d || 1) * 380; c.vy += dy / (d || 1) * 380;
+          game.shake = Math.min(10, game.shake + 2);
+        }
+      }
+      if (game.particles.length < 300)
+        game.particles.push({ x: this.x, y: this.y, vx: 0, vy: 0, life: 0.25, max: 0.25, size: this.radius * 0.5, color: withA(this.plan.accent, 0.4) });
+    }
+
+    // Withdraw — mend inside the shell
+    if (withdrawn) this.hp = Math.min(this.maxHp, this.hp + 8 * dt);
 
     // burst-swim wake
     if (this.burstT > 0 && game.particles.length < 300)
@@ -177,6 +231,30 @@ export class Player extends Entity {
           }
         }
         burst(game, this.x, this.y, '#c9a0ff', 6, 110);
+      }
+    }
+
+    // Whirlpool — the siphon vortex drags the sea inward and grinds it
+    if (this.vortexT > 0) {
+      const R = 260;
+      for (const c of game.creatures.slice()) {
+        const dx = this.x - c.x, dy = this.y - c.y, d = hyp(dx, dy);
+        if (d < R + c.radius) {
+          const k = 1 - d / (R + c.radius);
+          const pull = c.boss ? 500 : 2200;   // minibosses resist most of the drag
+          c.vx += dx / (d || 1) * pull * k * dt; c.vy += dy / (d || 1) * pull * k * dt;
+        }
+      }
+      this.vortexTick -= dt;
+      if (this.vortexTick <= 0) {
+        this.vortexTick = 0.45;
+        // damage from the creature's own position -> no knockback fighting the drag
+        for (const c of game.creatures.slice()) { const d = hyp(c.x - this.x, c.y - this.y); if (d < R + c.radius) c.takeDamage(game, 9, c.x, c.y, true); }
+        game.fx.push({ x: this.x, y: this.y, t: 0, max: 0.5, R, color: '#6fd0e8', dir: 'in', width: 3 });
+      }
+      if (game.particles.length < 300) {
+        const a = rand(0, TAU), rr = rand(R * 0.4, R);
+        game.particles.push({ x: this.x + Math.cos(a) * rr, y: this.y + Math.sin(a) * rr, vx: -Math.sin(a) * 140 - Math.cos(a) * 80, vy: Math.cos(a) * 140 - Math.sin(a) * 80, life: 0.5, max: 0.5, size: rand(1.5, 3), color: 'rgba(140,220,240,0.6)' });
       }
     }
 

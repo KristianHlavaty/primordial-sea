@@ -12,7 +12,7 @@ export const SPECIES = {
     desc: 'A humble speck of life adrift in the warm dark. Everything begins here.',
     stats: { hp: 45, accel: 1000, maxSpeed: 215, dmg: 7, reach: 9, radius: 13, dashCd: 0.5, dashPow: 270, turn: 11 },
     plan: P({ kind: 'microbe', len: 15, wid: 11, body: '#7fe3c0', accent: '#c9fff0', eyes: 1 }),
-    evolvesTo: ['arthropod_larva', 'chordate_larva', 'cnidarian_polyp']
+    evolvesTo: ['arthropod_larva', 'chordate_larva', 'cnidarian_polyp', 'mollusc_larva']
   },
 
   arthropod_larva: {
@@ -44,7 +44,7 @@ export const SPECIES = {
     desc: 'A streamlined, glassy swimmer built for blistering bursts and sharp turns.',
     stats: { hp: 95, accel: 1330, maxSpeed: 335, dmg: 17, reach: 13, radius: 16, dashCd: 0.34, dashPow: 430, turn: 15 },
     plan: P({ kind: 'fish', len: 26, wid: 9, body: '#4bd0e0', accent: '#dbfbff', tail: 1.35, eyes: 1 }),
-    evolvesTo: ['predator_fish']
+    evolvesTo: ['predator_fish', 'cladoselache']
   },
 
   jawed_fish: {
@@ -52,7 +52,7 @@ export const SPECIES = {
     desc: 'The first true jaws in the sea. An armored head-shield and a hard, biting mouth.',
     stats: { hp: 125, accel: 1060, maxSpeed: 275, dmg: 27, reach: 14, radius: 18, dashCd: 0.44, dashPow: 360, turn: 12 },
     plan: P({ kind: 'fish', len: 25, wid: 12, body: '#5a76c8', accent: '#bccdff', tail: 1.05, teeth: true, eyes: 1 }),
-    evolvesTo: ['predator_fish']
+    evolvesTo: ['predator_fish', 'cladoselache']
   },
 
   sea_scorpion: {
@@ -60,7 +60,7 @@ export const SPECIES = {
     desc: 'A eurypterid — apex arthropod. Grasping claws, a paddling tail, and real speed.',
     stats: { hp: 245, accel: 1060, maxSpeed: 275, dmg: 35, reach: 17, radius: 26, dashCd: 0.4, dashPow: 470, turn: 11 },
     plan: P({ kind: 'scorpion', len: 34, wid: 15, body: '#4f6b3a', accent: '#a7d17a', segments: 8, claws: true, spikes: 3, legs: 8, eyes: 2 }),
-    evolvesTo: []
+    evolvesTo: ['jaekelopterus']
   },
 
   spiny_trilobite: {
@@ -76,7 +76,7 @@ export const SPECIES = {
     desc: 'A giant armored predator fish with self-sharpening bony jaws. The terror of the reef.',
     stats: { hp: 200, accel: 1210, maxSpeed: 320, dmg: 41, reach: 17, radius: 24, dashCd: 0.4, dashPow: 460, turn: 13 },
     plan: P({ kind: 'fish', len: 33, wid: 15, body: '#38507e', accent: '#a6bbe6', tail: 1.2, teeth: true, eyes: 1 }),
-    evolvesTo: []
+    evolvesTo: ['dunkleosteus']
   },
 
   anomalocarid: {
@@ -92,7 +92,7 @@ export const SPECIES = {
     desc: 'A drifting polyp trailing stinging tentacles — the soft-bodied cnidarian road.',
     stats: { hp: 62, accel: 900, maxSpeed: 210, dmg: 8, reach: 12, radius: 14, dashCd: 0.5, dashPow: 280, turn: 11 },
     plan: P({ kind: 'jelly', len: 15, wid: 15, body: '#a98fe0', accent: '#ece0ff', glow: '#b79fff', tentacles: 6 }),
-    evolvesTo: ['medusa']
+    evolvesTo: ['medusa', 'box_jelly']
   },
 
   medusa: {
@@ -108,6 +108,107 @@ export const SPECIES = {
     desc: 'A vast drifting medusa. Its Shock paralyzes shoals and staggers even minibosses.',
     stats: { hp: 230, accel: 900, maxSpeed: 215, dmg: 16, reach: 16, radius: 27, dashCd: 0.5, dashPow: 320, turn: 10 },
     plan: P({ kind: 'jelly', len: 32, wid: 32, body: '#6f86e0', accent: '#f0f6ff', glow: '#9fd6ff', tentacles: 10 }),
+    evolvesTo: ['siphonophore']
+  },
+
+  /* ---------------- mollusc branch ---------------- */
+
+  mollusc_larva: {
+    name: 'Mollusc Larva', tier: 1, branch: 'moll',
+    desc: 'A tiny shelled veliger riding the currents — the cunning road toward the cephalopods.',
+    stats: { hp: 65, accel: 950, maxSpeed: 235, dmg: 10, reach: 10, radius: 14, dashCd: 0.48, dashPow: 310, turn: 11 },
+    plan: P({ kind: 'shell', len: 15, wid: 9, body: '#c9b6d9', accent: '#f0e6ff', tentacles: 4, eyes: 1 }),
+    evolvesTo: ['ammonite', 'proto_squid']
+  },
+
+  ammonite: {
+    name: 'Ammonite', tier: 2, branch: 'moll',
+    desc: 'A coiled fortress of chambered pearl. Withdraw inside and nothing can pry you out.',
+    stats: { hp: 150, accel: 880, maxSpeed: 225, dmg: 18, reach: 11, radius: 19, dashCd: 0.5, dashPow: 330, turn: 10 },
+    plan: P({ kind: 'ammonite', len: 22, wid: 13, body: '#b98d4f', accent: '#ffe2a8', tentacles: 6, eyes: 1 }),
+    evolvesTo: ['great_orthocone']
+  },
+
+  proto_squid: {
+    name: 'Proto-Squid', tier: 2, branch: 'moll',
+    desc: 'A soft-bodied jet of the open water — the first ink, the first cunning.',
+    stats: { hp: 105, accel: 1250, maxSpeed: 310, dmg: 16, reach: 13, radius: 16, dashCd: 0.38, dashPow: 420, turn: 14 },
+    plan: P({ kind: 'squid', len: 24, wid: 9, body: '#d98aa8', accent: '#ffd6e8', tentacles: 8, eyes: 1 }),
+    evolvesTo: ['elder_kraken']
+  },
+
+  great_orthocone: {
+    name: 'Great Orthocone', tier: 3, branch: 'moll',
+    desc: 'A living battering ram in a cone of shell — the largest hunter of its age.',
+    stats: { hp: 290, accel: 950, maxSpeed: 255, dmg: 33, reach: 15, radius: 27, dashCd: 0.5, dashPow: 390, turn: 9 },
+    plan: P({ kind: 'shell', len: 38, wid: 15, body: '#d9b16a', accent: '#fff0c0', tentacles: 8, eyes: 1 }),
+    evolvesTo: ['cameroceras']
+  },
+
+  elder_kraken: {
+    name: 'Elder Kraken', tier: 3, branch: 'moll',
+    desc: 'A grasping, colour-shifting terror — arms like nooses, skin like the sea itself.',
+    stats: { hp: 210, accel: 1150, maxSpeed: 290, dmg: 34, reach: 16, radius: 24, dashCd: 0.42, dashPow: 440, turn: 13 },
+    plan: P({ kind: 'squid', len: 32, wid: 13, body: '#8a5ac8', accent: '#e0c8ff', tentacles: 10, eyes: 1 }),
+    evolvesTo: ['cameroceras']
+  },
+
+  cameroceras: {
+    name: 'Cameroceras', tier: 4, branch: 'moll',
+    desc: 'A shell the length of a whale — the tide itself bends around its siphon.',
+    stats: { hp: 400, accel: 1000, maxSpeed: 265, dmg: 45, reach: 18, radius: 34, dashCd: 0.46, dashPow: 430, turn: 9 },
+    plan: P({ kind: 'shell', len: 46, wid: 18, body: '#e0b96a', accent: '#fff4d0', tentacles: 10, eyes: 1 }),
+    evolvesTo: []
+  },
+
+  /* ---------------- expansion: new branch tips ---------------- */
+
+  box_jelly: {
+    name: 'Box Jelly', tier: 2, branch: 'cnid',
+    desc: 'A cube of glass trailing wires of pure venom — almost invisible, entirely lethal.',
+    stats: { hp: 110, accel: 1000, maxSpeed: 245, dmg: 14, reach: 13, radius: 17, dashCd: 0.46, dashPow: 320, turn: 12 },
+    plan: P({ kind: 'jelly', len: 18, wid: 17, body: '#9fd8e8', accent: '#eafcff', glow: '#b0f0ff', tentacles: 4 }),
+    evolvesTo: ['siphonophore']
+  },
+
+  cladoselache: {
+    name: 'Cladoselache', tier: 3, branch: 'chord',
+    desc: 'The first shark-shape — naked skin, blade fins, and a nose full of blood.',
+    stats: { hp: 170, accel: 1300, maxSpeed: 345, dmg: 30, reach: 15, radius: 21, dashCd: 0.36, dashPow: 470, turn: 14 },
+    plan: P({ kind: 'fish', len: 30, wid: 11, body: '#7a94a8', accent: '#d8ecf8', tail: 1.45, teeth: true, eyes: 1 }),
+    evolvesTo: []
+  },
+
+  jaekelopterus: {
+    name: 'Jaekelopterus', tier: 4, branch: 'arth',
+    desc: 'The terror scorpion — the largest arthropod that ever lived, claws like man-traps.',
+    stats: { hp: 380, accel: 1100, maxSpeed: 290, dmg: 48, reach: 19, radius: 30, dashCd: 0.38, dashPow: 500, turn: 11 },
+    plan: P({ kind: 'scorpion', len: 42, wid: 18, body: '#6b4a58', accent: '#ffb08a', segments: 9, claws: true, spikes: 5, legs: 8, eyes: 2 }),
+    evolvesTo: []
+  },
+
+  dunkleosteus: {
+    name: 'Dunkleosteus', tier: 4, branch: 'chord',
+    desc: 'A bus-sized placoderm whose jaws shear bone — the sea\'s final answer.',
+    stats: { hp: 330, accel: 1250, maxSpeed: 330, dmg: 55, reach: 19, radius: 29, dashCd: 0.42, dashPow: 480, turn: 12 },
+    plan: P({ kind: 'fish', len: 38, wid: 18, body: '#4a5a72', accent: '#b8c8dd', tail: 1.15, headPlate: true, boneShears: true, eyes: 1 }),
+    evolvesTo: []
+  },
+
+  siphonophore: {
+    name: 'Siphonophore Colony', tier: 4, branch: 'cnid',
+    desc: 'Not one animal but a chained city of stingers — kill it and it rebuilds itself.',
+    stats: { hp: 360, accel: 900, maxSpeed: 230, dmg: 22, reach: 18, radius: 32, dashCd: 0.5, dashPow: 340, turn: 10 },
+    plan: P({ kind: 'jelly', len: 36, wid: 30, body: '#7a9fe8', accent: '#f4f8ff', glow: '#a8e0ff', tentacles: 14 }),
     evolvesTo: []
   },
 };
+
+/* Highest value of each display stat across all species — the UI scales its
+   stat bars against these, so new species never overflow the bars. */
+export const STAT_MAX = Object.values(SPECIES).reduce((m, s) => ({
+  hp: Math.max(m.hp, s.stats.hp),
+  maxSpeed: Math.max(m.maxSpeed, s.stats.maxSpeed),
+  dmg: Math.max(m.dmg, s.stats.dmg),
+  radius: Math.max(m.radius, s.stats.radius),
+}), { hp: 0, maxSpeed: 0, dmg: 0, radius: 0 });

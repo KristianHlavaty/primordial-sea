@@ -154,6 +154,61 @@ export function drawCreature(ctx, o) {
       if (o.eyes) for (const s of [-1, 1]) eye(ctx, L * 0.62, s * W * 0.35, W * 0.2);
       break;
     }
+    case 'ammonite': {
+      // coiled chambered shell at the back, head and arm fan reaching +X
+      const nt = o.tentacles || 6;
+      ctx.strokeStyle = withA(acc, 0.9); ctx.lineWidth = 2.2;
+      for (let i = 0; i < nt; i++) {
+        const off = (i / (nt - 1) - 0.5) * 1.6;
+        ctx.beginPath(); ctx.moveTo(L * 0.25, off * W * 0.35);
+        ctx.quadraticCurveTo(L * 0.6, off * W * 0.5 + Math.sin(t * 3 + i) * 3, L * 0.9 + Math.sin(t * 2.6 + i) * 4, off * W * 0.55); ctx.stroke();
+      }
+      // soft head between shell and arms
+      ctx.fillStyle = withA(shade(body, 0.1), 0.95);
+      ctx.beginPath(); ctx.ellipse(L * 0.25, 0, L * 0.18, W * 0.45, 0, 0, TAU); ctx.fill();
+      // the coil
+      const cx = -L * 0.25, R = W * 1.05;
+      const g = ctx.createRadialGradient(cx - R * 0.3, -R * 0.3, 1, cx, 0, R * 1.2);
+      g.addColorStop(0, shade(body, 0.35)); g.addColorStop(1, shade(body, -0.15));
+      ctx.fillStyle = g; ctx.strokeStyle = shade(body, -0.35); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, 0, R, 0, TAU); ctx.fill(); ctx.stroke();
+      // spiral whorls
+      ctx.strokeStyle = withA(shade(body, -0.3), 0.8); ctx.lineWidth = 1.6;
+      ctx.beginPath(); let first = true;
+      for (let a = 0; a < TAU * 2.2; a += 0.12) {
+        const rr = R * (1 - a / (TAU * 2.6)); const x = cx + Math.cos(a) * rr, y = Math.sin(a) * rr;
+        first ? (ctx.moveTo(x, y), first = false) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      // rib lines on the outer whorl
+      for (let i = 0; i < 9; i++) { const a = -0.9 + i * 0.35; ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * R * 0.72, Math.sin(a) * R * 0.72); ctx.lineTo(cx + Math.cos(a) * R, Math.sin(a) * R); ctx.stroke(); }
+      eye(ctx, L * 0.32, -W * 0.25, Math.max(2.2, W * 0.16));
+      break;
+    }
+    case 'squid': {
+      // streamlined mantle tapering to -X, tail fins, arm cluster reaching +X
+      const m = o.mouth || 0; const nt = o.tentacles || 8;
+      ctx.strokeStyle = withA(acc, 0.8); ctx.lineWidth = 2.2;
+      for (let i = 0; i < nt; i++) {
+        const off = (i / (nt - 1) - 0.5) * 1.4; const wob = Math.sin(t * 4 + i) * 3;
+        ctx.beginPath(); ctx.moveTo(L * 0.35, off * W * 0.35);
+        ctx.quadraticCurveTo(L * 0.75, off * W * 0.7 + wob, L * (0.95 + m * 0.15) + wob * 0.5, off * W * (0.8 + m * 0.3)); ctx.stroke();
+      }
+      // tail fins
+      ctx.fillStyle = withA(acc, 0.5);
+      ctx.beginPath(); ctx.moveTo(-L * 0.55, 0); ctx.lineTo(-L * 0.85, -W * 1.3); ctx.lineTo(-L * 1.02, 0); ctx.lineTo(-L * 0.85, W * 1.3); ctx.closePath(); ctx.fill();
+      // mantle
+      const g = ctx.createLinearGradient(0, -W, 0, W); g.addColorStop(0, shade(body, 0.3)); g.addColorStop(.5, body); g.addColorStop(1, shade(body, -0.3));
+      ctx.fillStyle = g; ctx.strokeStyle = shade(body, -0.35); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-L, 0);
+      ctx.quadraticCurveTo(-L * 0.2, -W, L * 0.42, -W * 0.5);
+      ctx.quadraticCurveTo(L * 0.55, 0, L * 0.42, W * 0.5);
+      ctx.quadraticCurveTo(-L * 0.2, W, -L, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // head bulge + eye
+      ctx.fillStyle = shade(body, 0.1); ctx.beginPath(); ctx.ellipse(L * 0.42, 0, L * 0.14, W * 0.6, 0, 0, TAU); ctx.fill();
+      eye(ctx, L * 0.45, -W * 0.35, Math.max(2.6, W * 0.3));
+      break;
+    }
     case 'anomalo': {
       // Anomalocaris: oval body, rippling side flaps, fan tail, two grasping appendages, stalk eyes
       const m = o.mouth || 0;
@@ -206,6 +261,20 @@ export function drawCreature(ctx, o) {
       ctx.quadraticCurveTo(L * 0.4, W, L, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
       // belly sheen
       ctx.fillStyle = withA(acc, 0.25); ctx.beginPath(); ctx.ellipse(L * 0.15, W * 0.2, L * 0.4, W * 0.35, 0, 0, TAU); ctx.fill();
+      // placoderm head armor: pale bony shield with a jagged rear seam (Dunkleosteus)
+      if (o.headPlate) {
+        const pg = ctx.createLinearGradient(0, -W, 0, W);
+        pg.addColorStop(0, '#cdd8e6'); pg.addColorStop(0.5, '#9dadc0'); pg.addColorStop(1, '#71879c');
+        ctx.fillStyle = pg; ctx.strokeStyle = '#39485a'; ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.moveTo(L, 0);
+        ctx.quadraticCurveTo(L * 0.5, -W * 0.92, L * 0.1, -W * 0.8);
+        ctx.lineTo(L * 0.24, -W * 0.35); ctx.lineTo(L * 0.06, 0); ctx.lineTo(L * 0.24, W * 0.35); ctx.lineTo(L * 0.1, W * 0.8);
+        ctx.quadraticCurveTo(L * 0.5, W * 0.92, L, 0);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        // plate suture running down the cheek
+        ctx.strokeStyle = 'rgba(42,54,68,0.6)'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(L * 0.62, -W * 0.72); ctx.quadraticCurveTo(L * 0.48, 0, L * 0.62, W * 0.72); ctx.stroke();
+      }
       // mouth / teeth
       ctx.strokeStyle = shade(body, -0.5); ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(L, 0); ctx.lineTo(L * 0.72, W * 0.22 + m * W * 0.3); ctx.stroke();
@@ -213,7 +282,23 @@ export function drawCreature(ctx, o) {
         ctx.fillStyle = '#f6fbff';
         for (let i = 0; i < 3; i++) { const x = lerp(L * 0.98, L * 0.75, i / 2); ctx.beginPath(); ctx.moveTo(x, W * 0.05); ctx.lineTo(x - 2, W * 0.28 + m * W * 0.3); ctx.lineTo(x + 2, W * 0.05); ctx.closePath(); ctx.fill(); }
       }
+      // self-sharpening bone shears instead of teeth (Dunkleosteus)
+      if (o.boneShears) {
+        ctx.fillStyle = '#eef3f8'; ctx.strokeStyle = '#8fa0b2'; ctx.lineWidth = 1.2;
+        // upper blade stabbing down from the skull plate
+        ctx.beginPath(); ctx.moveTo(L * 1.02, -W * 0.05);
+        ctx.lineTo(L * 0.6, -W * 0.28);
+        ctx.lineTo(L * 0.68, W * (0.3 + m * 0.35));
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        // lower counter-blade rising to meet it
+        ctx.beginPath(); ctx.moveTo(L * 0.92, W * (0.42 + m * 0.4));
+        ctx.lineTo(L * 0.58, W * (0.5 + m * 0.4));
+        ctx.lineTo(L * 0.72, W * (0.16 + m * 0.2));
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
       eye(ctx, L * 0.6, -W * 0.32, Math.max(2.6, W * 0.3));
+      // armored orbital ring around the eye
+      if (o.headPlate) { ctx.strokeStyle = '#39485a'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(L * 0.6, -W * 0.32, Math.max(2.6, W * 0.3) + 2.5, 0, TAU); ctx.stroke(); }
       break;
     }
   }

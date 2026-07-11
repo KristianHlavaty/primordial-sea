@@ -159,6 +159,7 @@ export function renderWorld(E) {
     ctx.strokeStyle = withA('#aefff0', 0.4 + 0.15 * pulse); ctx.lineWidth = 1.5; ctx.setLineDash([4, 6]); ctx.lineDashOffset = -E.time * 12;
     ctx.beginPath(); ctx.arc(gx, gy, pr + 7, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
     if (PL.frenzyT > 0) { const fp = 0.5 + 0.5 * Math.sin(E.time * 12); ctx.strokeStyle = withA('#ff6a7a', 0.25 + 0.4 * fp); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(gx, gy, pr + 11, 0, TAU); ctx.stroke(); }
+    if (PL.stealthT > 0) ctx.globalAlpha = 0.45;   // half-vanished in the ink cloud
     if (PL.enrollT > 0) {
       // rolled into an armored ball — replaces the creature entirely
       ctx.save(); ctx.translate(gx, gy); ctx.rotate(E.time * 1.2); const r = pr * 1.12;
@@ -170,6 +171,21 @@ export function renderWorld(E) {
       for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); ctx.lineTo(Math.cos(a) * (r + 6), Math.sin(a) * (r + 6)); ctx.lineTo(Math.cos(a + 0.22) * r, Math.sin(a + 0.22) * r); ctx.closePath(); ctx.fill(); }
       ctx.restore();
     } else drawEntity(E, PL);
+    ctx.globalAlpha = 1;
+    if (PL.withdrawT > 0) {
+      // shell plates closing around the body
+      ctx.save(); ctx.translate(gx, gy); ctx.rotate(E.time * 0.8);
+      ctx.strokeStyle = withA('#e8c98a', 0.75); ctx.lineWidth = 3;
+      for (let i = 0; i < 3; i++) { const rr = pr * (1.15 - 0.22 * i); ctx.beginPath(); ctx.arc(0, 0, rr, i * 0.8, i * 0.8 + TAU * 0.75); ctx.stroke(); }
+      ctx.restore();
+    }
+    if (PL.vortexT > 0) {
+      // whirlpool arms sweeping the water inward
+      ctx.save(); ctx.translate(gx, gy); ctx.rotate(-E.time * 3);
+      ctx.strokeStyle = withA('#6fd0e8', 0.5); ctx.lineWidth = 2.5;
+      for (let i = 0; i < 3; i++) { const rr = 60 + i * 65; ctx.beginPath(); ctx.arc(0, 0, rr, i * 1.4, i * 1.4 + TAU * 0.6); ctx.stroke(); }
+      ctx.restore();
+    }
     if (PL.bloomT > 0) {
       ctx.save(); ctx.translate(gx, gy); ctx.rotate(E.time * 2); ctx.strokeStyle = withA('#c79bff', 0.55); ctx.lineWidth = 2.5; const RR = pr + 50, n = 8;
       for (let i = 0; i < n; i++) { const a = i / n * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * pr, Math.sin(a) * pr); ctx.quadraticCurveTo(Math.cos(a + 0.3) * RR * 0.7, Math.sin(a + 0.3) * RR * 0.7, Math.cos(a) * RR, Math.sin(a) * RR); ctx.stroke(); }
