@@ -1,0 +1,38 @@
+/* ---------- fullscreen overlays: start / pause / death / evolve ---------- */
+.scrim{position:absolute; inset:0; background:radial-gradient(120% 90% at 50% 40%, #04121ecc, #010a12f2); display:flex; align-items:center; justify-content:center; z-index:20; pointer-events:auto}
+.card{background:linear-gradient(#0e2537,#0a1a28); border:1px solid var(--line); border-radius:18px; padding:30px 34px; max-width:min(92vw,780px); box-shadow:0 30px 80px #000a; text-align:center}
+.title{font-size:34px; font-weight:900; letter-spacing:3px; background:linear-gradient(90deg,#5ee0f2,#8affd0); -webkit-background-clip:text; background-clip:text; color:transparent}
+.subtitle{color:var(--dim); margin-top:6px; letter-spacing:1px; font-size:13px}
+.body{margin:18px 0; color:#c4d6e6; font-size:14px; line-height:1.6}
+.body b{color:var(--acc)}
+.kbd{display:inline-block; background:#0b1c2b; border:1px solid var(--line); border-bottom-width:2px; border-radius:6px; padding:1px 8px; font-weight:700; color:#dfeefb; font-size:12px; margin:0 1px}
+.bigbtn{pointer-events:auto; background:linear-gradient(#12507a,#0e3a5b); color:#dff2ff; border:1px solid #2f7dab; border-radius:12px; padding:13px 40px; font-size:16px; font-weight:800; letter-spacing:1.5px; cursor:pointer; transition:transform .08s, box-shadow .12s; box-shadow:0 8px 24px #0006}
+.bigbtn:hover{transform:translateY(-2px); box-shadow:0 12px 30px #0008}
+.bigbtn:active{transform:translateY(0)}
+
+.evolveTitle{font-size:26px; font-weight:900; letter-spacing:2px; color:var(--acc2)}
+.choices{display:flex; gap:18px; margin-top:22px; flex-wrap:wrap; justify-content:center}
+.choice{width:230px; background:#0a1c2b; border:1px solid var(--line); border-radius:14px; padding:14px; cursor:pointer; transition:transform .1s, border-color .1s, box-shadow .1s; pointer-events:auto; text-align:left}
+.choice:hover{transform:translateY(-4px); border-color:var(--acc); box-shadow:0 14px 34px #0007}
+.choice.arth:hover{border-color:var(--arth)}
+.choice.chord:hover{border-color:var(--chord)}
+.choice.cnid:hover{border-color:var(--cnid)}
+.choice canvas{width:100%; height:120px; display:block; background:radial-gradient(circle at 50% 45%,#0d2c40,#071722); border-radius:10px; border:1px solid #12324a}
+.choice .cname{font-size:16px; font-weight:800; margin-top:10px}
+.choice .ctag{font-size:10px; font-weight:800; letter-spacing:1px; text-transform:uppercase; padding:1px 8px; border-radius:10px; margin-left:6px}
+.ctag.arth{background:#3a2a15; color:var(--arth)}
+.ctag.chord{background:#132a44; color:var(--chord)}
+.ctag.cnid{background:#241a3a; color:var(--cnid)}
+.choice .cdesc{font-size:12px; color:var(--dim); margin:6px 0 10px; line-height:1.45; min-height:50px}
+.stat{display:flex; align-items:center; gap:6px; font-size:12px; margin:3px 0}
+.stat .sl{width:46px; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.5px}
+.stat .sbar{flex:1; height:7px; background:#0006; border-radius:5px; overflow:hidden}
+.stat .sbar i{display:block; height:100%; border-radius:5px}
+.stat .delta{font-weight:800; font-size:11px; width:34px; text-align:right}
+.up{color:var(--good)} .down{color:var(--bad)} .same{color:var(--dim)}
+
+.gameover .title{background:linear-gradient(90deg,#f0637a,#ffb15e); -webkit-background-clip:text; background-clip:text; color:transparent}
+.statgrid{display:grid; grid-template-columns:1fr 1fr; gap:8px 26px; margin:18px auto; max-width:360px; text-align:left}
+.statgrid div{display:flex; justify-content:space-between; border-bottom:1px dashed var(--line); padding:4px 0; font-size:13px}
+.statgrid b{color:var(--acc2)}
+.pausewrap{gap:14px; display:flex; flex-direction:column; align-items:center}

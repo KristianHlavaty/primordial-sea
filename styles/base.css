@@ -1,0 +1,11 @@
+/* Theme variables, reset and the fullscreen game canvas. */
+:root{
+  --bg:#04121e; --panel:#0c1f30; --panel2:#12283c; --line:#1e3a54; --txt:#dcecf7; --dim:#7f9bb3;
+  --acc:#5ec8f2; --acc2:#f2c15e; --good:#66d38a; --bad:#f0637a; --hp:#f0637a; --bio:#5ec8f2;
+  --arth:#e0a34f; --chord:#5ea8f2; --cnid:#b79bff;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%; overflow:hidden}
+body{background:var(--bg); color:var(--txt); font:14px/1.45 "Segoe UI",system-ui,sans-serif; user-select:none}
+#root,#game{position:fixed; inset:0}
+#game{display:block; width:100%; height:100%; cursor:crosshair}
