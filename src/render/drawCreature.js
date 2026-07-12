@@ -49,15 +49,29 @@ export function drawCreature(ctx, o) {
       const pulse = 0.5 + 0.5 * Math.sin(t * 2.2); const bw = W * (1 + pulse * 0.12), bh = W * (0.95 - pulse * 0.15);
       const nt = o.tentacles || 6;
       ctx.strokeStyle = withA(acc, 0.5); ctx.lineWidth = 2.2;
-      for (let i = 0; i < nt; i++) {
-        const off = (i / (nt - 1) - 0.5); const ox = -L * 0.2 + off * W * 0.2;
-        ctx.beginPath(); ctx.moveTo(ox, off * W * 0.7);
-        for (let s = 1; s <= 4; s++) { const ss = s / 4; ctx.lineTo(ox - bw * 0.9 * ss - (1 - pulse) * 8 * ss, off * W * 0.7 + Math.sin(t * 2.5 + i + s) * 4 * ss); }
-        ctx.stroke();
-        if (o.landForm) {
-          const ex = ox - bw * 0.9 - (1 - pulse) * 8;
-          const ey = off * W * 0.7 + Math.sin(t * 2.5 + i + 4) * 4;
-          ctx.fillStyle = withA(acc, 0.8); ctx.beginPath(); ctx.ellipse(ex, ey, 3.5 + (o.footPads || 0), 2.4, 0, 0, TAU); ctx.fill();
+      if (o.landForm) {
+        // Terrestrial medusae plant their appendages around the whole bell.
+        // Alternating radial reach reads as an octopus-like crawling gait.
+        ctx.lineWidth = Math.max(2.4, W * .12);
+        for (let i = 0; i < nt; i++) {
+          const baseA = i / nt * TAU, gait = Math.sin(t * 5 + i * Math.PI) * .14;
+          const a = baseA + gait, reach = bw * (1.35 + .16 * Math.sin(t * 5 + i * Math.PI));
+          const sx = Math.cos(baseA) * bw * .62, sy = Math.sin(baseA) * bh * .55;
+          const kx = Math.cos(a + (i % 2 ? .2 : -.2)) * reach * .92;
+          const ky = Math.sin(a + (i % 2 ? .2 : -.2)) * reach * .72;
+          const ex = Math.cos(a) * reach * 1.35, ey = Math.sin(a) * reach;
+          ctx.strokeStyle = withA(acc, .72); ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(kx, ky, ex, ey); ctx.stroke();
+          ctx.save(); ctx.translate(ex, ey); ctx.rotate(a);
+          ctx.fillStyle = withA(acc, .9); ctx.beginPath(); ctx.ellipse(0, 0, 4 + (o.footPads || 0), 2.5 + (o.footPads || 0) * .25, 0, 0, TAU); ctx.fill();
+          ctx.fillStyle = withA(body, .75); ctx.beginPath(); ctx.arc(1.5, 0, 1.2, 0, TAU); ctx.fill(); ctx.restore();
+        }
+      } else {
+        // Aquatic medusae keep the original trailing, current-driven tentacles.
+        for (let i = 0; i < nt; i++) {
+          const off = (i / (nt - 1) - 0.5); const ox = -L * 0.2 + off * W * 0.2;
+          ctx.beginPath(); ctx.moveTo(ox, off * W * 0.7);
+          for (let s = 1; s <= 4; s++) { const ss = s / 4; ctx.lineTo(ox - bw * 0.9 * ss - (1 - pulse) * 8 * ss, off * W * 0.7 + Math.sin(t * 2.5 + i + s) * 4 * ss); }
+          ctx.stroke();
         }
       }
       if (o.glow) {
