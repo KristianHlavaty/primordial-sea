@@ -38,6 +38,7 @@ export function EvolveModal({ engine, hud }) {
                 <div className="cname">${sp.name}
                   ${bcls && html`<span className=${'ctag ' + bcls}>${blabel}</span>`}</div>
                 <div className="cdesc">${sp.desc}</div>
+                ${engine.leadsToLandDeadEnd(id) && html`<div className="deadEndTag">⚠ Dead end with Fantasy Evolution off — this road never reaches land</div>`}
                 <div className="cabil">
                   ${(ABILITY_SETS[id] || []).map(aid => html`
                     <span key=${aid} className="ab" style=${{ '--ac': ABILITIES[aid].color }}>${ABILITIES[aid].name}${ABILITIES[aid].passive && html`<b className="p">·P</b>`}</span>`)}

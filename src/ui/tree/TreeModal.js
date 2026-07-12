@@ -76,7 +76,7 @@ export function TreeModal({ curId, onClose }) {
           </div>
           <${TreeDetail} id=${hovered}/>
         </div>
-        <div className="treeHint">Switch <b>Sea</b>/<b>Land</b> above · hover a creature to see its powers · <span className="kbd">T</span>/<span className="kbd">Esc</span> closes</div>
+        <div className="treeHint">Switch <b>stage</b> above · hover a creature to see its powers · <span className="kbd">T</span>/<span className="kbd">Esc</span> closes</div>
       </div>
     </div>`;
 }

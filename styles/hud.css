@@ -38,6 +38,11 @@
 .edgePrompt{position:absolute; bottom:96px; left:50%; transform:translateX(-50%); background:#0b1f14dd; border:1px solid #8fce6a;
   border-radius:10px; padding:6px 16px; font-size:13px; font-weight:700; color:#dfffe6; letter-spacing:.5px}
 .edgePrompt b{color:#bff0a0}
+/* sea-apex dead-end note (lineage with no real land descendant) */
+.deadEndNote{position:absolute; top:70px; left:50%; transform:translateX(-50%); max-width:min(70vw,560px); text-align:center;
+  background:#0a1a28ee; border:1px solid var(--acc); border-radius:12px; padding:9px 18px; font-size:12.5px; color:#cfe0ee; line-height:1.5;
+  box-shadow:0 8px 26px #0008}
+.deadEndNote b{color:var(--acc)}
 .cheatPanel{position:absolute; right:16px; bottom:18px; pointer-events:auto; display:flex; flex-direction:column; gap:6px; width:142px; padding:9px; background:#16080ddd; border:1px solid #ff5363; border-radius:10px; box-shadow:0 8px 24px #0008}
 .cheatTitle{color:#ff6a77; font-size:9px; font-weight:900; letter-spacing:2px; text-align:center}
 .cheatPanel button{cursor:pointer; border:1px solid #6c3540; border-radius:7px; padding:6px 8px; background:#240e15; color:#e9cbd0; font-size:11px; font-weight:800; text-align:left}

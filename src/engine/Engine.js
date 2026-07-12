@@ -179,13 +179,43 @@ export class Engine {
     return !!p && this.stage === 'sea' && p.level >= MAX_LEVEL && p.species.evolvesTo.length === 0 && this.availablePioneers().length > 0;
   }
 
-  availablePioneers() {
+  availablePioneers(fantasy = this.fantasyEvolution) {
     const branch = this.player && this.player.species.branch;
     const fromId = this.player && this.player.speciesId;
-    return landPioneers(this.fantasyEvolution).filter(id =>
+    return landPioneers(fantasy).filter(id =>
       (!SPECIES[id].seaBranches || SPECIES[id].seaBranches.includes(branch)) &&
       (!SPECIES[id].seaSpecies || SPECIES[id].seaSpecies.includes(fromId))
     );
+  }
+
+  /* A sea apex whose lineage has no *real* land descendant: it could only crawl
+     ashore with Fantasy Evolution enabled (e.g. cnidarians, molluscs). Used to
+     tell the player they've hit a dead end rather than leaving them puzzled. */
+  isLandDeadEnd() {
+    const p = this.player;
+    if (!p || this.stage !== 'sea' || p.species.evolvesTo.length !== 0) return false;
+    return this.availablePioneers().length === 0 && this.availablePioneers(true).length > 0;
+  }
+
+  /* Would picking sea species `id` doom the lineage to a shore dead end under
+     the current Fantasy setting? True when none of the sea apexes reachable
+     from `id` has a land pioneer available to it (but Fantasy on would). Used
+     by the evolve modal to warn before you commit to a cnidarian/mollusc road. */
+  leadsToLandDeadEnd(id) {
+    if (this.fantasyEvolution || speciesStage(id) !== 'sea') return false;
+    // collect reachable sea apexes from this choice
+    const apexes = [], seen = new Set(), q = [id];
+    while (q.length) {
+      const cur = q.pop(); if (seen.has(cur)) continue; seen.add(cur);
+      const sp = SPECIES[cur];
+      if (sp.evolvesTo.length === 0) apexes.push(cur);
+      else for (const t of sp.evolvesTo) if (speciesStage(t) === 'sea') q.push(t);
+    }
+    const reaches = ax => landPioneers(false).some(pid =>
+      (!SPECIES[pid].seaBranches || SPECIES[pid].seaBranches.includes(SPECIES[ax].branch)) &&
+      (!SPECIES[pid].seaSpecies || SPECIES[pid].seaSpecies.includes(ax)));
+    // dead end only if no real path today, but Fantasy would open one
+    return !apexes.some(reaches) && landPioneers(true).length > 0;
   }
 
   triggerEvolve() {
@@ -387,6 +417,7 @@ export class Engine {
       stage: this.stage, stageName: STAGES[this.stage] ? STAGES[this.stage].name : '',
       mapId: this.mapId, mapName: MAPS[this.mapId] ? MAPS[this.mapId].name : '',
       canAscend: this.isSeaApex(), ascendAvailable: this.ascendAvailable, advanceAvailable: this.advanceAvailable, nearEdge: this.nearEdge,
+      landDeadEnd: !!(p && p.level >= MAX_LEVEL && this.isLandDeadEnd()),
       cheatsEnabled: this.cheatsEnabled, invincible: this.invincible
     });
   }

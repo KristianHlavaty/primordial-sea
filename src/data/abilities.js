@@ -68,16 +68,16 @@ export const ABILITY_SETS = {
   // land forms
   tiktaalik: ['pounce', 'regen'], ichthyostega: ['pounce', 'regen', 'tailsweep'], eryops: ['frenzy', 'pounce', 'thickhide'],
   kampecaris: ['burrow', 'thickhide'], arthropleura: ['stomp', 'enroll', 'thickhide'], pulmonoscorpius: ['impale', 'stomp', 'sprint'],
-  mudfin_strider: ['burst', 'regen'], reedscale_stalker: ['pounce', 'regen', 'tailsweep'],
+  mudfin_strider: ['burst', 'regen'], reedscale_stalker: ['pounce', 'grasp', 'regen'],
   gillrunner: ['sprint', 'pounce', 'ampullae'], tide_hunter: ['frenzy', 'pounce', 'ampullae'], bog_tide_hunter: ['bloodscent', 'pounce', 'regen'],
-  acanthostega: ['regen', 'pounce'], hynerpeton_player: ['pounce', 'tailsweep', 'regen'],
+  acanthostega: ['pounce', 'regen', 'burst'], hynerpeton_player: ['pounce', 'tailsweep', 'thickhide'],
   elpistostege: ['airbreath', 'tailsweep'], tulerpeton: ['airbreath', 'pounce', 'sprint'],
   metaxygnathus: ['crush', 'pounce', 'airbreath'], crassigyrinus: ['crush', 'regen', 'thickhide'],
-  pneumodesmus: ['burrow', 'thickhide'], devonian_trigonotarbid: ['pounce', 'burrow', 'thickhide'], devonian_scorpion: ['impale', 'burrow', 'thickhide'],
+  pneumodesmus: ['burrow', 'enroll', 'thickhide'], devonian_trigonotarbid: ['pounce', 'burrow', 'thickhide'], devonian_scorpion: ['impale', 'burrow', 'thickhide'],
   rhyniella: ['evasion', 'burrow'], attercopus: ['websnare', 'evasion', 'venom'],
   gilboa_arachnid: ['websnare', 'silksense', 'venom'], eophrynus: ['websnare', 'bastion', 'venom'],
-  shore_polyp: ['nettle', 'bloom'], walking_medusa: ['bloom', 'nettle'], grove_anemone: ['shock', 'bloom', 'nettle'], storm_jelly: ['shock', 'bloom', 'venom'], coal_colony: ['rebirth', 'shock', 'venom'],
-  mud_octopus: ['camo', 'grasp'], lung_octopus: ['grasp', 'camo'], grove_cephalopod: ['ink', 'grasp', 'camo'], canopy_kraken: ['grasp', 'ink', 'sprint'], coal_kraken: ['grasp', 'camo', 'sprint'],
+  shore_polyp: ['nettle', 'bloom'], walking_medusa: ['bloom', 'grasp', 'nettle'], grove_anemone: ['bloom', 'nettle', 'venom'], storm_jelly: ['shock', 'bloom', 'venom'], coal_colony: ['rebirth', 'shock', 'venom'],
+  mud_octopus: ['camo', 'grasp'], lung_octopus: ['grasp', 'camo', 'airbreath'], grove_cephalopod: ['grasp', 'camo', 'venom'], canopy_kraken: ['grasp', 'ink', 'sprint'], coal_kraken: ['grasp', 'camo', 'sprint'],
 };
 
 /* Maps a duration-based ability to the Player timer field that tracks it

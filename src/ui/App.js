@@ -24,6 +24,8 @@ export function App() {
 
   const begin = options => { engineRef.current.start(options); setPhase('play'); };
   const skipToLand = (id, options) => { engineRef.current.startAt(id, options); setPhase('play'); };
+  // "Evolve again" from the death screen — keep the run's Fantasy/Cheats settings
+  const restartRun = () => { const e = engineRef.current; e.start({ fantasyEvolution: e.fantasyEvolution, cheats: e.cheatsEnabled }); setPhase('play'); };
   const openTree = () => { if (engineRef.current && engineRef.current.canWiki()) { engineRef.current.setPaused(true); setTreeOpen(true); } };
   const closeTree = () => { setTreeOpen(false); if (engineRef.current) engineRef.current.setPaused(false); };
   const openAtlas = () => { if (engineRef.current && engineRef.current.canWiki()) { engineRef.current.setPaused(true); setAtlasOpen(true); } };
@@ -59,7 +61,7 @@ export function App() {
 
       ${phase === 'play' && hud && hud.paused && !hud.pendingEvolve && !hud.dead && !hud.achievement && !anyModal && html`<${PauseOverlay} onResume=${() => engine.togglePause()} onMainMenu=${mainMenu}/>`}
 
-      ${phase === 'play' && hud && hud.dead && html`<${GameOverScreen} hud=${hud} onRestart=${begin}/>`}
+      ${phase === 'play' && hud && hud.dead && html`<${GameOverScreen} hud=${hud} onRestart=${restartRun}/>`}
 
       ${phase === 'start' && html`<${StartScreen} onBegin=${begin} onSkipToLand=${skipToLand}/>`}
     <//>`;

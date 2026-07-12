@@ -49,6 +49,8 @@ export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects })
         <button className="ashoreBtn" onClick=${() => engine.openAscend()} title="Crawl ashore — evolve onto the land">🏝 Ashore</button>`}
       ${hud.advanceAvailable && html`
         <button className="advanceBtn" onClick=${() => engine.openAdvance()} title="Continue into the Carboniferous">◆ Carboniferous</button>`}
+      ${hud.landDeadEnd && html`
+        <div className="deadEndNote">🌊 <b>Dead end.</b> This lineage has no real land descendants — it can't crawl ashore. Start a new run with <b>Fantasy Evolution</b> on to give it a speculative land path.</div>`}
       ${hud.nearEdge && html`<div className="edgePrompt">▸ crossing to <b>${hud.nearEdge}</b>…</div>`}
       <div className="hint">Steer <b>mouse</b>/<b>WASD</b> · <b>Click / Space</b> bite & dash · Powers <b>1 2 3</b> · Eat to <b>level up</b> — reach <b>Lv 10</b> to evolve</div>
       ${hud.cheatsEnabled && html`

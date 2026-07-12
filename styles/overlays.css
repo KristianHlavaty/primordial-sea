@@ -30,6 +30,7 @@
 .ctag.tetra{background:#22360f; color:var(--tetra)}
 .ctag.myria{background:#331f0e; color:var(--myria)}
 .choice .cdesc{font-size:12px; color:var(--dim); margin:6px 0 10px; line-height:1.45; min-height:50px}
+.choice .deadEndTag{font-size:10.5px; font-weight:700; color:#ffd27a; background:#2a1e0f; border:1px solid #6b4e1f; border-radius:7px; padding:4px 8px; margin:0 0 9px; line-height:1.35}
 .stat{display:flex; align-items:center; gap:6px; font-size:12px; margin:3px 0}
 .stat .sl{width:46px; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.5px}
 .stat .sbar{flex:1; height:7px; background:#0006; border-radius:5px; overflow:hidden}
