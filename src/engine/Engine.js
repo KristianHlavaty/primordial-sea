@@ -144,6 +144,10 @@ export class Engine {
   }
 
   togglePause() { if (this.dead || this.pendingEvolve || !this.playing) return; this.paused = !this.paused; this.pushHud(true); }
+  returnToMenu() {
+    this.playing = false; this.paused = false; this.pendingEvolve = false;
+    this.biteHeld = false; this.keys = {}; this.pushHud(true);
+  }
   setPaused(v) { this.paused = v; }
   canWiki() { return this.playing && !this.dead && !this.pendingEvolve && !this.paused; }
   toggleMute() { this.sfx.muted = !this.sfx.muted; this.pushHud(true); }

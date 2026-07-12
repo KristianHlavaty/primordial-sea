@@ -26,6 +26,11 @@ export function App() {
   const closeTree = () => { setTreeOpen(false); if (engineRef.current) engineRef.current.setPaused(false); };
   const openAtlas = () => { if (engineRef.current && engineRef.current.canWiki()) { engineRef.current.setPaused(true); setAtlasOpen(true); } };
   const closeAtlas = () => { setAtlasOpen(false); if (engineRef.current) engineRef.current.setPaused(false); };
+  const mainMenu = () => {
+    setTreeOpen(false); setAtlasOpen(false);
+    if (engineRef.current) engineRef.current.returnToMenu();
+    setPhase('start');
+  };
   const curId = (engine && engine.player) ? engine.player.speciesId : 'protocell';
   uiRef.current = { phase, treeOpen, openTree, closeTree, atlasOpen, openAtlas, closeAtlas };
 
@@ -45,7 +50,7 @@ export function App() {
 
       ${phase === 'play' && hud && hud.pendingEvolve && engine && html`<${EvolveModal} engine=${engine} hud=${hud}/>`}
 
-      ${phase === 'play' && hud && hud.paused && !hud.pendingEvolve && !hud.dead && !anyModal && html`<${PauseOverlay} onResume=${() => engine.togglePause()}/>`}
+      ${phase === 'play' && hud && hud.paused && !hud.pendingEvolve && !hud.dead && !anyModal && html`<${PauseOverlay} onResume=${() => engine.togglePause()} onMainMenu=${mainMenu}/>`}
 
       ${phase === 'play' && hud && hud.dead && html`<${GameOverScreen} hud=${hud} onRestart=${begin}/>`}
 

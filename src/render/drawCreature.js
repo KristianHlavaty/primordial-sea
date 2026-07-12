@@ -54,6 +54,11 @@ export function drawCreature(ctx, o) {
         ctx.beginPath(); ctx.moveTo(ox, off * W * 0.7);
         for (let s = 1; s <= 4; s++) { const ss = s / 4; ctx.lineTo(ox - bw * 0.9 * ss - (1 - pulse) * 8 * ss, off * W * 0.7 + Math.sin(t * 2.5 + i + s) * 4 * ss); }
         ctx.stroke();
+        if (o.landForm) {
+          const ex = ox - bw * 0.9 - (1 - pulse) * 8;
+          const ey = off * W * 0.7 + Math.sin(t * 2.5 + i + 4) * 4;
+          ctx.fillStyle = withA(acc, 0.8); ctx.beginPath(); ctx.ellipse(ex, ey, 3.5 + (o.footPads || 0), 2.4, 0, 0, TAU); ctx.fill();
+        }
       }
       if (o.glow) {
         const gg = ctx.createRadialGradient(0, 0, 1, 0, 0, bw * 1.8); gg.addColorStop(0, withA(o.glow, 0.28)); gg.addColorStop(1, withA(o.glow, 0));
@@ -63,6 +68,14 @@ export function drawCreature(ctx, o) {
       g.addColorStop(0, withA(acc, 0.85)); g.addColorStop(1, withA(body, 0.55));
       ctx.fillStyle = g; ctx.strokeStyle = withA(shade(body, 0.1), 0.7); ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(0, 0, bw, bh, 0, -Math.PI, 0); ctx.lineTo(bw, W * 0.15); ctx.quadraticCurveTo(0, W * 0.5, -bw, W * 0.15); ctx.closePath(); ctx.fill(); ctx.stroke();
+      if (o.crown) {
+        ctx.fillStyle = withA(acc, 0.8);
+        for (let i = 0; i < o.crown; i++) { const x = lerp(-bw * .72, bw * .72, i / Math.max(1, o.crown - 1)); ctx.beginPath(); ctx.moveTo(x - 3, -bh * .72); ctx.lineTo(x, -bh * (1.1 + (i % 2) * .18)); ctx.lineTo(x + 3, -bh * .72); ctx.closePath(); ctx.fill(); }
+      }
+      if (o.colonyNodes) {
+        ctx.fillStyle = withA(acc, .72);
+        for (let i = 0; i < o.colonyNodes; i++) { const a = i / o.colonyNodes * TAU; ctx.beginPath(); ctx.arc(Math.cos(a) * bw * .58, Math.sin(a) * bh * .4, Math.max(2, W * .09), 0, TAU); ctx.fill(); }
+      }
       break;
     }
     case 'shell': {
@@ -112,6 +125,14 @@ export function drawCreature(ctx, o) {
         }
       }
       // eyes / stalks
+      if (o.armorRidges) {
+        ctx.strokeStyle = withA(acc, .7); ctx.lineWidth = 1.6;
+        for (let i = 0; i < o.armorRidges; i++) { const x = lerp(L * .35, -L * .8, i / Math.max(1, o.armorRidges - 1)); ctx.beginPath(); ctx.moveTo(x, -W * .7); ctx.lineTo(x, W * .7); ctx.stroke(); }
+      }
+      if (o.horns) {
+        ctx.fillStyle = acc;
+        for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(L * .72, s * W * .5); ctx.lineTo(L * (1 + o.horns * .08), s * W * .8); ctx.lineTo(L * .62, s * W * .68); ctx.closePath(); ctx.fill(); }
+      }
       if (o.eyes) {
         const ey = W * 0.5;
         if (o.stalks) {
@@ -194,9 +215,11 @@ export function drawCreature(ctx, o) {
         ctx.beginPath(); ctx.moveTo(L * 0.35, off * W * 0.35);
         ctx.quadraticCurveTo(L * 0.75, off * W * 0.7 + wob, L * (0.95 + m * 0.15) + wob * 0.5, off * W * (0.8 + m * 0.3)); ctx.stroke();
       }
-      // tail fins
-      ctx.fillStyle = withA(acc, 0.5);
-      ctx.beginPath(); ctx.moveTo(-L * 0.55, 0); ctx.lineTo(-L * 0.85, -W * 1.3); ctx.lineTo(-L * 1.02, 0); ctx.lineTo(-L * 0.85, W * 1.3); ctx.closePath(); ctx.fill();
+      // tail fins (lost in the speculative terrestrial forms)
+      if (o.fins !== false) {
+        ctx.fillStyle = withA(acc, 0.5);
+        ctx.beginPath(); ctx.moveTo(-L * 0.55, 0); ctx.lineTo(-L * 0.85, -W * 1.3); ctx.lineTo(-L * 1.02, 0); ctx.lineTo(-L * 0.85, W * 1.3); ctx.closePath(); ctx.fill();
+      }
       // mantle
       const g = ctx.createLinearGradient(0, -W, 0, W); g.addColorStop(0, shade(body, 0.3)); g.addColorStop(.5, body); g.addColorStop(1, shade(body, -0.3));
       ctx.fillStyle = g; ctx.strokeStyle = shade(body, -0.35); ctx.lineWidth = 2;
@@ -204,6 +227,14 @@ export function drawCreature(ctx, o) {
       ctx.quadraticCurveTo(-L * 0.2, -W, L * 0.42, -W * 0.5);
       ctx.quadraticCurveTo(L * 0.55, 0, L * 0.42, W * 0.5);
       ctx.quadraticCurveTo(-L * 0.2, W, -L, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      if (o.mantleSpots) {
+        ctx.fillStyle = withA(acc, .55);
+        for (let i = 0; i < o.mantleSpots; i++) { const f = i / Math.max(1, o.mantleSpots - 1); ctx.beginPath(); ctx.arc(lerp(-L * .72, L * .2, f), (i % 2 ? 1 : -1) * W * .32, Math.max(1.8, W * .12), 0, TAU); ctx.fill(); }
+      }
+      if (o.landForm) {
+        ctx.strokeStyle = withA(acc, .85); ctx.lineWidth = 1.4;
+        for (let i = 0; i < 5; i++) { const x = lerp(-L * .65, L * .12, i / 4); ctx.beginPath(); ctx.moveTo(x, -W * .72); ctx.lineTo(x + 2, W * .72); ctx.stroke(); }
+      }
       // head bulge + eye
       ctx.fillStyle = shade(body, 0.1); ctx.beginPath(); ctx.ellipse(L * 0.42, 0, L * 0.14, W * 0.6, 0, 0, TAU); ctx.fill();
       eye(ctx, L * 0.45, -W * 0.35, Math.max(2.6, W * 0.3));
@@ -240,19 +271,22 @@ export function drawCreature(ctx, o) {
     case 'tetrapod': {
       // salamander-like body facing +X: tail (-X) -> body -> rounded head (+X),
       // two pairs of splayed walking legs, optional teeth.
-      const m = o.mouth || 0; const tf = (o.tail || 1);
+      const m = o.mouth || 0; const tf = (o.tail || 1), limb = o.limb || 1, hs = o.headScale || 1, snout = o.snout || 1;
       const step = Math.sin(t * 6);
       // tail
       ctx.strokeStyle = shade(body, -0.15); ctx.lineWidth = W * 0.7;
       const ty = Math.sin(t * 3) * W * 0.5;
       ctx.beginPath(); ctx.moveTo(-L * 0.3, 0); ctx.quadraticCurveTo(-L * 0.8, ty * 0.6, -L * (0.95 + 0.4 * tf), ty); ctx.stroke();
+      if (o.tailFin) {
+        ctx.fillStyle = withA(acc, .65); ctx.beginPath(); ctx.moveTo(-L * .35, 0); ctx.quadraticCurveTo(-L * .8, -W * o.tailFin, -L * (1.12 + .25 * tf), ty); ctx.quadraticCurveTo(-L * .8, W * o.tailFin, -L * .35, 0); ctx.fill();
+      }
       // legs (front pair near head, rear pair near hips), alternating gait
       ctx.strokeStyle = shade(body, -0.3); ctx.lineWidth = W * 0.28; ctx.lineCap = 'round';
       const legAt = (lx, phase) => {
         for (const s of [-1, 1]) {
           const beat = Math.sin(t * 6 + phase + (s > 0 ? 0 : Math.PI)) * 0.4;
           ctx.beginPath(); ctx.moveTo(lx, s * W * 0.6);
-          ctx.quadraticCurveTo(lx + beat * 6, s * W * 1.25, lx - W * 0.3 + beat * 8, s * W * 1.7); ctx.stroke();
+          ctx.quadraticCurveTo(lx + beat * 6, s * W * (1.05 + .2 * limb), lx - W * 0.3 + beat * 8, s * W * (1.2 + .5 * limb)); ctx.stroke();
         }
       };
       legAt(L * 0.42, 0); legAt(-L * 0.12, Math.PI);
@@ -264,23 +298,28 @@ export function drawCreature(ctx, o) {
       ctx.quadraticCurveTo(-L * 0.4, -W * 0.5, -L * 0.3, 0);
       ctx.quadraticCurveTo(-L * 0.4, W * 0.5, -L * 0.1, W * 0.85);
       ctx.quadraticCurveTo(L * 0.5, W, L * 0.85, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // dappled back
-      ctx.fillStyle = withA(shade(body, -0.2), 0.5);
-      for (let i = 0; i < 4; i++) { const x = lerp(L * 0.5, -L * 0.15, i / 3); ctx.beginPath(); ctx.ellipse(x, (i % 2 ? 1 : -1) * W * 0.3, W * 0.22, W * 0.16, 0, 0, TAU); ctx.fill(); }
+      // species-specific back pattern
+      ctx.fillStyle = withA(o.patternColor || shade(body, -0.2), 0.55);
+      const marks = o.marks === undefined ? 4 : o.marks;
+      for (let i = 0; i < marks; i++) { const x = lerp(L * 0.5, -L * 0.2, i / Math.max(1, marks - 1)); ctx.beginPath(); if (o.stripes) ctx.ellipse(x, 0, W * .12, W * .72, 0, 0, TAU); else ctx.ellipse(x, (i % 2 ? 1 : -1) * W * .3, W * .22, W * .16, 0, 0, TAU); ctx.fill(); }
       // broad head
       const hg = ctx.createRadialGradient(L * 0.85, -W * 0.2, 1, L * 0.8, 0, W * 1.4);
       hg.addColorStop(0, shade(body, 0.32)); hg.addColorStop(1, body);
       ctx.fillStyle = hg; ctx.strokeStyle = shade(body, -0.4); ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(L * 0.9, 0, L * 0.28, W * 0.85, 0, 0, TAU); ctx.fill(); ctx.stroke();
-      // wide mouth line + teeth
+      ctx.beginPath(); ctx.ellipse(L * (0.82 + .08 * snout), 0, L * 0.28 * snout, W * 0.85 * hs, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      // Top-down snout: the mouth is a vertical seam between the two eyes.
+      // During a bite the seam bows forward (+X) instead of opening sideways.
       ctx.strokeStyle = shade(body, -0.5); ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(L * 1.16, 0); ctx.lineTo(L * 0.7, W * 0.18 + m * W * 0.28); ctx.stroke();
+      const tipX = L * (1.12 + .08 * snout), jawBack = m * W * .16, jawFront = m * W * .32;
+      ctx.beginPath(); ctx.moveTo(tipX - jawBack, -W * .34); ctx.quadraticCurveTo(tipX + jawFront, 0, tipX - jawBack, W * .34); ctx.stroke();
+      ctx.fillStyle = shade(body, -.62);
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(tipX - L * .055, s * W * .13, Math.max(1, W * .055), 0, TAU); ctx.fill(); }
       if (o.teeth) {
         ctx.fillStyle = '#f6fbff';
-        for (let i = 0; i < 4; i++) { const x = lerp(L * 1.12, L * 0.74, i / 3); ctx.beginPath(); ctx.moveTo(x, W * 0.04); ctx.lineTo(x - 1.6, W * 0.24 + m * W * 0.28); ctx.lineTo(x + 1.6, W * 0.04); ctx.closePath(); ctx.fill(); }
+        for (let i = 0; i < 4; i++) { const y = lerp(-W * .27, W * .27, i / 3); ctx.beginPath(); ctx.moveTo(tipX - jawBack, y - 1.7); ctx.lineTo(tipX - jawBack - W * .14, y); ctx.lineTo(tipX - jawBack, y + 1.7); ctx.closePath(); ctx.fill(); }
       }
       // bulging eyes set high on the skull
-      for (const s of [-1, 1]) eye(ctx, L * 0.86, s * W * 0.42, Math.max(2.4, W * 0.24));
+      for (const s of [-1, 1]) eye(ctx, L * (0.84 + .03 * snout), s * W * 0.42 * hs, Math.max(2.1, W * 0.24 * (o.eyeScale || 1)));
       break;
     }
     default: { // fish
