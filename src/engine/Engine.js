@@ -44,6 +44,7 @@ export class Engine {
     this.time = 0; this.era = 0;
     this.player = null;
     this.creatures = []; this.plants = []; this.food = [];
+    this.webs = [];
     this.particles = []; this.bubbles = []; this.eggs = []; this.fx = []; this.floaters = [];
     this.cam = { x: 0, y: 0 }; this.shake = 0; this.danger = 0;
 
@@ -62,7 +63,7 @@ export class Engine {
     this.transitionCd = 0; this.edgeDwell = 0; this.nearEdge = null; this.visitedMaps = new Set();
 
     // boss trophies, achievements
-    this.perks = { dmgReduce: 0, dodge: 0, list: [] };
+    this.perks = { dmgReduce: 0, dodge: 0, webResist: 0, list: [] };
     this.bossesDefeated = new Set(); this.achievement = null; this.achT = 0; this.achId = 0;
 
     // UI-facing bits
@@ -87,7 +88,7 @@ export class Engine {
   resetRun() {
     this.era = 0; this.kills = 0; this.dead = false; this.paused = false;
     this.pendingEvolve = false; this.choices = []; this.evolveMode = 'normal';
-    this.perks = { dmgReduce: 0, dodge: 0, list: [] }; this.bossesDefeated = new Set();
+    this.perks = { dmgReduce: 0, dodge: 0, webResist: 0, list: [] }; this.bossesDefeated = new Set();
     this.achievement = null; this.achT = 0;
     this.ascendOffered = false; this.ascendAvailable = false;
     this.transitionCd = 0; this.edgeDwell = 0; this.nearEdge = null; this.visitedMaps = new Set();
@@ -164,6 +165,11 @@ export class Engine {
   setBite(v) { this.biteHeld = v; }
   setKey(k, v) { this.keys[k] = v; }
   useAbility(idx) { activateAbility(this, idx); }
+  webSlowAt(x, y) {
+    let slow = 0;
+    for (const w of this.webs) { const dx = x - w.x, dy = y - w.y, d = Math.sqrt(dx * dx + dy * dy); if (d < w.r) slow = Math.max(slow, 1 - d / w.r * .35); }
+    return slow;
+  }
 
   /* ---------------- evolution ---------------- */
 
@@ -232,6 +238,7 @@ export class Engine {
     const perk = PERKS[id]; if (!perk) return;
     if (perk.dmgReduce) this.perks.dmgReduce = Math.min(0.6, this.perks.dmgReduce + perk.dmgReduce);
     if (perk.dodge) this.perks.dodge = Math.min(0.6, this.perks.dodge + perk.dodge);
+    if (perk.webResist) this.perks.webResist = Math.min(.85, this.perks.webResist + perk.webResist);
     if (!this.perks.list.some(x => x.id === id)) this.perks.list.push({ id, name: perk.name, icon: perk.icon, color: perk.color, blurb: perk.blurb });
     this.achId++;
     this.achievement = { id: this.achId, boss: bossTitle, perk: perk.name, blurb: perk.blurb, icon: perk.icon, color: perk.color };
@@ -316,6 +323,7 @@ export class Engine {
       if (ft.life <= 0) this.floaters.splice(i, 1);
     }
     for (const e of this.eggs) e.t += dt;
+    for (let i = this.webs.length - 1; i >= 0; i--) { const w = this.webs[i]; if (w.life == null) continue; w.life -= dt; if (w.life <= 0) this.webs.splice(i, 1); }
     for (const b of this.bubbles) { b.y -= b.sp * dt; b.x += Math.sin(this.time + b.ph) * 6 * dt; if (b.y < -4) { b.y = this.vh + 4; b.x = Math.random() * this.vw; } }
 
     // max level: evolve within the stage, or (sea apex) offer to crawl ashore

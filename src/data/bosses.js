@@ -11,6 +11,7 @@ export const PERKS = {
   thickskin: { name: 'Thick Skin', icon: 'thickhide', color: '#c9a06a', dmgReduce: 0.06, blurb: '+6% damage resistance' },
   swiftstep: { name: 'Swift Step', icon: 'sprint',    color: '#9ce0a0', dodge: 0.08,     blurb: '+8% dodge chance' },
   mireblood: { name: 'Mireblood', icon: 'regen', color: '#9bd47a', dmgReduce: 0.05, blurb: '+5% damage resistance' },
+  webwalker: { name: 'Web Walker', icon: 'websnare', color: '#e8d9df', webResist: 0.5, blurb: '+50% resistance to web slowing' },
 };
 
 export const BOSSES = {
@@ -37,6 +38,11 @@ export const BOSSES = {
     title: 'Titanopod, the Sovereign', short: 'Sovereign', kind: 'arthro', at: { x: 0.86, y: 0.5 },
     radius: 48, hp: 1050, dmg: 46, accel: 900, maxSpeed: 235, sense: 660, leash: 980, perk: 'swiftstep', meat: 150,
     plan: P({ kind: 'arthro', len: 64, wid: 30, body: '#8a5c2e', accent: '#e0aa5e', segments: 16, spikes: 5, legs: 24, eyes: 2, stalks: true })
+  },
+  gilboa_matriarch: {
+    title: 'Arachne of Gilboa, the Matriarch', short: 'Gilboa Matriarch', kind: 'arachnid', at: { x: 0.78, y: 0.34 },
+    radius: 48, hp: 1020, dmg: 45, accel: 1020, maxSpeed: 260, sense: 690, leash: 980, perk: 'webwalker', meat: 150,
+    plan: P({ kind: 'arachnid', len: 55, wid: 29, body: '#302a2d', accent: '#e08b9f', legs: 8, eyes: 8, abdomen: 1.3, pedipalps: 1.25, spinnerets: 3, abdomenMarks: 7 })
   },
   marshqueen: {
     title: 'Gorgona, the Marsh Queen', short: 'Marsh Queen', kind: 'tetrapod', at: { x: 0.82, y: 0.72 },

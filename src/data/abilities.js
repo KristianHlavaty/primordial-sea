@@ -42,6 +42,9 @@ export const ABILITIES = {
   ampullae:   { name: 'Electric Sense', passive: true, cd: 0, dur: 0, color: '#7de4e8', desc: 'Sense muscle impulses before prey moves, granting an extra chance to evade attacks.' },
   hypervenom: { name: 'Venom Reservoir', passive: true, cd: 0, dur: 0, color: '#57e6b1', desc: 'Enlarged toxin reservoirs make every bite inflict a stronger, longer-burning venom.' },
   hookarms:   { name: 'Hooked Arms', passive: true, cd: 0, dur: 0, color: '#e48ddb', desc: 'Long hook-lined arms increase the reach and force of every basic attack.' },
+  airbreath:  { name: 'Air Breathing', passive: true, cd: 0, dur: 0, color: '#9edbb2', desc: 'Efficient lungs keep oxygen flowing ashore, steadily restoring health even during combat.' },
+  websnare:   { name: 'Silk Snare', passive: false, cd: 11, dur: 0, color: '#d9e6df', desc: 'Cast adhesive silk around nearby animals, rooting prey and heavily slowing bosses.' },
+  silksense:  { name: 'Silk Sense', passive: true, cd: 0, dur: 0, color: '#e8cbd8', desc: 'Read vibrations through silk and ground contact, granting an extra chance to evade attacks.' },
 };
 
 /* Which powers each player form carries (length grows with tier; capped at 3).
@@ -68,7 +71,11 @@ export const ABILITY_SETS = {
   mudfin_strider: ['burst', 'regen'], reedscale_stalker: ['pounce', 'regen', 'tailsweep'],
   gillrunner: ['sprint', 'pounce', 'ampullae'], tide_hunter: ['frenzy', 'pounce', 'ampullae'], bog_tide_hunter: ['bloodscent', 'pounce', 'regen'],
   acanthostega: ['regen', 'pounce'], hynerpeton_player: ['pounce', 'tailsweep', 'regen'],
+  elpistostege: ['airbreath', 'tailsweep'], tulerpeton: ['airbreath', 'pounce', 'sprint'],
+  metaxygnathus: ['crush', 'pounce', 'airbreath'], crassigyrinus: ['crush', 'regen', 'thickhide'],
   pneumodesmus: ['burrow', 'thickhide'], devonian_trigonotarbid: ['pounce', 'burrow', 'thickhide'], devonian_scorpion: ['impale', 'burrow', 'thickhide'],
+  rhyniella: ['evasion', 'burrow'], attercopus: ['websnare', 'evasion', 'venom'],
+  gilboa_arachnid: ['websnare', 'silksense', 'venom'], eophrynus: ['websnare', 'bastion', 'venom'],
   shore_polyp: ['nettle', 'bloom'], walking_medusa: ['bloom', 'nettle'], grove_anemone: ['shock', 'bloom', 'nettle'], storm_jelly: ['shock', 'bloom', 'venom'], coal_colony: ['rebirth', 'shock', 'venom'],
   mud_octopus: ['camo', 'grasp'], lung_octopus: ['grasp', 'camo'], grove_cephalopod: ['ink', 'grasp', 'camo'], canopy_kraken: ['grasp', 'ink', 'sprint'], coal_kraken: ['grasp', 'camo', 'sprint'],
 };

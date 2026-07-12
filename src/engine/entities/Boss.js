@@ -40,6 +40,15 @@ export class Boss extends Creature {
           this.biteCd = 1.2; this.mouth = 1; p.takeHit(game, this.dmg, this.x, this.y, this);
           game.danger = 1; game.shake = Math.min(16, game.shake + 5);
         }
+      } else if (this.bossKind === 'gilboa_matriarch') {
+        if (this.abilT <= 0) {
+          this.abilT = 5.5;
+          game.webs.push({ x: p.x, y: p.y, r: 125, angle: game.time, life: 8 });
+          burst(game, p.x, p.y, '#e8d9df', 18, 150); game.shake = Math.min(10, game.shake + 3);
+        }
+        if (bd < this.radius + p.radius + 18 && this.biteCd <= 0) {
+          this.biteCd = .85; this.mouth = 1; p.takeHit(game, this.dmg, this.x, this.y, this); game.danger = 1;
+        }
       } else {
         // Xiphos lunges on a cycle and bites fast
         if (this.abilT <= 0) { this.abilT = 4.6; this.dashT = 0.45; this.vx += Math.cos(this.angle) * 660; this.vy += Math.sin(this.angle) * 660; burst(game, this.x, this.y, '#ff8a7a', 20, 220); }
@@ -52,7 +61,7 @@ export class Boss extends Creature {
       if (dh > 28) { bx = (home.x - this.x) / (dh || 1); by = (home.y - this.y) / (dh || 1); bs = 0.5; this.faceTarget = Math.atan2(by, bx); }
       if (this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.06 * dt);   // heals back if you disengage
     }
-    const slowM = this.slowT > 0 ? 0.4 : 1;   // Shock only slows bosses
+    const slowM = (this.slowT > 0 ? 0.4 : 1) * (1 - game.webSlowAt(this.x, this.y) * .45);
     this.vx += bx * this.accel * bs * slowM * dt; this.vy += by * this.accel * bs * slowM * dt;
     this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * 6 * slowM));
     this.integrate(game, dt, 2.0, (this.dashT > 0 ? this.maxSpeed * 3 : this.maxSpeed) * slowM);

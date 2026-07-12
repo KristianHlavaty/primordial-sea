@@ -10,6 +10,7 @@ const THEME_SWATCH = {
   coast: 'linear-gradient(135deg,#b8a06a,#8a744a)',
   swamp: 'linear-gradient(135deg,#3f5a34,#20301b)',
   marsh: 'linear-gradient(135deg,#64734d,#293827)',
+  webgrove: 'linear-gradient(135deg,#4c4b43,#171c1d)',
 };
 
 export function AtlasModal({ engine, hud, onClose }) {

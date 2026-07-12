@@ -139,6 +139,17 @@ export function activateAbility(game, idx) {
     game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.55, R, color: '#9fdcff', dir: 'out', width: 4 });
     game.shake = Math.min(16, game.shake + 4);
   }
+  else if (id === 'websnare') {
+    const R = p.radius + 150;
+    for (const c of game.creatures.slice()) {
+      const d = hyp(c.x - p.x, c.y - p.y);
+      if (d >= R + c.radius) continue;
+      if (c.boss) c.slowT = Math.max(c.slowT || 0, 4);
+      else { c.stunT = Math.max(c.stunT || 0, 2.4); c.vx *= .15; c.vy *= .15; }
+      burst(game, c.x, c.y, '#d9e6df', 6, 65);
+    }
+    game.fx.push({ x: p.x, y: p.y, t: 0, max: .55, R, color: '#d9e6df', dir: 'out', width: 2 });
+  }
   else if (id === 'pounce') {
     // leap onto prey ahead: lunge forward, then a heavy landing that wounds + knocks down
     const st = p.species.stats;

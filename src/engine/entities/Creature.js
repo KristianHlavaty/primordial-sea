@@ -121,8 +121,9 @@ export class Creature extends Entity {
       ay -= this.floaty; this.faceTarget = Math.atan2(this.vy, this.vx || 0.001);
       if (pd < this.radius + p.radius + 4 && this.biteCd <= 0) { this.biteCd = 0.6; p.takeHit(game, this.dmg, this.x, this.y, this); }
     }
-    this.vx += ax * this.accel * sc * dt; this.vy += ay * this.accel * sc * dt;
+    const webM = 1 - game.webSlowAt(this.x, this.y) * .55;
+    this.vx += ax * this.accel * sc * webM * dt; this.vy += ay * this.accel * sc * webM * dt;
     this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * 8));
-    this.integrate(game, dt, 2.2);
+    this.integrate(game, dt, 2.2, this.maxSpeed * webM);
   }
 }

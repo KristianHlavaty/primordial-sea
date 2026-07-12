@@ -14,7 +14,29 @@ const LAND_THEMES = {
   coast: { ground: '#9c8452', patch: '#7a6238', pebble: '#b8a06a', mote: 'rgba(240,228,180,0.16)' },
   swamp: { ground: '#33482a', patch: '#22331b', pebble: '#4a6238', mote: 'rgba(180,220,150,0.14)' },
   marsh: { ground: '#425138', patch: '#283524', pebble: '#627052', mote: 'rgba(205,225,165,0.16)' },
+  webgrove: { ground: '#3f4239', patch: '#252b27', pebble: '#6e6d61', mote: 'rgba(225,225,205,0.13)' },
 };
+
+function drawWebFields(E) {
+  const ctx = E.ctx;
+  for (const w of E.webs || []) {
+    const x = w.x - E.cam.x, y = w.y - E.cam.y;
+    if (x < -w.r || x > E.vw + w.r || y < -w.r || y > E.vh + w.r) continue;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(w.angle || 0);
+    const fade = w.life == null ? 1 : Math.min(1, w.life / 1.5);
+    const gg = ctx.createRadialGradient(0, 0, 2, 0, 0, w.r); gg.addColorStop(0, `rgba(235,240,232,${.12 * fade})`); gg.addColorStop(1, 'rgba(225,235,228,0)');
+    ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(0, 0, w.r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = `rgba(225,232,226,${.48 * fade})`; ctx.lineWidth = 1.2;
+    const spokes = 10;
+    for (let i = 0; i < spokes; i++) { const a = i / spokes * TAU; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * w.r, Math.sin(a) * w.r); ctx.stroke(); }
+    for (let ring = 1; ring <= 4; ring++) {
+      const rr = w.r * ring / 4; ctx.beginPath();
+      for (let i = 0; i <= spokes; i++) { const a = i / spokes * TAU, warp = 1 + Math.sin(i * 2.3 + ring) * .05; const px = Math.cos(a) * rr * warp, py = Math.sin(a) * rr * warp; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+      ctx.closePath(); ctx.stroke();
+    }
+    ctx.fillStyle = `rgba(245,248,240,${.65 * fade})`; ctx.beginPath(); ctx.arc(0, 0, 3, 0, TAU); ctx.fill(); ctx.restore();
+  }
+}
 
 function drawBackground(E) {
   if (E.stage !== 'sea') { drawLandBackground(E); return; }
@@ -118,6 +140,8 @@ export function renderWorld(E) {
       for (let i = 0; i < 8; i++) { const x = ((i * 0.14 + 0.03) * E.W - E.cam.x); ctx.beginPath(); ctx.ellipse(x, floorScreenY + 70, 120, 40, 0, 0, TAU); ctx.fill(); }
     }
   }
+
+  drawWebFields(E);
 
   // plants
   for (const pl of E.plants) {

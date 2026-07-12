@@ -23,7 +23,7 @@ export function installDebugApi(engine, ui) {
       const b = engine.creatures.find(c => c.boss && c.bossKind === kind); if (!b) return 'none';
       b.hardenT = 0; engine.debugDamage(b, b.hp + 1000); return 'killed';
     },
-    perks: () => ({ dmgReduce: engine.perks.dmgReduce, dodge: engine.perks.dodge, list: engine.perks.list.map(x => x.id) }),
+    perks: () => ({ dmgReduce: engine.perks.dmgReduce, dodge: engine.perks.dodge, webResist: engine.perks.webResist, list: engine.perks.list.map(x => x.id) }),
     abState: () => {
       const p = engine.player;
       return p && p.abilities.map((id, i) => ({ i, id, cd: +(p.acd[id] || 0).toFixed(2), active: +((p[ACTIVE_TIMER[id]] || 0)).toFixed(2), passive: ABILITIES[id].passive }));
@@ -39,7 +39,7 @@ export function installDebugApi(engine, ui) {
         abilities: p && p.abilities.slice(), shield: p && Math.round(p.shield),
         level: p && p.level, xp: p && Math.round(p.xp), xpNeed: p && xpNeed(p.level), atkMul: p && +p.atkMul.toFixed(2),
         showLevels: engine.showLevels, floaters: engine.floaters.length,
-        perks: engine.perks.list.map(x => x.id), perkVals: { dmgReduce: engine.perks.dmgReduce, dodge: engine.perks.dodge },
+        perks: engine.perks.list.map(x => x.id), perkVals: { dmgReduce: engine.perks.dmgReduce, dodge: engine.perks.dodge, webResist: engine.perks.webResist },
         bossesDefeated: [...engine.bossesDefeated], achievement: engine.achievement && engine.achievement.perk,
         creatures: engine.creatures.length, plants: engine.plants.length, food: engine.food.length, kills: engine.kills
       };

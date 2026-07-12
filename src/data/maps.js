@@ -27,7 +27,12 @@ export const MAPS = {
   // --- Devonian landfall ---
   tidal_coast: {
     stage: 'devonian', name: 'The Devonian Tidal Coast', theme: 'coast',
-    W: 4200, H: 2600, bosses: ['tidewarden'], neighbors: {},
+    W: 4200, H: 2600, bosses: ['tidewarden'], neighbors: { right: 'silken_grove' },
+  },
+  silken_grove: {
+    stage: 'devonian', name: 'The Silken Grove', theme: 'webgrove',
+    W: 4300, H: 2650, bosses: ['gilboa_matriarch'], neighbors: { left: 'tidal_coast' },
+    webFields: 18,
   },
   coal_forest: {
     stage: 'carboniferous', name: 'The Coal Forest', theme: 'swamp',

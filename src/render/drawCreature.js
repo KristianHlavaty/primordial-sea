@@ -157,6 +157,45 @@ export function drawCreature(ctx, o) {
       }
       break;
     }
+    case 'arachnid': {
+      const legN = Math.max(4, (o.legs || 8) / 2), stride = Math.sin(t * 7), abdomen = o.abdomen || 1;
+      // Eight jointed walking legs sit behind the body masses.
+      ctx.strokeStyle = shade(body, -.38); ctx.lineWidth = Math.max(2, W * .14);
+      for (let i = 0; i < legN; i++) {
+        const x = lerp(L * .28, -L * .35, i / Math.max(1, legN - 1));
+        for (const s of [-1, 1]) {
+          const step = stride * (i % 2 ? -1 : 1) * 4, kneeX = x + (i < 2 ? L * .16 : -L * .08), kneeY = s * W * 1.2;
+          const footX = x + step + (i < 2 ? L * .18 : -L * .14), footY = s * W * (1.65 + i * .06);
+          ctx.beginPath(); ctx.moveTo(x, s * W * .45); ctx.lineTo(kneeX, kneeY); ctx.lineTo(footX, footY); ctx.stroke();
+        }
+      }
+      // Abdomen, narrow waist, and cephalothorax.
+      let ag = ctx.createRadialGradient(-L * .3, -W * .3, 1, -L * .3, 0, W * 1.5);
+      ag.addColorStop(0, shade(body, .3)); ag.addColorStop(1, shade(body, -.18));
+      ctx.fillStyle = ag; ctx.strokeStyle = shade(body, -.45); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(-L * .28, 0, L * .42 * abdomen, W * .82 * abdomen, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = shade(body, -.2); ctx.beginPath(); ctx.ellipse(L * .08, 0, L * .12, W * .32, 0, 0, TAU); ctx.fill();
+      ag = ctx.createRadialGradient(L * .32, -W * .25, 1, L * .3, 0, W * 1.2); ag.addColorStop(0, shade(body, .28)); ag.addColorStop(1, body);
+      ctx.fillStyle = ag; ctx.beginPath(); ctx.ellipse(L * .34, 0, L * .3, W * .72, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      if (o.abdomenMarks) {
+        ctx.fillStyle = withA(acc, .55);
+        for (let i = 0; i < o.abdomenMarks; i++) { const x = lerp(-L * .55, -L * .08, i / Math.max(1, o.abdomenMarks - 1)); ctx.beginPath(); ctx.ellipse(x, 0, L * .035, W * .52, 0, 0, TAU); ctx.fill(); }
+      }
+      if (o.armorRidges) {
+        ctx.strokeStyle = withA(acc, .65); ctx.lineWidth = 1.4;
+        for (let i = 0; i < o.armorRidges; i++) { const x = lerp(-L * .55, -L * .08, i / Math.max(1, o.armorRidges - 1)); ctx.beginPath(); ctx.moveTo(x, -W * .62); ctx.lineTo(x, W * .62); ctx.stroke(); }
+      }
+      // Grasping pedipalps distinguish it from the millipede route.
+      ctx.strokeStyle = body; ctx.lineWidth = W * .22;
+      for (const s of [-1, 1]) { const p = o.pedipalps || .7; ctx.beginPath(); ctx.moveTo(L * .5, s * W * .35); ctx.quadraticCurveTo(L * (.72 + p * .12), s * W * .72, L * (.72 + p * .22), s * W * (.45 + p * .2)); ctx.stroke(); }
+      if (o.silkPlates || o.spinnerets) {
+        const n = o.silkPlates || o.spinnerets; ctx.fillStyle = acc;
+        for (let i = 0; i < n; i++) { const y = (i - (n - 1) / 2) * W * .18; ctx.beginPath(); ctx.ellipse(-L * (.7 + abdomen * .05), y, L * .08, W * .08, 0, 0, TAU); ctx.fill(); }
+      }
+      const eyeN = Math.min(8, o.eyes || 6);
+      for (let i = 0; i < eyeN; i++) { const row = i < Math.ceil(eyeN / 2) ? -1 : 1, j = i % Math.ceil(eyeN / 2); eye(ctx, L * (.47 + j * .045), row * W * (.16 + j * .1), Math.max(1.5, W * .105)); }
+      break;
+    }
     case 'scorpion': {
       const seg = o.segments || 8, m = o.mouth || 0;
       // walking legs
@@ -279,6 +318,11 @@ export function drawCreature(ctx, o) {
         const cur = 0.4 + m * 0.4; ctx.beginPath(); ctx.moveTo(L * 0.65, s * W * 0.3);
         ctx.quadraticCurveTo(L * 1.0, s * W * 0.2, L * 1.05, s * W * 0.2 - cur * W * (s > 0 ? 1 : 1)); ctx.stroke();
       }
+      if (o.filterCrown) {
+        ctx.strokeStyle = withA(acc, .9); ctx.lineWidth = 1.5;
+        for (let i = 0; i < 9; i++) { const y = (i / 8 - .5) * W * 1.5; ctx.beginPath(); ctx.moveTo(L * .62, y * .35); ctx.lineTo(L * 1.18, y); ctx.stroke(); }
+        ctx.strokeStyle = shade(body, -.35); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(L * .7, 0, W * .4, 0, TAU); ctx.stroke();
+      }
       if (o.eyes) for (const s of [-1, 1]) { ctx.strokeStyle = shade(body, -0.2); ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(L * 0.55, s * W * 0.4); ctx.lineTo(L * 0.7, s * W * 0.85); ctx.stroke(); eye(ctx, L * 0.72, s * W * 0.85, W * 0.24); }
       break;
     }
@@ -330,18 +374,15 @@ export function drawCreature(ctx, o) {
       if (o.tailFin) {
         ctx.fillStyle = withA(acc, .65); ctx.beginPath(); ctx.moveTo(-L * .35, 0); ctx.quadraticCurveTo(-L * .8, -W * o.tailFin, -L * (1.12 + .25 * tf), ty); ctx.quadraticCurveTo(-L * .8, W * o.tailFin, -L * .35, 0); ctx.fill();
       }
-      if (o.filterCrown) {
-        ctx.strokeStyle = withA(acc, .9); ctx.lineWidth = 1.5;
-        for (let i = 0; i < 9; i++) { const y = (i / 8 - .5) * W * 1.5; ctx.beginPath(); ctx.moveTo(L * .62, y * .35); ctx.lineTo(L * 1.18, y); ctx.stroke(); }
-        ctx.strokeStyle = shade(body, -.35); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(L * .7, 0, W * .4, 0, TAU); ctx.stroke();
-      }
       // legs (front pair near head, rear pair near hips), alternating gait
       ctx.strokeStyle = shade(body, -0.3); ctx.lineWidth = W * 0.28; ctx.lineCap = 'round';
       const legAt = (lx, phase) => {
         for (const s of [-1, 1]) {
           const beat = Math.sin(t * 6 + phase + (s > 0 ? 0 : Math.PI)) * 0.4;
+          const ex = lx - W * .3 + beat * 8, ey = s * W * (1.2 + .5 * limb);
           ctx.beginPath(); ctx.moveTo(lx, s * W * 0.6);
-          ctx.quadraticCurveTo(lx + beat * 6, s * W * (1.05 + .2 * limb), lx - W * 0.3 + beat * 8, s * W * (1.2 + .5 * limb)); ctx.stroke();
+          ctx.quadraticCurveTo(lx + beat * 6, s * W * (1.05 + .2 * limb), ex, ey); ctx.stroke();
+          if (o.digits) { ctx.strokeStyle = withA(acc, .85); ctx.lineWidth = 1.4; for (let d = 0; d < o.digits; d++) { const off = (d - (o.digits - 1) / 2) * .18; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + W * .28, ey + s * W * off); ctx.stroke(); } ctx.strokeStyle = shade(body, -.3); ctx.lineWidth = W * .28; }
         }
       };
       legAt(L * 0.42, 0); legAt(-L * 0.12, Math.PI);
@@ -357,6 +398,14 @@ export function drawCreature(ctx, o) {
       ctx.fillStyle = withA(o.patternColor || shade(body, -0.2), 0.55);
       const marks = o.marks === undefined ? 4 : o.marks;
       for (let i = 0; i < marks; i++) { const x = lerp(L * 0.5, -L * 0.2, i / Math.max(1, marks - 1)); ctx.beginPath(); if (o.stripes) ctx.ellipse(x, 0, W * .12, W * .72, 0, 0, TAU); else ctx.ellipse(x, (i % 2 ? 1 : -1) * W * .3, W * .22, W * .16, 0, 0, TAU); ctx.fill(); }
+      if (o.gillFrills) {
+        ctx.strokeStyle = withA(acc, .85); ctx.lineWidth = 1.8;
+        for (const s of [-1, 1]) for (let i = 0; i < o.gillFrills; i++) { const x = L * (.45 - i * .06); ctx.beginPath(); ctx.moveTo(x, s * W * .55); ctx.lineTo(x - L * .08, s * W * (1 + i * .12)); ctx.stroke(); }
+      }
+      if (o.dorsalRidge) {
+        ctx.fillStyle = withA(acc, .78);
+        for (let i = 0; i < o.dorsalRidge; i++) { const x = lerp(-L * .2, L * .42, i / Math.max(1, o.dorsalRidge - 1)); ctx.beginPath(); ctx.moveTo(x - 3, W * .08); ctx.lineTo(x, -W * .42); ctx.lineTo(x + 3, W * .08); ctx.closePath(); ctx.fill(); }
+      }
       // broad head
       const hg = ctx.createRadialGradient(L * 0.85, -W * 0.2, 1, L * 0.8, 0, W * 1.4);
       hg.addColorStop(0, shade(body, 0.32)); hg.addColorStop(1, body);

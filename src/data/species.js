@@ -261,7 +261,7 @@ export const SPECIES = {
     desc: 'A fish that learned to prop itself up and gulp air — the first lurch onto the mudflats.',
     stats: { hp: 230, accel: 980, maxSpeed: 250, dmg: 36, reach: 15, radius: 22, dashCd: 0.42, dashPow: 430, turn: 12 },
     plan: P({ kind: 'tetrapod', len: 27, wid: 10, body: '#788b52', accent: '#b7cf77', teeth: true, tail: 1.28, tailFin: .9, limb: .58, headScale: .72, snout: 1.22, marks: 0 }),
-    evolvesTo: ['acanthostega']
+    evolvesTo: ['acanthostega', 'elpistostege']
   },
   acanthostega: {
     name: 'Acanthostega', tier: 2, branch: 'tetra', stage: 'devonian',
@@ -290,13 +290,19 @@ export const SPECIES = {
     evolvesTo: []
   },
 
+  // Alternate Tiktaalik route: late-Devonian stem tetrapods.
+  elpistostege: { name: 'Elpistostege', tier: 2, branch: 'tetra', stage: 'devonian', desc: 'A broad-headed elpistostegalian whose fin skeleton already contains the bones of a weight-bearing hand.', stats: { hp: 255, accel: 1030, maxSpeed: 265, dmg: 39, reach: 17, radius: 23, dashCd: .4, dashPow: 445, turn: 13 }, plan: P({ kind: 'tetrapod', len: 32, wid: 11, body: '#4f7771', accent: '#92c4ae', teeth: true, tail: 1.3, tailFin: .82, limb: .64, headScale: .72, snout: 1.32, marks: 6, stripes: true, gillFrills: 3 }), evolvesTo: ['tulerpeton'] },
+  tulerpeton: { name: 'Tulerpeton', tier: 3, branch: 'tetra', stage: 'devonian', desc: 'A six-toed late-Devonian tetrapod with powerful limbs suited to brackish shallows and exposed banks.', stats: { hp: 300, accel: 1060, maxSpeed: 270, dmg: 46, reach: 18, radius: 26, dashCd: .39, dashPow: 460, turn: 13 }, plan: P({ kind: 'tetrapod', len: 32, wid: 14, body: '#596d43', accent: '#b6ca74', teeth: true, tail: .86, tailFin: .18, limb: 1.38, headScale: .86, snout: 1.08, marks: 4, digits: 3 }), evolvesTo: ['metaxygnathus'] },
+  metaxygnathus: { name: 'Metaxygnathus', tier: 4, branch: 'tetra', stage: 'devonian', desc: 'A massive flat-headed river predator from the final Devonian floodplains.', stats: { hp: 365, accel: 970, maxSpeed: 250, dmg: 57, reach: 21, radius: 30, dashCd: .42, dashPow: 475, turn: 11 }, plan: P({ kind: 'tetrapod', len: 38, wid: 20, body: '#4c5736', accent: '#c49a5c', teeth: true, tail: .92, limb: 1.05, headScale: 1.3, snout: 1.38, marks: 8, patternColor: '#28341f', dorsalRidge: 5 }), evolvesTo: ['crassigyrinus'] },
+  crassigyrinus: { name: 'Crassigyrinus', tier: 1, branch: 'tetra', stage: 'carboniferous', desc: 'A long-bodied Carboniferous ambush hunter with tiny limbs, an immense skull and a powerful swimming tail.', stats: { hp: 410, accel: 940, maxSpeed: 260, dmg: 62, reach: 23, radius: 32, dashCd: .43, dashPow: 480, turn: 10 }, plan: P({ kind: 'tetrapod', len: 45, wid: 19, body: '#303f35', accent: '#8ca56c', teeth: true, tail: 1.42, tailFin: .38, limb: .48, headScale: 1.28, snout: 1.42, marks: 5, stripes: true }), evolvesTo: [] },
+
   // --- myriapods (from the arthropod lineages) ---
   kampecaris: {
     name: 'Kampecaris', tier: 1, branch: 'myria', stage: 'devonian', landfall: true, seaBranches: ['arth'],
     desc: 'An armored little myriapod — among the very first animals to breathe air and walk the shore.',
     stats: { hp: 250, accel: 940, maxSpeed: 235, dmg: 33, reach: 13, radius: 21, dashCd: 0.46, dashPow: 400, turn: 11 },
     plan: P({ kind: 'arthro', len: 24, wid: 10, body: '#bd8547', accent: '#f0ca83', segments: 8, legs: 12, eyes: 2, armorRidges: 3 }),
-    evolvesTo: ['pneumodesmus']
+    evolvesTo: ['pneumodesmus', 'rhyniella']
   },
   pneumodesmus: { name: 'Pneumodesmus', tier: 2, branch: 'myria', stage: 'devonian', desc: 'A tiny air-breathing millipede whose spiracles permit permanent life ashore.', stats: { hp: 275, accel: 950, maxSpeed: 240, dmg: 36, reach: 14, radius: 22, dashCd: .45, dashPow: 410, turn: 11 }, plan: P({ kind: 'arthro', len: 31, wid: 9, body: '#8c6138', accent: '#d7a760', segments: 13, legs: 20, eyes: 2, armorRidges: 9 }), evolvesTo: ['devonian_trigonotarbid'] },
   devonian_trigonotarbid: { name: 'Trigonotarbid', tier: 3, branch: 'myria', stage: 'devonian', desc: 'An early terrestrial arachnid hunting among damp floodplain litter.', stats: { hp: 305, accel: 1010, maxSpeed: 255, dmg: 44, reach: 16, radius: 25, dashCd: .42, dashPow: 440, turn: 12 }, plan: P({ kind: 'arthro', len: 27, wid: 18, body: '#57392e', accent: '#bc7958', segments: 4, legs: 8, eyes: 2, horns: 1.2, spikes: 2 }), evolvesTo: ['devonian_scorpion'] },
@@ -315,6 +321,12 @@ export const SPECIES = {
     plan: P({ kind: 'scorpion', len: 40, wid: 17, body: '#7a5a2f', accent: '#e0b070', segments: 9, claws: true, spikes: 3, legs: 8, eyes: 2 }),
     evolvesTo: []
   },
+  // Alternate Kampecaris route: springtails and early silk-producing arachnids.
+  rhyniella: { name: 'Rhyniella', tier: 2, branch: 'myria', stage: 'devonian', desc: 'A minute springtail from the Rhynie ecosystem, quick-footed and able to launch itself from danger.', stats: { hp: 245, accel: 1120, maxSpeed: 285, dmg: 34, reach: 14, radius: 20, dashCd: .35, dashPow: 470, turn: 15 }, plan: P({ kind: 'arthro', len: 22, wid: 9, body: '#827251', accent: '#d9d18c', segments: 6, legs: 6, eyes: 2, stalks: true, horns: .6 }), evolvesTo: ['attercopus'] },
+  attercopus: { name: 'Attercopus', tier: 3, branch: 'myria', stage: 'devonian', desc: 'A spider-relative with silk-producing plates but no true spinnerets, stalking the damp forest floor.', stats: { hp: 290, accel: 1080, maxSpeed: 275, dmg: 45, reach: 18, radius: 25, dashCd: .37, dashPow: 465, turn: 14 }, plan: P({ kind: 'arachnid', len: 29, wid: 15, body: '#674939', accent: '#cf9364', legs: 8, eyes: 6, abdomen: .9, pedipalps: .7, silkPlates: 3 }), evolvesTo: ['gilboa_arachnid'] },
+  gilboa_arachnid: { name: 'Gilboa Arachnid', tier: 4, branch: 'myria', stage: 'devonian', desc: 'A true spider-like hunter with a narrow waist, grasping pedipalps and precise silk control.', stats: { hp: 335, accel: 1150, maxSpeed: 290, dmg: 53, reach: 20, radius: 28, dashCd: .34, dashPow: 490, turn: 15 }, plan: P({ kind: 'arachnid', len: 33, wid: 17, body: '#3d3533', accent: '#d46f54', legs: 8, eyes: 8, abdomen: 1.2, pedipalps: 1.05, spinnerets: 2, abdomenMarks: 5 }), evolvesTo: ['eophrynus'] },
+  eophrynus: { name: 'Eophrynus', tier: 1, branch: 'myria', stage: 'carboniferous', desc: 'A heavily plated Carboniferous trigonotarbid with raptorial pedipalps and a ridged abdomen.', stats: { hp: 385, accel: 1080, maxSpeed: 275, dmg: 59, reach: 21, radius: 31, dashCd: .37, dashPow: 485, turn: 13 }, plan: P({ kind: 'arachnid', len: 37, wid: 21, body: '#342d2a', accent: '#b77b45', legs: 8, eyes: 6, abdomen: 1.35, pedipalps: 1.2, armorRidges: 6, abdomenMarks: 7 }), evolvesTo: [] },
+
   // Optional swift-fish future: an amphibious fish-descendant lineage.
   mudfin_strider: { name: 'Mudfin Strider', tier: 1, branch: 'tideborn', stage: 'devonian', landfall: true, fantasy: true, seaBranches: ['chord'], seaSpecies: ['xenacanthus'], desc: 'Fantasy: a swift shark-descendant using reinforced paired fins to scramble between shrinking pools.', stats: { hp: 225, accel: 1120, maxSpeed: 275, dmg: 36, reach: 16, radius: 22, dashCd: .38, dashPow: 455, turn: 14 }, plan: P({ kind: 'fishwalker', len: 28, wid: 12, body: '#477f83', accent: '#9fe5d5', tail: 1.2, limb: .7, upright: .15, crest: 2, stripes: 5 }), evolvesTo: ['reedscale_stalker'] },
   reedscale_stalker: { name: 'Reedscale Stalker', tier: 2, branch: 'tideborn', stage: 'devonian', fantasy: true, desc: 'Fantasy: webbed grasping forelimbs and stronger hips turn a pool-hopper into an alert reed-bed hunter.', stats: { hp: 270, accel: 1140, maxSpeed: 280, dmg: 42, reach: 18, radius: 24, dashCd: .37, dashPow: 465, turn: 14 }, plan: P({ kind: 'fishwalker', len: 30, wid: 14, body: '#356e68', accent: '#a4d98a', tail: .95, limb: .9, upright: .4, crest: 3, stripes: 4 }), evolvesTo: ['gillrunner'] },

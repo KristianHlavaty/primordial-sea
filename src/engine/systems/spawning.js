@@ -19,7 +19,7 @@ export function offscreenPoint(game) {
   return { x: rand(120, game.W - 120), y: rand(120, game.H - 120) };
 }
 
-function eligibleNpcs(game) { return Object.keys(NPCS).filter(k => npcStage(k) === game.stage && NPCS[k].minEra <= game.era); }
+function eligibleNpcs(game) { return Object.keys(NPCS).filter(k => npcStage(k) === game.stage && NPCS[k].minEra <= game.era && (!NPCS[k].maps || NPCS[k].maps.includes(game.mapId))); }
 
 /* Weighted roll over every species of this stage unlocked in this era. */
 function weightedNpc(game) {
@@ -57,6 +57,13 @@ export function spawnPlant(game, x, y, kind) {
 
 export function spawnInitial(game) {
   game.creatures.length = 0; game.plants.length = 0; game.food.length = 0; game.particles.length = 0; game.eggs.length = 0;
+  game.webs.length = 0;
+  const webCount = MAPS[game.mapId].webFields || 0;
+  for (let i = 0; i < webCount; i++) {
+    let x = 260 + (i * 733) % (game.W - 520), y = 240 + (i * 977) % (game.H - 480);
+    if (Math.abs(x - game.player.x) < 300 && Math.abs(y - game.player.y) < 260) x = (x + 700) % (game.W - 300) + 150;
+    game.webs.push({ x, y, r: 92 + (i % 4) * 24, angle: i * .73 });
+  }
   const target = creatureTarget(game.era);
   for (let i = 0; i < target; i++) spawnRandomNpc(game);
   // seed some easy food near the player at start

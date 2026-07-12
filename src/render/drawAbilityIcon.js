@@ -29,7 +29,7 @@ export function drawAbilityIcon(ctx, id, size, color) {
       for (let i = 0; i < 4; i++) { const x = -r + i * r * 0.55; ctx.lineTo(x + r * 0.27, s * r * 0.12); ctx.lineTo(x + r * 0.55, s * r * 0.62); }
       ctx.closePath(); ctx.fill();
     }
-  } else if (id === 'evasion' || id === 'ampullae') { // after-image blur
+  } else if (id === 'evasion' || id === 'ampullae' || id === 'silksense') { // after-image blur / heightened senses
     ctx.beginPath(); ctx.ellipse(r * 0.28, 0, r * 0.5, r * 0.32, 0, 0, TAU); ctx.fill(); ctx.stroke();
     ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.ellipse(-r * 0.38, 0, r * 0.5, r * 0.32, 0, 0, TAU); ctx.fill(); ctx.stroke(); ctx.globalAlpha = 1;
   } else if (id === 'engulf') {  // inward suction arrows
@@ -38,7 +38,7 @@ export function drawAbilityIcon(ctx, id, size, color) {
       const a = i / 4 * TAU; const ox = Math.cos(a), oy = Math.sin(a); ctx.beginPath();
       ctx.moveTo(ox * r * 1.05, oy * r * 1.05); ctx.lineTo(ox * r * 0.62, oy * r * 0.62); ctx.moveTo(ox * r * 0.62, oy * r * 0.62); ctx.lineTo(ox * r * 0.62 - oy * r * 0.22, oy * r * 0.62 + ox * r * 0.22); ctx.moveTo(ox * r * 0.62, oy * r * 0.62); ctx.lineTo(ox * r * 0.62 + oy * r * 0.22, oy * r * 0.62 - ox * r * 0.22); ctx.stroke();
     }
-  } else if (id === 'bloom') {   // radiating stinging tentacles
+  } else if (id === 'bloom' || id === 'websnare') {   // radiating tentacles / silk web
     ctx.beginPath(); ctx.arc(0, 0, r * 0.32, 0, TAU); ctx.fill(); ctx.stroke();
     for (let i = 0; i < 8; i++) {
       const a = i / 8 * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * 0.3, Math.sin(a) * r * 0.3);
@@ -127,7 +127,7 @@ export function drawAbilityIcon(ctx, id, size, color) {
     ctx.lineWidth = size * 0.09;
     for (let i = 0; i < 3; i++) { const y = (i - 1) * r * 0.55; ctx.beginPath(); ctx.moveTo(-r * 1.0 + i * r * 0.15, y); ctx.lineTo(r * 0.2 + i * r * 0.15, y); ctx.stroke(); }
     ctx.beginPath(); ctx.moveTo(r * 0.2, -r * 0.6); ctx.lineTo(r * 0.95, 0); ctx.lineTo(r * 0.2, r * 0.6); ctx.stroke();
-  } else if (id === 'regen') {    // heart / regrowth cross with spark
+  } else if (id === 'regen' || id === 'airbreath') {    // regeneration / efficient breathing
     ctx.fillStyle = col;
     ctx.fillRect(-r * 0.22, -r * 0.75, r * 0.44, r * 1.5);
     ctx.fillRect(-r * 0.75, -r * 0.22, r * 1.5, r * 0.44);

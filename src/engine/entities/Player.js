@@ -112,7 +112,7 @@ export class Player extends Entity {
     if (game.invincible) { burst(game, this.x, this.y, '#ff5d68', 3, 45); return; }
     if (this.enrollT > 0) { burst(game, this.x, this.y, '#ffe6b0', 4, 60); return; }
     if (this.burrowT > 0) { burst(game, this.x, this.y, '#c79a5e', 4, 60); return; }   // underground — untouchable
-    const dodgeCh = (this.hasAbility('evasion') ? 0.25 : 0) + (this.hasAbility('ampullae') ? .15 : 0) + game.perks.dodge;
+    const dodgeCh = (this.hasAbility('evasion') ? 0.25 : 0) + (this.hasAbility('ampullae') ? .15 : 0) + (this.hasAbility('silksense') ? .14 : 0) + game.perks.dodge;
     if (dodgeCh > 0 && Math.random() < dodgeCh) {
       for (let i = 0; i < 7; i++) game.particles.push({ x: this.x + rand(-6, 6), y: this.y + rand(-6, 6), vx: rand(-60, 60), vy: rand(-60, 60), life: 0.3, max: 0.3, size: 2.2, color: 'rgba(138,255,208,0.75)' });
       game.sfx.play('dodge'); return;
@@ -180,6 +180,7 @@ export class Player extends Entity {
     const accMul = enrolled ? 0.25 : withdrawn ? 0.35 : burrowed ? 1.5 : (hasted ? 1.6 : 1);
     const baseSpd = st.maxSpeed * this.spdMul;
     const spdCap = enrolled ? baseSpd * 0.5 : withdrawn ? baseSpd * 0.55 : burrowed ? baseSpd * 1.5 : (hasted ? baseSpd * 1.8 : baseSpd);
+    const webM = 1 - game.webSlowAt(this.x, this.y) * .55 * (1 - (game.perks.webResist || 0));
 
     // keyboard wins; otherwise steer toward the mouse (dead zone of 24px)
     let ix = 0, iy = 0;
@@ -190,14 +191,14 @@ export class Player extends Entity {
       const dx = game.worldMouse.x - this.x, dy = game.worldMouse.y - this.y, l = hyp(dx, dy);
       if (l > 24) { tx = dx / l; ty = dy / l; moving = true; }
     }
-    if (moving) { this.vx += tx * st.accel * accMul * dt; this.vy += ty * st.accel * accMul * dt; this.faceTarget = Math.atan2(ty, tx); }
+    if (moving) { this.vx += tx * st.accel * accMul * webM * dt; this.vy += ty * st.accel * accMul * webM * dt; this.faceTarget = Math.atan2(ty, tx); }
     this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * st.turn * (hasted ? 1.3 : 1)));
 
     if (game.biteHeld && !enrolled && !withdrawn && !burrowed) this.bite(game);
     this.cd = Math.max(0, this.cd - dt); this.biteT = Math.max(0, this.biteT - dt);
     this.biteAnim = Math.max(0, this.biteAnim - dt * 3); this.mouth = this.biteAnim; this.hurt = Math.max(0, this.hurt - dt * 3);
     const lunging = this.biteT > 0 || this.jetT > 0 || this.ramT > 0;   // dash windows lift the speed cap
-    this.integrate(game, dt, enrolled ? 3.4 : 2.4, lunging ? spdCap * 2.4 : spdCap);
+    this.integrate(game, dt, enrolled ? 3.4 : 2.4, (lunging ? spdCap * 2.4 : spdCap) * webM);
     this.resolveBite(game);
 
     // Ram — shell-first charge: batter everything hit once per charge
@@ -272,5 +273,6 @@ export class Player extends Entity {
       const inCombat = game.time - game.lastHurt < 3;
       this.hp = Math.min(this.maxHp, this.hp + (inCombat ? 5 : 12) * dt);
     }
+    if (this.hasAbility('airbreath') && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 7 * dt);
   }
 }
