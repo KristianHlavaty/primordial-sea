@@ -80,7 +80,8 @@ export function spawnInitial(game) {
   for (let i = 0; i < 6; i++) game.creatures.push(Creature.spawn(easyPrey(game), game.player.x + rand(-260, 260), game.player.y + rand(-200, 200), game.era));
   for (let i = 0; i < plantCap(game); i++) seedPlant(game);
   game.bubbles.length = 0;
-  for (let i = 0; i < 120; i++) game.bubbles.push({ x: rand(0, game.vw), y: rand(0, game.vh), r: rand(0.6, 2.6), sp: rand(6, 26), ph: rand(0, TAU) });
+  if (game.stage === 'sea')   // bubbles are underwater ambiance only
+    for (let i = 0; i < 120; i++) game.bubbles.push({ x: rand(0, game.vw), y: rand(0, game.vh), r: rand(0.6, 2.6), sp: rand(6, 26), ph: rand(0, TAU) });
   for (const k of (MAPS[game.mapId].bosses || [])) if (!game.bossesDefeated.has(k)) game.creatures.push(new Boss(k, game));
 }
 

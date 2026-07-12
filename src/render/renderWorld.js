@@ -95,13 +95,8 @@ function drawCurrent(E) {
 }
 
 function drawBubbles(E) {
+  if (E.stage !== 'sea') return;   // bubbles are an underwater effect — none on land
   const ctx = E.ctx;
-  if (E.stage !== 'sea') {
-    // drifting dust / pollen motes instead of bubbles
-    ctx.fillStyle = (LAND_THEMES[E.theme] || LAND_THEMES.coast).mote;
-    for (const b of E.bubbles) { ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); }
-    return;
-  }
   ctx.fillStyle = 'rgba(200,235,255,0.18)';
   for (const b of E.bubbles) { ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); }
 }
