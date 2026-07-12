@@ -58,7 +58,6 @@ export class Player extends Entity {
     const st = this.species.stats;
     this.cd = st.dashCd * (this.frenzyT > 0 ? 0.5 : 1); this.biteT = 0.28; this.biteAnim = 1; this.hitSet = new Set();
     this.vx += Math.cos(this.angle) * st.dashPow; this.vy += Math.sin(this.angle) * st.dashPow;
-    game.sfx.play('bite');
     const mx = this.x + Math.cos(this.angle) * this.radius, my = this.y + Math.sin(this.angle) * this.radius;
     burst(game, mx, my, '#bfefff', 5, 90);
   }
