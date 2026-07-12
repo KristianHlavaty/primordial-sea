@@ -86,6 +86,14 @@ function drawLandBackground(E) {
   }
 }
 
+/* Faint streaks flowing with the sea current — screen-space water texture. */
+function drawCurrent(E) {
+  if (E.stage !== 'sea' || !E.flow || !E.flow.length) return;
+  const ctx = E.ctx;
+  ctx.strokeStyle = 'rgba(170,220,255,0.09)'; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+  for (const s of E.flow) { ctx.beginPath(); ctx.moveTo(s.px, s.py); ctx.lineTo(s.x, s.y); ctx.stroke(); }
+}
+
 function drawBubbles(E) {
   const ctx = E.ctx;
   if (E.stage !== 'sea') {
@@ -127,6 +135,7 @@ export function renderWorld(E) {
   if (!E.vw) E.resize();
   ctx.clearRect(0, 0, E.vw, E.vh);
   drawBackground(E);
+  drawCurrent(E);
   if (!E.player) return;
   const shX = (Math.random() * 2 - 1) * E.shake, shY = (Math.random() * 2 - 1) * E.shake;
   ctx.save(); ctx.translate(shX, shY);

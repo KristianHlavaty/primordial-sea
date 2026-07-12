@@ -28,6 +28,8 @@ import { burst } from './systems/effects.js';
 import { renderWorld } from '../render/renderWorld.js';
 import { Sfx } from './audio.js';
 
+const CURRENT_SPEED = 165;   // sea-stage water current — px/s of drift at full strength
+
 export class Engine {
   constructor(canvas, { onHud }) {
     this.canvas = canvas;
@@ -45,6 +47,7 @@ export class Engine {
     this.player = null;
     this.creatures = []; this.plants = []; this.food = [];
     this.webs = [];
+    this.flow = [];   // sea-current streak particles (screen-space visual)
     this.particles = []; this.bubbles = []; this.eggs = []; this.fx = []; this.floaters = [];
     this.cam = { x: 0, y: 0 }; this.shake = 0; this.danger = 0;
 
@@ -169,6 +172,49 @@ export class Engine {
     let slow = 0;
     for (const w of this.webs) { const dx = x - w.x, dy = y - w.y, d = Math.sqrt(dx * dx + dy * dy); if (d < w.r) slow = Math.max(slow, 1 - d / w.r * .35); }
     return slow;
+  }
+
+  /* ---------------- sea current ---------------- */
+
+  /* A smooth, meandering flow field (px/s). Only the sea flows; land is still.
+     The dominant heading rotates slowly and both heading and strength wave
+     across the map, so different areas push you different ways. */
+  currentAt(x, y) {
+    if (this.stage !== 'sea') return { x: 0, y: 0 };
+    const t = this.time;
+    const ang = t * 0.04 + Math.sin(x * 0.0011 + y * 0.0009 + t * 0.08) * 0.7;
+    const mag = CURRENT_SPEED * (0.7 + 0.3 * Math.sin(x * 0.0015 - y * 0.0012 - t * 0.06));
+    return { x: Math.cos(ang) * mag, y: Math.sin(ang) * mag };
+  }
+
+  /* Sweep the player, free creatures and drifting food along with the current.
+     Bosses are anchored to their leash spot and shrug it off. */
+  applyCurrent(dt) {
+    if (this.stage !== 'sea') return;
+    const p = this.player, cp = this.currentAt(p.x, p.y);
+    p.x = clamp(p.x + cp.x * dt, p.radius, this.W - p.radius);
+    p.y = clamp(p.y + cp.y * dt, p.radius, this.H - p.radius);
+    for (const c of this.creatures) {
+      if (c.boss) continue;
+      const cc = this.currentAt(c.x, c.y);
+      c.x = clamp(c.x + cc.x * dt, c.radius, this.W - c.radius);
+      c.y = clamp(c.y + cc.y * dt, c.radius, this.H - c.radius);
+    }
+    for (const f of this.food) { const cf = this.currentAt(f.x, f.y); f.x += cf.x * dt * 0.8; f.y += cf.y * dt * 0.8; }
+  }
+
+  /* Advance the drifting flow streaks (a faint screen-space visual of the
+     current), seeding them the first time the sea is on screen. */
+  updateFlow(dt) {
+    if (this.stage !== 'sea') return;
+    if (!this.flow.length && this.vw) for (let i = 0; i < 70; i++) { const x = Math.random() * this.vw, y = Math.random() * this.vh; this.flow.push({ x, y, px: x, py: y }); }
+    for (const s of this.flow) {
+      const c = this.currentAt(this.cam.x + s.x, this.cam.y + s.y);
+      s.px = s.x; s.py = s.y;
+      s.x += c.x * dt * 1.8; s.y += c.y * dt * 1.8;
+      if (s.x < -20) { s.x = this.vw + 20; s.px = s.x; } else if (s.x > this.vw + 20) { s.x = -20; s.px = s.x; }
+      if (s.y < -20) { s.y = this.vh + 20; s.py = s.y; } else if (s.y > this.vh + 20) { s.y = -20; s.py = s.y; }
+    }
   }
 
   /* ---------------- evolution ---------------- */
@@ -331,6 +377,8 @@ export class Engine {
     this.danger = Math.max(0, this.danger - dt * 0.6);
     for (const c of this.creatures) c.update(this, dt);
 
+    this.applyCurrent(dt);   // sea current sweeps player + free creatures + food
+
     // food pellets: drift, get pulled toward the player, get eaten
     // (Filter Feed widens the pull and makes each pellet nourish more)
     const filterFeed = p.hasAbility('filter');
@@ -367,7 +415,13 @@ export class Engine {
     }
     for (const e of this.eggs) e.t += dt;
     for (let i = this.webs.length - 1; i >= 0; i--) { const w = this.webs[i]; if (w.life == null) continue; w.life -= dt; if (w.life <= 0) this.webs.splice(i, 1); }
-    for (const b of this.bubbles) { b.y -= b.sp * dt; b.x += Math.sin(this.time + b.ph) * 6 * dt; if (b.y < -4) { b.y = this.vh + 4; b.x = Math.random() * this.vw; } }
+    this.updateFlow(dt);
+    for (const b of this.bubbles) {
+      b.y -= b.sp * dt; b.x += Math.sin(this.time + b.ph) * 6 * dt;
+      if (this.stage === 'sea') { const c = this.currentAt(this.cam.x + b.x, this.cam.y + b.y); b.x += c.x * dt * 0.5; }
+      if (b.y < -4) { b.y = this.vh + 4; b.x = Math.random() * this.vw; }
+      if (b.x < -12) b.x = this.vw + 12; else if (b.x > this.vw + 12) b.x = -12;
+    }
 
     // max level: evolve within the stage, or (sea apex) offer to crawl ashore
     if (!this.pendingEvolve && !this.dead && !this.advanceAvailable && p.level >= MAX_LEVEL && p.species.evolvesTo.length) this.triggerEvolve();
