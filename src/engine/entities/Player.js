@@ -109,6 +109,7 @@ export class Player extends Entity {
      Barbs/Nettle punish the attacker, Ironhide and the shield soak damage. */
   takeHit(game, dmg, fromx, fromy, attacker) {
     if (this.hp <= 0) return;
+    if (game.invincible) { burst(game, this.x, this.y, '#ff5d68', 3, 45); return; }
     if (this.enrollT > 0) { burst(game, this.x, this.y, '#ffe6b0', 4, 60); return; }
     if (this.burrowT > 0) { burst(game, this.x, this.y, '#c79a5e', 4, 60); return; }   // underground — untouchable
     const dodgeCh = (this.hasAbility('evasion') ? 0.25 : 0) + game.perks.dodge;

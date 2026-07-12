@@ -10,6 +10,7 @@ export const PERKS = {
   reflexes:  { name: 'Reflexes',   icon: 'evasion',   color: '#8affd0', dodge: 0.08,     blurb: '+8% dodge chance' },
   thickskin: { name: 'Thick Skin', icon: 'thickhide', color: '#c9a06a', dmgReduce: 0.06, blurb: '+6% damage resistance' },
   swiftstep: { name: 'Swift Step', icon: 'sprint',    color: '#9ce0a0', dodge: 0.08,     blurb: '+8% dodge chance' },
+  mireblood: { name: 'Mireblood', icon: 'regen', color: '#9bd47a', dmgReduce: 0.05, blurb: '+5% damage resistance' },
 };
 
 export const BOSSES = {
@@ -36,5 +37,10 @@ export const BOSSES = {
     title: 'Titanopod, the Sovereign', short: 'Sovereign', kind: 'arthro', at: { x: 0.86, y: 0.5 },
     radius: 48, hp: 1050, dmg: 46, accel: 900, maxSpeed: 235, sense: 660, leash: 980, perk: 'swiftstep', meat: 150,
     plan: P({ kind: 'arthro', len: 64, wid: 30, body: '#8a5c2e', accent: '#e0aa5e', segments: 16, spikes: 5, legs: 24, eyes: 2, stalks: true })
+  },
+  marshqueen: {
+    title: 'Gorgona, the Marsh Queen', short: 'Marsh Queen', kind: 'tetrapod', at: { x: 0.82, y: 0.72 },
+    radius: 49, hp: 1120, dmg: 48, accel: 940, maxSpeed: 240, sense: 680, leash: 980, perk: 'mireblood', meat: 155,
+    plan: P({ kind: 'tetrapod', len: 62, wid: 31, body: '#435c36', accent: '#a8d17b', teeth: true, tail: .9 })
   },
 };

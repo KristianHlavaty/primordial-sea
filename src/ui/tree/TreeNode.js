@@ -7,10 +7,11 @@ import { CreatureCanvas } from '../components/CreatureCanvas.js';
 export function TreeNode({ node, pos, NW, NH, current, hovered, onHover }) {
   const abils = ABILITY_SETS[node.id] || [];
   return html`
-    <div className=${'tnode ' + node.branch + (current ? ' current' : '') + (hovered ? ' hov' : '')}
+    <div className=${'tnode ' + node.branch + (node.fantasy ? ' fantasy' : '') + (current ? ' current' : '') + (hovered ? ' hov' : '')}
          style=${{ left: pos.x, top: pos.yc - NH / 2, width: NW, '--bc': BRANCH_COL[node.branch] }}
          onMouseEnter=${() => onHover(node.id)} onClick=${() => onHover(node.id)}>
       <${CreatureCanvas} id=${node.id} w=${NW - 2} h=${46} className="tnCanvas"/>
+      ${node.fantasy && html`<span className="fantasyDragon" title="Fantasy creature">🐉</span>`}
       <div className="tnName">${node.name}</div>
       <div className="tnDots">
         ${abils.map(aid => html`<span key=${aid} className="tnDot" style=${{ background: ABILITIES[aid].color, color: ABILITIES[aid].color }} title=${ABILITIES[aid].name}/>`)}

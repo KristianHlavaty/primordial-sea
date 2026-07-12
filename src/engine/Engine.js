@@ -19,7 +19,7 @@ import { Player } from './entities/Player.js';
 import { ABILITIES, ACTIVE_TIMER } from '../data/abilities.js';
 import { PERKS } from '../data/bosses.js';
 import { MAPS, STAGES, firstMapOf, OPPOSITE_EDGE } from '../data/maps.js';
-import { LAND_PIONEERS, speciesStage } from '../data/species.js';
+import { SPECIES, landPioneers, speciesStage } from '../data/species.js';
 import { MAX_LEVEL, xpNeed } from '../data/progression.js';
 import { clamp, lerp, hyp } from '../core/math.js';
 import { spawnInitial, spawnMaintain, spawnRandomNpc } from './systems/spawning.js';
@@ -67,6 +67,8 @@ export class Engine {
 
     // UI-facing bits
     this.showLevels = true;
+    this.fantasyEvolution = false;
+    this.cheatsEnabled = false; this.invincible = false;
     this.previewCanvas = {};   // evolve-modal preview canvases, keyed by species id
   }
 
@@ -93,20 +95,24 @@ export class Engine {
     this.mouse.x = this.vw / 2; this.mouse.y = this.vh / 2;
   }
 
-  start() {
+  start(options = {}) {
     this.resetRun();
+    this.fantasyEvolution = !!options.fantasyEvolution;
+    this.cheatsEnabled = !!options.cheats; this.invincible = false;
     this.player = null; this.makePlayer('protocell');
     this.loadMap('sea_shallows');
     this.playing = true; this.sfx.unlock(); this.pushHud(true);
   }
 
   /* "Skip to land": begin already ashore as one of the land pioneers. */
-  startAt(speciesId) {
+  startAt(speciesId, options = {}) {
     this.resetRun();
+    this.fantasyEvolution = !!options.fantasyEvolution;
+    this.cheatsEnabled = !!options.cheats; this.invincible = false;
     this.era = 4;                       // land NPCs scale to a mid-game difficulty
     this.ascendOffered = true;          // already ashore — no crawl-ashore prompt
     this.player = null; this.makePlayer(speciesId);
-    this.loadMap(firstMapOf('land'));
+    this.loadMap(firstMapOf('devonian'));
     this.playing = true; this.sfx.unlock(); this.pushHud(true);
   }
 
@@ -142,6 +148,11 @@ export class Engine {
   canWiki() { return this.playing && !this.dead && !this.pendingEvolve && !this.paused; }
   toggleMute() { this.sfx.muted = !this.sfx.muted; this.pushHud(true); }
   toggleLevels() { this.showLevels = !this.showLevels; this.pushHud(true); }
+  toggleInvincible() { if (this.cheatsEnabled) { this.invincible = !this.invincible; this.pushHud(true); } }
+  cheatLevelUp() {
+    if (!this.cheatsEnabled || !this.player || this.pendingEvolve || this.player.level >= MAX_LEVEL) return;
+    this.player.addXp(this, xpNeed(this.player.level) / 2); this.pushHud(true);
+  }
 
   /* ---------------- input (called by ui/input.js) ---------------- */
 
@@ -155,7 +166,12 @@ export class Engine {
   /* True when the player is a sea apex that can still crawl ashore. */
   isSeaApex() {
     const p = this.player;
-    return !!p && this.stage === 'sea' && p.level >= MAX_LEVEL && p.species.evolvesTo.length === 0 && LAND_PIONEERS.length > 0;
+    return !!p && this.stage === 'sea' && p.level >= MAX_LEVEL && p.species.evolvesTo.length === 0 && this.availablePioneers().length > 0;
+  }
+
+  availablePioneers() {
+    const branch = this.player && this.player.species.branch;
+    return landPioneers(this.fantasyEvolution).filter(id => !SPECIES[id].seaBranches || SPECIES[id].seaBranches.includes(branch));
   }
 
   triggerEvolve() {
@@ -169,7 +185,7 @@ export class Engine {
      player after they chose to stay in the sea). */
   triggerAscend() {
     this.pendingEvolve = true; this.paused = true; this.evolveMode = 'ascend';
-    this.choices = LAND_PIONEERS.slice();
+    this.choices = this.availablePioneers();
     this.eggs.push({ x: this.player.x, y: this.player.y + this.player.radius + 10, t: 0 });
     this.sfx.play('egg'); this.pushHud(true);
   }
@@ -337,7 +353,8 @@ export class Engine {
       // stage / map
       stage: this.stage, stageName: STAGES[this.stage] ? STAGES[this.stage].name : '',
       mapId: this.mapId, mapName: MAPS[this.mapId] ? MAPS[this.mapId].name : '',
-      canAscend: this.isSeaApex(), ascendAvailable: this.ascendAvailable, nearEdge: this.nearEdge
+      canAscend: this.isSeaApex(), ascendAvailable: this.ascendAvailable, nearEdge: this.nearEdge,
+      cheatsEnabled: this.cheatsEnabled, invincible: this.invincible
     });
   }
 }

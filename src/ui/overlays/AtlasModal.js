@@ -9,6 +9,7 @@ const THEME_SWATCH = {
   sea: 'linear-gradient(135deg,#1c6a92,#04121e)',
   coast: 'linear-gradient(135deg,#b8a06a,#8a744a)',
   swamp: 'linear-gradient(135deg,#3f5a34,#20301b)',
+  marsh: 'linear-gradient(135deg,#64734d,#293827)',
 };
 
 export function AtlasModal({ engine, hud, onClose }) {
@@ -24,9 +25,9 @@ export function AtlasModal({ engine, hud, onClose }) {
         <div className="atlasBody">
           ${stages.map(sid => {
             const st = STAGES[sid];
-            const reachable = sid === hud.stage || (sid === 'sea') || engine.visitedMaps.has(mapsOfStage(sid)[0]) || hud.stage === 'land';
+            const reachable = sid === hud.stage || sid === 'sea' || engine.visitedMaps.has(mapsOfStage(sid)[0]);
             return html`
-              <div key=${sid} className="atlasStage">
+              <div key=${sid} className=${'atlasStage' + (reachable ? '' : ' locked')}>
                 <div className="atlasStageHead"><span className=${'atlasStageName ' + sid}>${st.name}</span><span className="atlasStageBlurb">${st.blurb}</span></div>
                 <div className="atlasMaps">
                   ${mapsOfStage(sid).map(mid => {

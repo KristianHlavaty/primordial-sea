@@ -46,6 +46,12 @@ export function Hud({ hud, engine, onOpenTree, onOpenAtlas }) {
         <button className="ashoreBtn" onClick=${() => engine.openAscend()} title="Crawl ashore — evolve onto the land">🏝 Ashore</button>`}
       ${hud.nearEdge && html`<div className="edgePrompt">▸ crossing to <b>${hud.nearEdge}</b>…</div>`}
       <div className="hint">Steer <b>mouse</b>/<b>WASD</b> · <b>Click / Space</b> bite & dash · Powers <b>1 2 3</b> · Eat to <b>level up</b> — reach <b>Lv 10</b> to evolve</div>
+      ${hud.cheatsEnabled && html`
+        <div className="cheatPanel">
+          <div className="cheatTitle">CHEATS</div>
+          <button className=${hud.invincible ? 'active' : ''} onClick=${() => engine.toggleInvincible()}>${hud.invincible ? '◆' : '◇'} Invincibility</button>
+          <button onClick=${() => engine.cheatLevelUp()} disabled=${hud.level >= 10 || hud.pendingEvolve}>＋ Level up</button>
+        </div>`}
       <${AbilityBar} abilities=${hud.abilities} engine=${engine}/>
     </div>`;
 }

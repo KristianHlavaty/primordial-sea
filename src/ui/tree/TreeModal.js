@@ -62,7 +62,8 @@ export function TreeModal({ curId, onClose }) {
         </div>
         <div className="treeBody">
           <div className="treeCanvasWrap">
-            ${stage === 'land' && html`<div className="treeFromSea">⇡ crawled ashore from the sea</div>`}
+            ${stage === 'devonian' && html`<div className="treeFromSea">⇡ crawled ashore from the sea</div>`}
+            ${stage === 'carboniferous' && html`<div className="treeFromSea">⇡ unlocked by a final Devonian evolution</div>`}
             <div className="treeInner" style=${{ width: treeW, height: treeH }}>
               <svg width=${treeW} height=${treeH} className="treeSvg">
                 ${links.map((l, i) => {

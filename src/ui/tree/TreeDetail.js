@@ -17,10 +17,11 @@ export function TreeDetail({ id }) {
     <div className="dstat" key=${lab}><span>${lab}</span><i><b style=${{ width: clamp(v / mx, 0, 1) * 100 + '%', background: c }}/></i><em>${Math.round(v)}</em></div>`;
   return html`
     <div className="tdetail">
+      ${sp.fantasy && html`<div className="tdFantasy"><span>🐉</span> FANTASY</div>`}
       <div className="tdCanvas" style=${{ '--bc': col }}><${CreatureCanvas} id=${id} w=${302} h=${150}/></div>
       <div className="tdName">${sp.name}${sp.branch !== '-' && html`<span className=${'ctag ' + sp.branch}>${BRANCH_WORD[sp.branch]}</span>`}</div>
       <div className="tdTier">Tier ${sp.tier}${sp.evolvesTo && sp.evolvesTo.length ? ' · evolves into ' + sp.evolvesTo.map(x => SPECIES[x].name).join(', ') : ' · apex form'}</div>
-      <div className="tdDesc">${sp.desc}</div>
+      <div className=${'tdDesc' + (sp.fantasy ? ' fantasy' : '')}>${sp.desc}</div>
       <div className="dstats">${bar('HP', st.hp, MAX.hp, '#f0637a')}${bar('Speed', st.maxSpeed, MAX.maxSpeed, '#5ee0f2')}${bar('Bite', st.dmg, MAX.dmg, '#f2c15e')}${bar('Bulk', st.radius, MAX.radius, '#8affd0')}</div>
       <div className="tdAbTitle">Powers</div>
       <div className="tdAbs">

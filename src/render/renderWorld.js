@@ -13,10 +13,11 @@ import { SPECIES } from '../data/species.js';
 const LAND_THEMES = {
   coast: { ground: '#9c8452', patch: '#7a6238', pebble: '#b8a06a', mote: 'rgba(240,228,180,0.16)' },
   swamp: { ground: '#33482a', patch: '#22331b', pebble: '#4a6238', mote: 'rgba(180,220,150,0.14)' },
+  marsh: { ground: '#425138', patch: '#283524', pebble: '#627052', mote: 'rgba(205,225,165,0.16)' },
 };
 
 function drawBackground(E) {
-  if (E.stage === 'land') { drawLandBackground(E); return; }
+  if (E.stage !== 'sea') { drawLandBackground(E); return; }
   const ctx = E.ctx;
   const g = ctx.createLinearGradient(0, 0, 0, E.vh);
   const topDepth = clamp(E.cam.y / E.H, 0, 1);
@@ -65,7 +66,7 @@ function drawLandBackground(E) {
 
 function drawBubbles(E) {
   const ctx = E.ctx;
-  if (E.stage === 'land') {
+  if (E.stage !== 'sea') {
     // drifting dust / pollen motes instead of bubbles
     ctx.fillStyle = (LAND_THEMES[E.theme] || LAND_THEMES.coast).mote;
     for (const b of E.bubbles) { ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); }
@@ -109,7 +110,7 @@ export function renderWorld(E) {
   ctx.save(); ctx.translate(shX, shY);
 
   // sea floor (sea stage only; land terrain is the whole background)
-  if (E.stage !== 'land') {
+  if (E.stage === 'sea') {
     const floorScreenY = E.H - 120 - E.cam.y;
     if (floorScreenY < E.vh) {
       ctx.fillStyle = '#071a13'; ctx.fillRect(0, floorScreenY + 60, E.vw, E.vh);

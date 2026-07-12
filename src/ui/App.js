@@ -20,8 +20,8 @@ export function App() {
   const { engineRef, hud } = useEngine(canvasRef, uiRef);
   const engine = engineRef.current;
 
-  const begin = () => { engineRef.current.start(); setPhase('play'); };
-  const skipToLand = (id) => { engineRef.current.startAt(id); setPhase('play'); };
+  const begin = options => { engineRef.current.start(options); setPhase('play'); };
+  const skipToLand = (id, options) => { engineRef.current.startAt(id, options); setPhase('play'); };
   const openTree = () => { if (engineRef.current && engineRef.current.canWiki()) { engineRef.current.setPaused(true); setTreeOpen(true); } };
   const closeTree = () => { setTreeOpen(false); if (engineRef.current) engineRef.current.setPaused(false); };
   const openAtlas = () => { if (engineRef.current && engineRef.current.canWiki()) { engineRef.current.setPaused(true); setAtlasOpen(true); } };

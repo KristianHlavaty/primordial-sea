@@ -57,6 +57,10 @@ export const ABILITY_SETS = {
   // land forms
   tiktaalik: ['pounce', 'regen'], ichthyostega: ['pounce', 'regen', 'tailsweep'], eryops: ['frenzy', 'pounce', 'thickhide'],
   kampecaris: ['burrow', 'thickhide'], arthropleura: ['stomp', 'enroll', 'thickhide'], pulmonoscorpius: ['impale', 'stomp', 'sprint'],
+  acanthostega: ['regen', 'pounce'], hynerpeton_player: ['pounce', 'tailsweep', 'regen'],
+  pneumodesmus: ['burrow', 'thickhide'], devonian_trigonotarbid: ['pounce', 'burrow', 'thickhide'], devonian_scorpion: ['impale', 'burrow', 'thickhide'],
+  shore_polyp: ['nettle', 'bloom'], walking_medusa: ['bloom', 'nettle'], grove_anemone: ['shock', 'bloom', 'nettle'], storm_jelly: ['shock', 'bloom', 'venom'], coal_colony: ['rebirth', 'shock', 'venom'],
+  mud_octopus: ['camo', 'grasp'], lung_octopus: ['grasp', 'camo'], grove_cephalopod: ['ink', 'grasp', 'camo'], canopy_kraken: ['grasp', 'ink', 'sprint'], coal_kraken: ['grasp', 'camo', 'sprint'],
 };
 
 /* Maps a duration-based ability to the Player timer field that tracks it

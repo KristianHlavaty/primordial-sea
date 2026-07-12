@@ -32,9 +32,9 @@ function weightedNpc(game) {
 
 /* The two easy-food species used to keep prey around, per stage. */
 function easyPrey(game) {
-  return game.stage === 'land'
-    ? (Math.random() < 0.6 ? 'springtail' : 'mudskipper')
-    : (Math.random() < 0.6 ? 'plankton' : 'silverfish');
+  if (game.stage === 'carboniferous') return Math.random() < 0.6 ? 'carbon_roach' : 'carbon_millipede';
+  if (game.stage === 'devonian') return Math.random() < 0.6 ? 'springtail' : 'mudskipper';
+  return Math.random() < 0.6 ? 'plankton' : 'silverfish';
 }
 function plantKinds(game) {
   return Object.keys(PLANTS).filter(k => plantStage(k) === game.stage);

@@ -12,7 +12,8 @@
 
 export const STAGES = {
   sea:  { name: 'Sea',  order: 0, blurb: 'the ancient ocean where all life began' },
-  land: { name: 'Land', order: 1, blurb: 'the raw shore where lineages first crawled from the water' },
+  devonian: { name: 'Devonian', order: 1, blurb: 'mudflats and river margins where life establishes itself ashore' },
+  carboniferous: { name: 'Carboniferous', order: 2, blurb: 'humid coal forests reached after completing a Devonian lineage' },
 };
 
 export const MAPS = {
@@ -23,21 +24,23 @@ export const MAPS = {
     neighbors: {},
   },
 
-  // --- land stage ---
+  // --- Devonian landfall ---
   tidal_coast: {
-    stage: 'land', name: 'The Tidal Coast', theme: 'coast',
-    W: 4200, H: 2600, bosses: ['tidewarden'],
-    neighbors: { right: 'fern_lowlands' },
+    stage: 'devonian', name: 'The Devonian Tidal Coast', theme: 'coast',
+    W: 4200, H: 2600, bosses: ['tidewarden'], neighbors: {},
   },
-  fern_lowlands: {
-    stage: 'land', name: 'The Fern Lowlands', theme: 'swamp',
-    W: 4400, H: 2700, bosses: ['sovereign'],
-    neighbors: { left: 'tidal_coast' },
+  coal_forest: {
+    stage: 'carboniferous', name: 'The Coal Forest', theme: 'swamp',
+    W: 4400, H: 2700, bosses: ['sovereign'], neighbors: { right: 'spore_marsh' },
+  },
+  spore_marsh: {
+    stage: 'carboniferous', name: 'The Spore Marsh', theme: 'marsh',
+    W: 4300, H: 2650, bosses: ['marshqueen'], neighbors: { left: 'coal_forest' },
   },
 };
 
 /* Where each stage begins when you first arrive in it. */
-export const STAGE_FIRST_MAP = { sea: 'sea_shallows', land: 'tidal_coast' };
+export const STAGE_FIRST_MAP = { sea: 'sea_shallows', devonian: 'tidal_coast', carboniferous: 'coal_forest' };
 
 export function firstMapOf(stage) { return STAGE_FIRST_MAP[stage]; }
 export function mapsOfStage(stage) { return Object.keys(MAPS).filter(id => MAPS[id].stage === stage); }

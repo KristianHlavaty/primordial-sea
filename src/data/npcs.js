@@ -51,29 +51,32 @@ export const NPCS = {
 
   // ---------------- land creatures ----------------
   springtail: {
-    role: 'prey', stage: 'land', weight: 4.0, minEra: 0, hp: 14, dmg: 0, accel: 460, maxSpeed: 120, radius: 8, sense: 120, meat: 1, value: 4, floaty: 0,
+    role: 'prey', stage: 'devonian', weight: 4.0, minEra: 0, hp: 14, dmg: 0, accel: 460, maxSpeed: 120, radius: 8, sense: 120, meat: 1, value: 4, floaty: 0,
     plan: P({ kind: 'microbe', len: 9, wid: 6, body: '#c8d98a', accent: '#f0ffcf', eyes: 1 })
   },
   mudskipper: {
-    role: 'prey', stage: 'land', weight: 2.8, minEra: 0, hp: 40, dmg: 4, accel: 1100, maxSpeed: 230, radius: 12, sense: 300, meat: 3, value: 7,
+    role: 'prey', stage: 'devonian', weight: 2.8, minEra: 0, hp: 40, dmg: 4, accel: 1100, maxSpeed: 230, radius: 12, sense: 300, meat: 3, value: 7,
     plan: P({ kind: 'tetrapod', len: 18, wid: 8, body: '#8a9a5a', accent: '#d8e6a8', teeth: false, tail: 1.1 })
   },
   millipede: {
-    role: 'prey', stage: 'land', weight: 2.4, minEra: 0, hp: 60, dmg: 6, accel: 820, maxSpeed: 170, radius: 14, sense: 240, meat: 4, value: 9,
+    role: 'prey', stage: 'devonian', weight: 2.4, minEra: 0, hp: 60, dmg: 6, accel: 820, maxSpeed: 170, radius: 14, sense: 240, meat: 4, value: 9,
     plan: P({ kind: 'arthro', len: 24, wid: 9, body: '#a9713c', accent: '#e0b072', segments: 12, legs: 16, eyes: 2 })
   },
   meganeura: {
-    role: 'predator', stage: 'land', weight: 1.4, minEra: 0, hp: 90, dmg: 16, accel: 1150, maxSpeed: 285, radius: 16, sense: 400, meat: 4, value: 12, aggro: true,
+    role: 'predator', stage: 'carboniferous', weight: 1.4, minEra: 0, hp: 90, dmg: 16, accel: 1150, maxSpeed: 285, radius: 16, sense: 400, meat: 4, value: 12, aggro: true,
     plan: P({ kind: 'anomalo', len: 26, wid: 10, body: '#5a8a6a', accent: '#c0f0c8', sideFlaps: true, eyes: 2, stalks: true })
   },
   hynerpeton: {
-    role: 'predator', stage: 'land', weight: 1.1, minEra: 0, hp: 170, dmg: 26, accel: 980, maxSpeed: 235, radius: 22, sense: 420, meat: 7, value: 16, aggro: true,
+    role: 'predator', stage: 'devonian', weight: 1.1, minEra: 0, hp: 170, dmg: 26, accel: 980, maxSpeed: 235, radius: 22, sense: 420, meat: 7, value: 16, aggro: true,
     plan: P({ kind: 'tetrapod', len: 30, wid: 15, body: '#6a7a4a', accent: '#c2d090', teeth: true, tail: 1 })
   },
   land_scorpion: {
-    role: 'predator', stage: 'land', weight: 1.0, minEra: 0, hp: 190, dmg: 30, accel: 1020, maxSpeed: 250, radius: 22, sense: 450, meat: 8, value: 18, aggro: true,
+    role: 'predator', stage: 'devonian', weight: 1.0, minEra: 0, hp: 190, dmg: 30, accel: 1020, maxSpeed: 250, radius: 22, sense: 450, meat: 8, value: 18, aggro: true,
     plan: P({ kind: 'scorpion', len: 30, wid: 13, body: '#6b4a28', accent: '#d8a860', segments: 8, claws: true, spikes: 2, legs: 8, eyes: 2 })
   },
+  carbon_roach: { role: 'prey', stage: 'carboniferous', weight: 4, minEra: 0, hp: 55, dmg: 5, accel: 900, maxSpeed: 190, radius: 12, sense: 260, meat: 3, value: 8, plan: P({ kind: 'arthro', len: 21, wid: 11, body: '#79552f', accent: '#c99a58', segments: 7, legs: 6, eyes: 2 }) },
+  carbon_millipede: { role: 'prey', stage: 'carboniferous', weight: 2.5, minEra: 0, hp: 85, dmg: 8, accel: 780, maxSpeed: 165, radius: 15, sense: 240, meat: 4, value: 10, plan: P({ kind: 'arthro', len: 28, wid: 10, body: '#8f6035', accent: '#d5a05c', segments: 13, legs: 18, eyes: 2 }) },
+  carbon_amphibian: { role: 'predator', stage: 'carboniferous', weight: 1.2, minEra: 0, hp: 210, dmg: 32, accel: 980, maxSpeed: 245, radius: 24, sense: 450, meat: 8, value: 19, aggro: true, plan: P({ kind: 'tetrapod', len: 34, wid: 17, body: '#526b3d', accent: '#a9c57a', teeth: true, tail: .9 }) },
 };
 
 export const PLANTS = {
@@ -81,6 +84,8 @@ export const PLANTS = {
   algae: { max: 4, value: 3, minEra: 0, weight: 3, h: 34 },
   kelp: { max: 6, value: 4, minEra: 0, weight: 1.4, h: 150 },
   // land flora
-  moss: { max: 4, value: 3, minEra: 0, weight: 3, h: 26, stage: 'land' },
-  fern: { max: 6, value: 4, minEra: 0, weight: 1.6, h: 120, stage: 'land' },
+  moss: { max: 4, value: 3, minEra: 0, weight: 3, h: 26, stage: 'devonian' },
+  fern: { max: 6, value: 4, minEra: 0, weight: 1.6, h: 120, stage: 'devonian' },
+  carbon_moss: { max: 4, value: 3, minEra: 0, weight: 3, h: 28, stage: 'carboniferous' },
+  lycopsid: { max: 7, value: 4, minEra: 0, weight: 1.5, h: 145, stage: 'carboniferous' },
 };

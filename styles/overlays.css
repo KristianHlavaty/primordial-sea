@@ -61,3 +61,11 @@
 .skipBtn:hover{transform:translateY(-2px)}
 .skipBtn small{font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--dim)}
 .skipBtn.tetra{border-left-color:var(--tetra)} .skipBtn.myria{border-left-color:var(--myria)}
+.skipBtn.terracnid{border-left-color:#d39cff} .skipBtn.terramoll{border-left-color:#55d9b2}
+.fantasyToggle { display:flex; align-items:center; justify-content:center; gap:8px; margin:14px 0 10px; color:var(--dim); cursor:pointer; }
+.fantasyToggle input { accent-color:#b79bff; }
+.fantasyToggle small { opacity:.8; }
+.cheatsToggle { display:flex; align-items:center; justify-content:center; gap:7px; margin:-4px 0 12px; color:#d78b96; font-size:12px; cursor:pointer; }
+.cheatsToggle input { accent-color:#ff5363; }
+.cheatsToggle small { color:var(--dim); }
+.atlasStage.locked { opacity:.45; filter:saturate(.35); }
