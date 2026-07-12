@@ -7,6 +7,7 @@ import { TAU, clamp, hyp } from '../core/math.js';
 import { shade, withA } from '../core/color.js';
 import { drawCreature } from './drawCreature.js';
 import { drawPlant } from './drawPlant.js';
+import { drawObstacle } from './drawObstacle.js';
 import { SPECIES } from '../data/species.js';
 
 /* Ground palettes for the land themes (top-down dirt/moss). */
@@ -151,6 +152,12 @@ export function renderWorld(E) {
   for (const pl of E.plants) {
     const sx = pl.x - E.cam.x, sy = pl.y - E.cam.y; if (sx < -160 || sx > E.vw + 160) continue;
     ctx.save(); ctx.translate(sx, sy); drawPlant(ctx, pl, E.time); ctx.restore();
+  }
+
+  // land obstacles (rocks, logs, stumps…) — drawn behind creatures
+  for (const o of E.obstacles) {
+    const sx = o.x - E.cam.x, sy = o.y - E.cam.y; if (sx < -120 || sx > E.vw + 120 || sy < -120 || sy > E.vh + 120) continue;
+    ctx.save(); ctx.translate(sx, sy); drawObstacle(ctx, o, E.time); ctx.restore();
   }
 
   // food pellets

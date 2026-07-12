@@ -6,6 +6,8 @@ import { Creature } from '../entities/Creature.js';
 import { Boss } from '../entities/Boss.js';
 import { NPCS, PLANTS, npcStage, plantStage } from '../../data/npcs.js';
 import { MAPS } from '../../data/maps.js';
+import { OBSTACLE_SETS, OBSTACLE_R } from '../../data/obstacles.js';
+import { BOSSES } from '../../data/bosses.js';
 import { TAU, rand } from '../../core/math.js';
 
 export function creatureTarget(era) { return Math.min(26 + era * 4, 54); }
@@ -55,6 +57,27 @@ function plantSpot(game) {
 }
 function seedPlant(game) { const s = plantSpot(game); spawnPlant(game, s.x, s.y, randomPlantKind(game)); }
 
+/* Scatter this map's obstacle set, keeping clear of the player's landing spot,
+   the boss homes, and each other. Sea maps have no set → no obstacles. */
+function genObstacles(game) {
+  game.obstacles.length = 0;
+  const set = OBSTACLE_SETS[game.mapId]; if (!set) return;
+  const p = game.player;
+  const bossSpots = (MAPS[game.mapId].bosses || []).map(bk => BOSSES[bk]).filter(Boolean).map(b => ({ x: game.W * b.at.x, y: game.H * b.at.y }));
+  let tries = 0;
+  while (game.obstacles.length < set.n && tries < set.n * 25) {
+    tries++;
+    const kind = set.kinds[Math.floor(Math.random() * set.kinds.length)];
+    const [rMin, rMax] = OBSTACLE_R[kind] || [28, 42];
+    const r = rand(rMin, rMax);
+    const x = rand(130 + r, game.W - 130 - r), y = rand(170 + r, game.H - 130 - r);
+    if (Math.hypot(x - p.x, y - p.y) < 280 + r) continue;                                  // clear of the player's arrival
+    if (bossSpots.some(s => Math.hypot(x - s.x, y - s.y) < 260)) continue;                  // clear of boss homes
+    if (game.obstacles.some(o => Math.hypot(x - o.x, y - o.y) < o.r + r + 45)) continue;    // no crowding
+    game.obstacles.push({ kind, x, y, r, angle: rand(0, TAU), seed: rand(0, 1000) });
+  }
+}
+
 export function spawnRandomNpc(game) {
   const p = offscreenPoint(game);
   game.creatures.push(Creature.spawn(weightedNpc(game), p.x, p.y, game.era));
@@ -74,6 +97,7 @@ export function spawnInitial(game) {
     if (Math.abs(x - game.player.x) < 300 && Math.abs(y - game.player.y) < 260) x = (x + 700) % (game.W - 300) + 150;
     game.webs.push({ x, y, r: 92 + (i % 4) * 24, angle: i * .73 });
   }
+  genObstacles(game);
   const target = creatureTarget(game.era);
   for (let i = 0; i < target; i++) spawnRandomNpc(game);
   // seed some easy food near the player at start

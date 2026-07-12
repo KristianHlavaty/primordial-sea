@@ -47,6 +47,7 @@ export class Engine {
     this.player = null;
     this.creatures = []; this.plants = []; this.food = [];
     this.webs = [];
+    this.obstacles = [];   // static land blockers (rocks, logs, stumps…)
     this.flow = [];   // sea-current streak particles (screen-space visual)
     this.particles = []; this.bubbles = []; this.eggs = []; this.fx = []; this.floaters = [];
     this.cam = { x: 0, y: 0 }; this.shake = 0; this.danger = 0;
@@ -201,6 +202,25 @@ export class Engine {
       c.y = clamp(c.y + cc.y * dt, c.radius, this.H - c.radius);
     }
     for (const f of this.food) { const cf = this.currentAt(f.x, f.y); f.x += cf.x * dt * 0.8; f.y += cf.y * dt * 0.8; }
+  }
+
+  /* Push the player and creatures out of any land obstacle they overlap, and
+     kill the velocity component driving them into it (so they slide along). */
+  resolveObstacles() {
+    if (!this.obstacles.length) return;
+    const push = (e) => {
+      for (const o of this.obstacles) {
+        const dx = e.x - o.x, dy = e.y - o.y, d = Math.sqrt(dx * dx + dy * dy), min = e.radius + o.r;
+        if (d < min) {
+          const nx = d > 0.001 ? dx / d : 1, ny = d > 0.001 ? dy / d : 0, overlap = min - d;
+          e.x += nx * overlap; e.y += ny * overlap;
+          const vn = e.vx * nx + e.vy * ny;
+          if (vn < 0) { e.vx -= vn * nx; e.vy -= vn * ny; }
+        }
+      }
+    };
+    push(this.player);
+    for (const c of this.creatures) push(c);
   }
 
   /* Advance the drifting flow streaks (a faint screen-space visual of the
@@ -378,6 +398,7 @@ export class Engine {
     for (const c of this.creatures) c.update(this, dt);
 
     this.applyCurrent(dt);   // sea current sweeps player + free creatures + food
+    this.resolveObstacles(); // keep player + creatures out of land blockers
 
     // food pellets: drift, get pulled toward the player, get eaten
     // (Filter Feed widens the pull and makes each pellet nourish more)
