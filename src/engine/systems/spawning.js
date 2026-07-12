@@ -45,6 +45,16 @@ function randomPlantKind(game) {
   return Math.random() < 0.72 ? ks[0] : (ks[1] || ks[0]);
 }
 
+/* How many plants a map sustains, and where they grow. Sea flora clings to the
+   floor (bottom of the world); land flora is scattered across the whole map and
+   is a bit scarcer. */
+function plantCap(game) { return game.stage === 'sea' ? 12 : 8; }
+function plantSpot(game) {
+  if (game.stage === 'sea') return { x: rand(120, game.W - 120), y: game.H - 30 };
+  return { x: rand(160, game.W - 160), y: rand(220, game.H - 180) };
+}
+function seedPlant(game) { const s = plantSpot(game); spawnPlant(game, s.x, s.y, randomPlantKind(game)); }
+
 export function spawnRandomNpc(game) {
   const p = offscreenPoint(game);
   game.creatures.push(Creature.spawn(weightedNpc(game), p.x, p.y, game.era));
@@ -68,8 +78,7 @@ export function spawnInitial(game) {
   for (let i = 0; i < target; i++) spawnRandomNpc(game);
   // seed some easy food near the player at start
   for (let i = 0; i < 6; i++) game.creatures.push(Creature.spawn(easyPrey(game), game.player.x + rand(-260, 260), game.player.y + rand(-200, 200), game.era));
-  const floorY = game.H - 30;
-  for (let i = 0; i < 12; i++) spawnPlant(game, rand(120, game.W - 120), floorY, randomPlantKind(game));
+  for (let i = 0; i < plantCap(game); i++) seedPlant(game);
   game.bubbles.length = 0;
   for (let i = 0; i < 120; i++) game.bubbles.push({ x: rand(0, game.vw), y: rand(0, game.vh), r: rand(0.6, 2.6), sp: rand(6, 26), ph: rand(0, TAU) });
   for (const k of (MAPS[game.mapId].bosses || [])) if (!game.bossesDefeated.has(k)) game.creatures.push(new Boss(k, game));
@@ -85,7 +94,7 @@ export function spawnMaintain(game, dt) {
   const prey = game.creatures.filter(c => c.role === 'prey').length;
   if (prey < 8) { const p = offscreenPoint(game); game.creatures.push(Creature.spawn(easyPrey(game), p.x, p.y, game.era)); }
   // top up plants (slowly — plants persist and regrow in place, so this is really a total cap)
-  if (game.plants.length < 12) spawnPlant(game, rand(120, game.W - 120), game.H - 30, randomPlantKind(game));
+  if (game.plants.length < plantCap(game)) seedPlant(game);
   // recycle far creatures if far over cap
   if (game.creatures.length > target + 6) {
     let fi = -1, fd = 0;
