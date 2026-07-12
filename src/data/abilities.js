@@ -45,6 +45,10 @@ export const ABILITIES = {
   airbreath:  { name: 'Air Breathing', passive: true, cd: 0, dur: 0, color: '#9edbb2', desc: 'Efficient lungs keep oxygen flowing ashore, steadily restoring health even during combat.' },
   websnare:   { name: 'Silk Snare', passive: false, cd: 11, dur: 0, color: '#d9e6df', desc: 'Cast adhesive silk around nearby animals, rooting prey and heavily slowing bosses.' },
   silksense:  { name: 'Silk Sense', passive: true, cd: 0, dur: 0, color: '#e8cbd8', desc: 'Read vibrations through silk and ground contact, granting an extra chance to evade attacks.' },
+  // --- Carboniferous powers ---
+  dive:       { name: 'Dive Bomb',    passive: false, cd: 9,  dur: 0, color: '#ffd27a', desc: 'Fold your wings and plunge — a fast aerial strike that slams down on prey ahead.' },
+  venomsting: { name: 'Venom Sting',  passive: false, cd: 11, dur: 0, color: '#b6e05a', desc: 'Whip the tail-stinger into one target — deep damage and a potent, lingering venom.' },
+  sail:       { name: 'Basking Sail', passive: true,  cd: 0,  dur: 0, color: '#ff9f6a', desc: 'A tall dorsal sail — sun-warmed muscles mend faster and drive a little harder.' },
 };
 
 /* Which powers each player form carries (length grows with tier; capped at 3).
@@ -66,18 +70,32 @@ export const ABILITY_SETS = {
   sea_wasp: ['venom', 'burst', 'nettle'], crowned_sea_wasp: ['hypervenom', 'shock', 'evasion'],
   xenacanthus: ['ampullae', 'burst', 'bloodscent'], abyssal_kraken: ['hookarms', 'ink', 'camo'],
   // land forms
-  tiktaalik: ['pounce', 'regen'], ichthyostega: ['pounce', 'regen', 'tailsweep'], eryops: ['frenzy', 'pounce', 'thickhide'],
-  kampecaris: ['burrow', 'thickhide'], arthropleura: ['stomp', 'enroll', 'thickhide'], pulmonoscorpius: ['impale', 'stomp', 'sprint'],
+  tiktaalik: ['pounce', 'regen'], ichthyostega: ['pounce', 'regen', 'tailsweep'], eryops: ['crush', 'engulf', 'thickhide'],
+  kampecaris: ['burrow', 'thickhide'], arthropleura: ['stomp', 'enroll', 'thickhide'], pulmonoscorpius: ['venomsting', 'impale', 'sprint'],
   mudfin_strider: ['burst', 'regen'], reedscale_stalker: ['pounce', 'grasp', 'regen'],
   gillrunner: ['sprint', 'pounce', 'ampullae'], tide_hunter: ['frenzy', 'pounce', 'ampullae'], bog_tide_hunter: ['bloodscent', 'pounce', 'regen'],
   acanthostega: ['pounce', 'regen', 'burst'], hynerpeton_player: ['pounce', 'tailsweep', 'thickhide'],
   elpistostege: ['airbreath', 'tailsweep'], tulerpeton: ['airbreath', 'pounce', 'sprint'],
-  metaxygnathus: ['crush', 'pounce', 'airbreath'], crassigyrinus: ['crush', 'regen', 'thickhide'],
+  metaxygnathus: ['crush', 'pounce', 'airbreath'], crassigyrinus: ['crush', 'regen', 'bloodscent'],
   pneumodesmus: ['burrow', 'enroll', 'thickhide'], devonian_trigonotarbid: ['pounce', 'burrow', 'thickhide'], devonian_scorpion: ['impale', 'burrow', 'thickhide'],
   rhyniella: ['evasion', 'burrow'], attercopus: ['websnare', 'evasion', 'venom'],
   gilboa_arachnid: ['websnare', 'silksense', 'venom'], eophrynus: ['websnare', 'bastion', 'venom'],
   shore_polyp: ['nettle', 'bloom'], walking_medusa: ['bloom', 'grasp', 'nettle'], grove_anemone: ['bloom', 'nettle', 'venom'], storm_jelly: ['shock', 'bloom', 'venom'], coal_colony: ['rebirth', 'shock', 'venom'],
   mud_octopus: ['camo', 'grasp'], lung_octopus: ['grasp', 'camo', 'airbreath'], grove_cephalopod: ['grasp', 'camo', 'venom'], canopy_kraken: ['grasp', 'ink', 'sprint'], coal_kraken: ['grasp', 'camo', 'sprint'],
+
+  // ===== Carboniferous — tetrapods (amphibians / reptiles / synapsids) =====
+  // eryops (Anthracosaurus base) kit set above with the land forms
+  eryops_temno: ['engulf', 'regen', 'frenzy'], cochleosaurus: ['engulf', 'regen', 'crush'], eogyrinus: ['crush', 'frenzy', 'regen'],
+  hylonomus: ['pounce', 'evasion', 'sprint'], paleothyris: ['pounce', 'evasion', 'ampullae'], petrolacosaurus: ['pounce', 'sprint', 'bloodscent'], carbonodraco: ['crush', 'pounce', 'evasion'],
+  archaeothyris: ['sail', 'pounce', 'frenzy'], echinerpeton: ['sail', 'frenzy', 'thickhide'], ophiacodon: ['sail', 'crush', 'bloodscent'], ianthasaurus: ['sail', 'crush', 'frenzy'],
+  // ===== Carboniferous — arthropods (arachnids / myriapods / winged insects) =====
+  megarachne: ['websnare', 'venomsting', 'evasion'], graeophonus: ['venomsting', 'grasp', 'venom'], gigantoscorpio: ['venomsting', 'impale', 'bastion'],
+  euphoberia: ['enroll', 'barbs', 'thickhide'], carbon_centipede: ['impale', 'venom', 'sprint'], arthropleura_titan: ['stomp', 'enroll', 'bastion'],
+  stenodictya: ['dive', 'burst', 'evasion'], meganeura_player: ['dive', 'burst', 'bloodscent'], bojophlebia: ['dive', 'frenzy', 'evasion'], meganeuropsis: ['dive', 'frenzy', 'ampullae'],
+  // ===== Carboniferous — fantasy lines (single lineages) =====
+  mire_lurker: ['pounce', 'frenzy', 'regen'], swamp_strider: ['sprint', 'frenzy', 'ampullae'], coal_leviathan: ['crush', 'pounce', 'bloodscent'], tar_sovereign: ['crush', 'frenzy', 'thickhide'],
+  spore_medusa: ['bloom', 'nettle', 'sprint'], grove_hydra: ['shock', 'nettle', 'venom'], thunder_colony: ['rebirth', 'bloom', 'nettle'], stormcrown_colony: ['shock', 'rebirth', 'nettle'],
+  mire_octopus: ['ink', 'camo', 'sprint'], bog_cephalopod: ['ink', 'camo', 'bloodscent'], tar_kraken: ['grasp', 'camo', 'bloodscent'], deep_coalkraken: ['grasp', 'ink', 'bloodscent'],
 };
 
 /* Maps a duration-based ability to the Player timer field that tracks it

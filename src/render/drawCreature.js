@@ -394,6 +394,17 @@ export function drawCreature(ctx, o) {
       ctx.quadraticCurveTo(-L * 0.4, -W * 0.5, -L * 0.3, 0);
       ctx.quadraticCurveTo(-L * 0.4, W * 0.5, -L * 0.1, W * 0.85);
       ctx.quadraticCurveTo(L * 0.5, W, L * 0.85, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // dorsal sail (synapsids) — a spined membrane rising from the back
+      if (o.sail) {
+        const sh = W * (1.6 + 1.4 * o.sail);
+        const g2 = ctx.createLinearGradient(0, -W, 0, -sh); g2.addColorStop(0, withA(body, .9)); g2.addColorStop(1, withA(acc, .5));
+        ctx.fillStyle = g2; ctx.strokeStyle = shade(body, -0.35); ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(L * 0.45, -W * 0.55);
+        ctx.quadraticCurveTo(L * 0.1, -sh, -L * 0.05, -sh * 0.95);
+        ctx.quadraticCurveTo(-L * 0.3, -sh * 0.7, -L * 0.4, -W * 0.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = shade(body, -0.4); ctx.lineWidth = 2;
+        for (let i = 0; i <= 5; i++) { const t2 = i / 5; const x = lerp(L * 0.45, -L * 0.4, t2); const top = -sh * (0.55 + 0.45 * Math.sin(t2 * Math.PI)); ctx.beginPath(); ctx.moveTo(x, -W * 0.5); ctx.lineTo(x, top); ctx.stroke(); }
+      }
       // species-specific back pattern
       ctx.fillStyle = withA(o.patternColor || shade(body, -0.2), 0.55);
       const marks = o.marks === undefined ? 4 : o.marks;
@@ -424,6 +435,36 @@ export function drawCreature(ctx, o) {
       }
       // bulging eyes set high on the skull
       for (const s of [-1, 1]) eye(ctx, L * (0.84 + .03 * snout), s * W * 0.42 * hs, Math.max(2.1, W * 0.24 * (o.eyeScale || 1)));
+      break;
+    }
+    case 'winged': {
+      // griffinfly / early winged insect: slender segmented abdomen (-X), thorax,
+      // head with big compound eyes (+X), and two pairs of long translucent wings.
+      const seg = o.segments || 8; const beat = Math.sin(t * 9) * 0.22;
+      // wings first (behind the body) — a fore and hind pair per side
+      for (const s of [-1, 1]) for (const [wx, wl, base] of [[L * 0.22, L * 1.05, 0.5], [L * 0.02, L * 0.92, 0.92]]) {
+        ctx.save(); ctx.translate(wx, s * W * 0.3); ctx.rotate(s * (base + beat));
+        const wg = ctx.createLinearGradient(0, 0, 0, s * wl); wg.addColorStop(0, withA(acc, 0.32)); wg.addColorStop(1, withA(acc, 0.12));
+        ctx.fillStyle = wg; ctx.strokeStyle = withA(body, 0.5); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(0, s * wl * 0.5, W * 0.55, wl * 0.5, 0, 0, TAU); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = withA(body, 0.45); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, s * wl * 0.95); ctx.stroke();
+        ctx.restore();
+      }
+      // abdomen — tapering segmented tail
+      for (let i = seg; i >= 0; i--) {
+        const f = i / seg; const x = lerp(-L * 0.1, -L * 1.05, f); const w = W * (0.62 - 0.4 * f);
+        ctx.fillStyle = i % 2 ? shade(body, 0.12) : body; ctx.strokeStyle = shade(body, -0.3); ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.ellipse(x, 0, W * 0.3, w, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      }
+      // thorax
+      const tg = ctx.createRadialGradient(L * 0.15, -W * 0.25, 1, L * 0.1, 0, W * 1.3);
+      tg.addColorStop(0, shade(body, 0.32)); tg.addColorStop(1, shade(body, -0.15));
+      ctx.fillStyle = tg; ctx.strokeStyle = shade(body, -0.4); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(L * 0.15, 0, L * 0.34, W, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      // head + big compound eyes
+      ctx.fillStyle = shade(body, 0.06); ctx.strokeStyle = shade(body, -0.4);
+      ctx.beginPath(); ctx.arc(L * 0.52, 0, W * 0.66, 0, TAU); ctx.fill(); ctx.stroke();
+      for (const s of [-1, 1]) { ctx.fillStyle = withA(acc, 0.92); ctx.beginPath(); ctx.arc(L * 0.58, s * W * 0.42, W * 0.36, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.arc(L * 0.62, s * W * 0.42 - W * 0.12, W * 0.1, 0, TAU); ctx.fill(); }
       break;
     }
     default: { // fish

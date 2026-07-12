@@ -178,7 +178,7 @@ export class Player extends Entity {
     const enrolled = this.enrollT > 0, withdrawn = this.withdrawT > 0, burrowed = this.burrowT > 0;
     const hasted = this.burstT > 0 || this.sprintT > 0;   // Burst (aquatic) or Sprint (land)
     const accMul = enrolled ? 0.25 : withdrawn ? 0.35 : burrowed ? 1.5 : (hasted ? 1.6 : 1);
-    const baseSpd = st.maxSpeed * this.spdMul;
+    const baseSpd = st.maxSpeed * this.spdMul * (this.hasAbility('sail') ? 1.08 : 1);   // sun-warmed muscles drive harder
     const spdCap = enrolled ? baseSpd * 0.5 : withdrawn ? baseSpd * 0.55 : burrowed ? baseSpd * 1.5 : (hasted ? baseSpd * 1.8 : baseSpd);
     const webM = 1 - game.webSlowAt(this.x, this.y) * .55 * (1 - (game.perks.webResist || 0));
 
@@ -274,5 +274,10 @@ export class Player extends Entity {
       this.hp = Math.min(this.maxHp, this.hp + (inCombat ? 5 : 12) * dt);
     }
     if (this.hasAbility('airbreath') && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 7 * dt);
+    // Basking Sail — sun-warmed metabolism mends wounds, faster out of combat
+    if (this.hasAbility('sail') && this.hp < this.maxHp) {
+      const inCombat = game.time - game.lastHurt < 3;
+      this.hp = Math.min(this.maxHp, this.hp + (inCombat ? 3 : 9) * dt);
+    }
   }
 }

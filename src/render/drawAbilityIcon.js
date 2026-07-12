@@ -140,6 +140,20 @@ export function drawAbilityIcon(ctx, id, size, color) {
       ctx.quadraticCurveTo(0, -rr - i * r * 0.1, rr, r * 0.4 - i * r * 0.28);
       i === 0 ? ctx.fill() : null; ctx.stroke();
     }
+  } else if (id === 'dive') {     // folded wings plunging with a downward arrow
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(-r * 0.85, -r * 0.1); ctx.lineTo(-r * 0.2, -r * 0.25); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(r * 0.85, -r * 0.1); ctx.lineTo(r * 0.2, -r * 0.25); ctx.closePath(); ctx.fill();
+    ctx.lineWidth = size * 0.08; ctx.beginPath(); ctx.moveTo(0, -r * 0.2); ctx.lineTo(0, r); ctx.moveTo(-r * 0.32, r * 0.5); ctx.lineTo(0, r); ctx.lineTo(r * 0.32, r * 0.5); ctx.stroke();
+  } else if (id === 'venomsting') { // curled scorpion tail with a stinger + drip
+    ctx.lineWidth = size * 0.1; ctx.beginPath(); ctx.moveTo(-r * 0.8, r * 0.7);
+    ctx.quadraticCurveTo(r * 0.6, r * 0.6, r * 0.6, -r * 0.2); ctx.quadraticCurveTo(r * 0.6, -r * 0.8, r * 0.15, -r * 0.85); ctx.stroke();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(r * 0.15, -r * 0.85); ctx.lineTo(-r * 0.15, -r * 1.05); ctx.lineTo(r * 0.02, -r * 0.6); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(-r * 0.2, -r * 0.35, r * 0.14, 0, TAU); ctx.fill();
+  } else if (id === 'sail') {     // dorsal sail (spined fan) under a small sun
+    ctx.beginPath(); ctx.moveTo(-r, r * 0.7); ctx.quadraticCurveTo(-r * 0.2, -r, r * 0.9, r * 0.2); ctx.lineTo(-r, r * 0.7); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.lineWidth = size * 0.05;
+    for (let i = 0; i < 4; i++) { const x = -r * 0.7 + i * r * 0.5; ctx.beginPath(); ctx.moveTo(x, r * 0.7); ctx.lineTo(x + r * 0.15, -r * 0.5 + Math.abs(i - 1.5) * r * 0.25); ctx.stroke(); }
   }
   ctx.restore();
 }

@@ -199,6 +199,41 @@ export function activateAbility(game, idx) {
     burst(game, p.x, p.y, '#9fd0a0', 10, 150);
   }
   else if (id === 'sprint') { p.sprintT = ab.dur; burst(game, p.x, p.y, '#9ce0a0', 8, 130); }
+  else if (id === 'dive') {
+    // aerial dive-bomb: a long fast plunge that slams down on prey ahead
+    const st = p.species.stats;
+    p.jetT = 0.34; p.vx += Math.cos(p.angle) * 900; p.vy += Math.sin(p.angle) * 900;
+    const reach = p.radius + st.reach * 1.9, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
+    for (const c of game.creatures.slice()) {
+      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
+      if (d < reach + c.radius) {
+        const dot = (dx * fx + dy * fy) / (d || 1);
+        if (dot > 0) {
+          c.takeDamage(game, st.dmg * p.atkMul * 1.9, p.x, p.y, true);
+          if (!c.boss) c.stunT = Math.max(c.stunT || 0, 0.7);
+          c.vx += dx / (d || 1) * 200; c.vy += dy / (d || 1) * 200;
+          burst(game, c.x, c.y, '#ffd27a', 8, 150);
+        }
+      }
+    }
+    game.shake = Math.min(12, game.shake + 4);
+  }
+  else if (id === 'venomsting') {
+    // stinger into a single target ahead: deep damage + potent lingering venom
+    const st = p.species.stats, reach = p.radius + st.reach * 1.6, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
+    let best = null, bd = 1e9;
+    for (const c of game.creatures) {
+      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
+      if (d < reach + c.radius) { const dot = (dx * fx + dy * fy) / (d || 1); if (dot > 0.2 && d < bd) { bd = d; best = c; } }
+    }
+    if (best) {
+      best.takeDamage(game, st.dmg * p.atkMul * 2.4, p.x, p.y, true);
+      best.poisonT = 5; best.poisonDps = Math.max(best.poisonDps || 0, st.dmg * p.atkMul * 0.4);
+      if (!best.boss) best.stunT = Math.max(best.stunT || 0, 0.5);
+      burst(game, best.x, best.y, '#b6e05a', 12, 160);
+    }
+    game.shake = Math.min(10, game.shake + 3);
+  }
 
   p.acd[id] = ab.cd; game.sfx.play('power'); game.pushHud(true);
 }
