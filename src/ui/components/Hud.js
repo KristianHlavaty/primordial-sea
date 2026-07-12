@@ -5,7 +5,7 @@ import { clamp } from '../../core/math.js';
 import { AbilityBar } from './AbilityBar.js';
 import { AbilityIcon } from './AbilityIcon.js';
 
-export function Hud({ hud, engine, onOpenTree, onOpenAtlas }) {
+export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects }) {
   return html`
     <div className="hud">
       <div className="topleft">
@@ -32,7 +32,10 @@ export function Hud({ hud, engine, onOpenTree, onOpenAtlas }) {
               <span key=${pk.id} className="perk" style=${{ '--ac': pk.color }} title=${pk.name + ' — ' + pk.blurb + ' (miniboss trophy)'}>
                 <${AbilityIcon} id=${pk.icon} color=${pk.color}/><b>${pk.name}</b>
               </span>`)}
-          </div>`}
+          </div>
+          <button className="bossEffectsBtn" onClick=${onOpenBossEffects} title="View permanent boss effects">
+            <span>◆</span><b>Boss effects</b><em>${hud.perks.length}</em>
+          </button>`}
       </div>
       <div className="topright">
         <div className="kills">${hud.kills} <span>kills</span></div>

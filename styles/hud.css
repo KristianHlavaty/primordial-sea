@@ -64,9 +64,12 @@
 .cabil .ab .p{color:var(--ac); font-size:8px; font-weight:800; letter-spacing:.5px}
 
 /* perk trophy badges + achievement toast */
-.perks{display:flex; gap:6px; margin-top:3px; flex-wrap:wrap; max-width:min(40vw,360px)}
+.perks{display:none}
 .perk{display:flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#dbe8f4; background:#0a1b2acc; border:1px solid var(--line); border-left:3px solid var(--ac); border-radius:7px; padding:2px 8px 2px 5px}
 .perk canvas{width:16px; height:16px}
+.bossEffectsBtn{pointer-events:auto; width:max-content; display:flex; align-items:center; gap:7px; margin-top:1px; padding:5px 9px; cursor:pointer; color:#d8e8f4; background:#091824dd; border:1px solid #38536a; border-radius:8px; font-size:10px; letter-spacing:.5px}
+.bossEffectsBtn span{color:#f2c15e; font-size:13px}.bossEffectsBtn b{text-transform:uppercase}.bossEffectsBtn em{display:flex; align-items:center; justify-content:center; width:17px; height:17px; border-radius:50%; background:#f2c15e; color:#17202a; font-style:normal; font-weight:900}
+.bossEffectsBtn:hover{border-color:#f2c15e; color:#fff}
 .achv{position:absolute; top:78px; left:50%; transform:translate(-50%,0); z-index:22; pointer-events:none; display:flex; align-items:center; gap:14px;
   padding:12px 22px 12px 13px; min-width:344px; background:linear-gradient(100deg,#0c2033,#0a1826);
   border:1px solid var(--ac); border-radius:14px; box-shadow:0 12px 40px #000a, 0 0 26px -6px var(--ac);
@@ -79,3 +82,9 @@
 .achv .achPerk b{color:var(--ac)} .achv .achPerk span{color:var(--dim); margin-left:4px}
 @keyframes achIn{from{opacity:0; transform:translate(-50%,-24px)} to{opacity:1; transform:translate(-50%,0)}}
 @keyframes achOut{to{opacity:0; transform:translate(-50%,-14px)}}
+.bossRewardScrim{z-index:30; background:radial-gradient(80% 80% at 50% 45%,#152333e8,#01060af7)}
+.bossRewardScrim .achv{position:relative; top:auto; left:auto; transform:none; z-index:auto; pointer-events:auto; min-width:min(92vw,570px); max-width:650px; padding:24px; flex-wrap:wrap; animation:bossRewardIn .28s ease-out}
+.bossRewardScrim .achTxt{flex:1; min-width:260px}.bossRewardScrim .achBoss{font-size:21px}.bossRewardScrim .achPerk{font-size:13px; margin-top:5px}
+.achClose{pointer-events:auto; width:100%; margin-top:8px; padding:9px 18px; cursor:pointer; color:#eefaff; background:#102b3d; border:1px solid var(--ac); border-radius:8px; font-weight:900; letter-spacing:1px}
+.achClose:hover{background:#17394e; box-shadow:0 0 16px -5px var(--ac)}
+@keyframes bossRewardIn{from{opacity:0; transform:scale(.94) translateY(-10px)}to{opacity:1; transform:scale(1) translateY(0)}}

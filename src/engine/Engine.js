@@ -235,7 +235,12 @@ export class Engine {
     if (!this.perks.list.some(x => x.id === id)) this.perks.list.push({ id, name: perk.name, icon: perk.icon, color: perk.color, blurb: perk.blurb });
     this.achId++;
     this.achievement = { id: this.achId, boss: bossTitle, perk: perk.name, blurb: perk.blurb, icon: perk.icon, color: perk.color };
-    this.achT = 6.5;
+    this.achT = 0; this.paused = true;
+    this.pushHud(true);
+  }
+  dismissAchievement() {
+    if (!this.achievement) return;
+    this.achievement = null; this.paused = false; this.pushHud(true);
   }
 
   /* Debug hook (window.__game): damage a creature as if the player did it. */
@@ -312,7 +317,6 @@ export class Engine {
     }
     for (const e of this.eggs) e.t += dt;
     for (const b of this.bubbles) { b.y -= b.sp * dt; b.x += Math.sin(this.time + b.ph) * 6 * dt; if (b.y < -4) { b.y = this.vh + 4; b.x = Math.random() * this.vw; } }
-    if (this.achT > 0) { this.achT -= dt; if (this.achT <= 0) this.achievement = null; }
 
     // max level: evolve within the stage, or (sea apex) offer to crawl ashore
     if (!this.pendingEvolve && !this.dead && p.level >= MAX_LEVEL && p.species.evolvesTo.length) this.triggerEvolve();
