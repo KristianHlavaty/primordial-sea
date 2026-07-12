@@ -38,6 +38,10 @@ export const ABILITIES = {
   sprint:     { name: 'Sprint',    passive: false, cd: 8,  dur: 3,   color: '#9ce0a0', desc: 'A bounding land-sprint — a burst of much greater speed and acceleration.' },
   regen:      { name: 'Regenerate',passive: true,  cd: 0,  dur: 0,   color: '#8affb0', desc: 'Amphibian regrowth — you knit wounds back together quickly, even mid-fight.' },
   thickhide:  { name: 'Thick Hide',passive: true,  cd: 0,  dur: 0,   color: '#c9a06a', desc: 'Cornified armored skin — every blow that lands on you is blunted.' },
+  bastion:    { name: 'Living Bastion', passive: true, cd: 0, dur: 0, color: '#d6ad67', desc: 'Interlocked shell plates permanently blunt incoming damage.' },
+  ampullae:   { name: 'Electric Sense', passive: true, cd: 0, dur: 0, color: '#7de4e8', desc: 'Sense muscle impulses before prey moves, granting an extra chance to evade attacks.' },
+  hypervenom: { name: 'Venom Reservoir', passive: true, cd: 0, dur: 0, color: '#57e6b1', desc: 'Enlarged toxin reservoirs make every bite inflict a stronger, longer-burning venom.' },
+  hookarms:   { name: 'Hooked Arms', passive: true, cd: 0, dur: 0, color: '#e48ddb', desc: 'Long hook-lined arms increase the reach and force of every basic attack.' },
 };
 
 /* Which powers each player form carries (length grows with tier; capped at 3).
@@ -54,9 +58,15 @@ export const ABILITY_SETS = {
   cladoselache: ['bloodscent', 'burst', 'frenzy'],
   jaekelopterus: ['impale', 'harden', 'barbs'], dunkleosteus: ['crush', 'frenzy', 'evasion'],
   siphonophore: ['rebirth', 'shock', 'bloom'], cameroceras: ['whirlpool', 'ram', 'grasp'],
+  isotelus_rex: ['bastion', 'enroll', 'barbs'],
+  hurdiid_hunter: ['grasp', 'burst', 'evasion'], aegirocassis: ['filter', 'ram', 'bastion'],
+  sea_wasp: ['venom', 'burst', 'nettle'], crowned_sea_wasp: ['hypervenom', 'shock', 'evasion'],
+  xenacanthus: ['ampullae', 'burst', 'bloodscent'], abyssal_kraken: ['hookarms', 'ink', 'camo'],
   // land forms
   tiktaalik: ['pounce', 'regen'], ichthyostega: ['pounce', 'regen', 'tailsweep'], eryops: ['frenzy', 'pounce', 'thickhide'],
   kampecaris: ['burrow', 'thickhide'], arthropleura: ['stomp', 'enroll', 'thickhide'], pulmonoscorpius: ['impale', 'stomp', 'sprint'],
+  mudfin_strider: ['burst', 'regen'], reedscale_stalker: ['pounce', 'regen', 'tailsweep'],
+  gillrunner: ['sprint', 'pounce', 'ampullae'], tide_hunter: ['frenzy', 'pounce', 'ampullae'], bog_tide_hunter: ['bloodscent', 'pounce', 'regen'],
   acanthostega: ['regen', 'pounce'], hynerpeton_player: ['pounce', 'tailsweep', 'regen'],
   pneumodesmus: ['burrow', 'thickhide'], devonian_trigonotarbid: ['pounce', 'burrow', 'thickhide'], devonian_scorpion: ['impale', 'burrow', 'thickhide'],
   shore_polyp: ['nettle', 'bloom'], walking_medusa: ['bloom', 'nettle'], grove_anemone: ['shock', 'bloom', 'nettle'], storm_jelly: ['shock', 'bloom', 'venom'], coal_colony: ['rebirth', 'shock', 'venom'],

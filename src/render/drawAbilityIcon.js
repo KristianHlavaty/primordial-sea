@@ -6,7 +6,7 @@ import { withA } from '../core/color.js';
 export function drawAbilityIcon(ctx, id, size, color) {
   const r = size * 0.30, col = color || '#bcd'; ctx.save(); ctx.translate(size / 2, size / 2);
   ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = col; ctx.fillStyle = withA(col, 0.18); ctx.lineWidth = size * 0.06;
-  if (id === 'harden') {         // double hexagon shell
+  if (id === 'harden' || id === 'bastion') {         // double hexagon shell
     for (const rr of [r, r * 0.55]) {
       ctx.beginPath();
       for (let i = 0; i <= 6; i++) { const a = i / 6 * TAU - Math.PI / 2; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
@@ -29,7 +29,7 @@ export function drawAbilityIcon(ctx, id, size, color) {
       for (let i = 0; i < 4; i++) { const x = -r + i * r * 0.55; ctx.lineTo(x + r * 0.27, s * r * 0.12); ctx.lineTo(x + r * 0.55, s * r * 0.62); }
       ctx.closePath(); ctx.fill();
     }
-  } else if (id === 'evasion') { // after-image blur
+  } else if (id === 'evasion' || id === 'ampullae') { // after-image blur
     ctx.beginPath(); ctx.ellipse(r * 0.28, 0, r * 0.5, r * 0.32, 0, 0, TAU); ctx.fill(); ctx.stroke();
     ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.ellipse(-r * 0.38, 0, r * 0.5, r * 0.32, 0, 0, TAU); ctx.fill(); ctx.stroke(); ctx.globalAlpha = 1;
   } else if (id === 'engulf') {  // inward suction arrows
@@ -62,7 +62,7 @@ export function drawAbilityIcon(ctx, id, size, color) {
     for (const [x, y, rr] of [[-r * 0.4, r * 0.15, 0.5], [r * 0.3, r * 0.25, 0.42], [0, -r * 0.35, 0.55], [r * 0.55, -r * 0.3, 0.3]])
       { ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(x, y, r * rr, 0, TAU); ctx.fill(); }
     ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(-r * 0.15, -r * 0.05, r * 0.3, 0, TAU); ctx.fill();
-  } else if (id === 'grasp') {   // curling arm seizing a small prey dot
+  } else if (id === 'grasp' || id === 'hookarms') {   // curling arm seizing a small prey dot
     ctx.lineWidth = size * 0.085; ctx.beginPath(); ctx.moveTo(-r, r * 0.7);
     ctx.quadraticCurveTo(r * 0.3, r * 0.6, r * 0.55, -r * 0.1); ctx.quadraticCurveTo(r * 0.6, -r * 0.7, 0, -r * 0.55); ctx.quadraticCurveTo(-r * 0.35, -r * 0.45, -r * 0.2, -r * 0.1); ctx.stroke();
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(r * 0.05, -r * 0.15, r * 0.2, 0, TAU); ctx.fill();
@@ -87,7 +87,7 @@ export function drawAbilityIcon(ctx, id, size, color) {
     ctx.fillStyle = col;
     ctx.beginPath(); ctx.moveTo(-r * 0.35, -r * 0.8); ctx.quadraticCurveTo(r * 0.15, -r * 0.05, -r * 0.35, r * 0.25); ctx.quadraticCurveTo(-r * 0.85, -r * 0.05, -r * 0.35, -r * 0.8); ctx.closePath(); ctx.fill();
     for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(-r * 0.35, -r * 0.1, r * (0.5 + i * 0.28), -0.7, 0.7); ctx.stroke(); }
-  } else if (id === 'venom') {   // fangs with a falling drip
+  } else if (id === 'venom' || id === 'hypervenom') {   // fangs with a falling drip
     ctx.fillStyle = col;
     for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * r * 0.55 - s * r * 0.25, -r); ctx.lineTo(s * r * 0.55, r * 0.15); ctx.lineTo(s * r * 0.55 + s * r * 0.25, -r); ctx.closePath(); ctx.fill(); }
     ctx.beginPath(); ctx.moveTo(0, r * 0.25); ctx.quadraticCurveTo(r * 0.3, r * 0.7, 0, r); ctx.quadraticCurveTo(-r * 0.3, r * 0.7, 0, r * 0.25); ctx.closePath(); ctx.fill();

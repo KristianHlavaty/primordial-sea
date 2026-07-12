@@ -67,9 +67,10 @@ export class Player extends Entity {
   resolveBite(game) {
     if (this.biteT <= 0) return;
     const st = this.species.stats;
-    const reach = this.radius + st.reach, dmg = st.dmg * this.atkMul * (this.frenzyT > 0 ? 1.6 : 1);
+    const hooked = this.hasAbility('hookarms');
+    const reach = this.radius + st.reach * (hooked ? 1.45 : 1), dmg = st.dmg * this.atkMul * (this.frenzyT > 0 ? 1.6 : 1) * (hooked ? 1.18 : 1);
     const fx = Math.cos(this.angle), fy = Math.sin(this.angle);
-    const hasBloodscent = this.hasAbility('bloodscent'), hasVenom = this.hasAbility('venom');
+    const hasBloodscent = this.hasAbility('bloodscent'), strongVenom = this.hasAbility('hypervenom'), hasVenom = this.hasAbility('venom') || strongVenom;
     for (const c of game.creatures) {
       if (this.hitSet.has(c)) continue;
       const dx = c.x - this.x, dy = c.y - this.y, d = hyp(dx, dy);
@@ -81,7 +82,7 @@ export class Player extends Entity {
           if (hasBloodscent && c.hp < c.maxHp * 0.5) dmgC *= 1.3;   // Blood Scent: heavier bites on the wounded
           c.takeDamage(game, dmgC, this.x, this.y, true);
           if (hasVenom && c.hp > 0) {                               // Venom: the sting keeps burning
-            c.poisonT = 3; c.poisonDps = Math.max(c.poisonDps || 0, dmg * 0.25);
+            c.poisonT = strongVenom ? 4.5 : 3; c.poisonDps = Math.max(c.poisonDps || 0, dmg * (strongVenom ? .42 : .25));
             burst(game, c.x, c.y, '#b0e05e', 4, 70);
           }
           if (hasBloodscent && c.hp <= 0) this.hp = Math.min(this.maxHp, this.hp + 4);   // kill mends you
@@ -111,7 +112,7 @@ export class Player extends Entity {
     if (game.invincible) { burst(game, this.x, this.y, '#ff5d68', 3, 45); return; }
     if (this.enrollT > 0) { burst(game, this.x, this.y, '#ffe6b0', 4, 60); return; }
     if (this.burrowT > 0) { burst(game, this.x, this.y, '#c79a5e', 4, 60); return; }   // underground — untouchable
-    const dodgeCh = (this.hasAbility('evasion') ? 0.25 : 0) + game.perks.dodge;
+    const dodgeCh = (this.hasAbility('evasion') ? 0.25 : 0) + (this.hasAbility('ampullae') ? .15 : 0) + game.perks.dodge;
     if (dodgeCh > 0 && Math.random() < dodgeCh) {
       for (let i = 0; i < 7; i++) game.particles.push({ x: this.x + rand(-6, 6), y: this.y + rand(-6, 6), vx: rand(-60, 60), vy: rand(-60, 60), life: 0.3, max: 0.3, size: 2.2, color: 'rgba(138,255,208,0.75)' });
       game.sfx.play('dodge'); return;
@@ -128,6 +129,7 @@ export class Player extends Entity {
     }
     if (game.perks.dmgReduce) dmg *= (1 - game.perks.dmgReduce);   // Ironhide trophy
     if (this.hasAbility('thickhide')) dmg *= 0.85;                 // cornified armored skin
+    if (this.hasAbility('bastion')) dmg *= 0.82;
     if (this.withdrawT > 0) dmg *= 0.3;                            // tucked into the shell
     this.knockbackFrom(fromx, fromy, 130);
     if (this.shield > 0) {

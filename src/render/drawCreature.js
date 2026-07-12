@@ -282,6 +282,42 @@ export function drawCreature(ctx, o) {
       if (o.eyes) for (const s of [-1, 1]) { ctx.strokeStyle = shade(body, -0.2); ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(L * 0.55, s * W * 0.4); ctx.lineTo(L * 0.7, s * W * 0.85); ctx.stroke(); eye(ctx, L * 0.72, s * W * 0.85, W * 0.24); }
       break;
     }
+    case 'fishwalker': {
+      const u = o.upright || 0, limb = o.limb || 1, wag = Math.sin(t * 4) * W * .3;
+      // Tail and reduced swimming fin recede as the lineage becomes more terrestrial.
+      ctx.strokeStyle = shade(body, -.18); ctx.lineWidth = W * (.62 - u * .18); ctx.beginPath(); ctx.moveTo(-L * .35, 0); ctx.quadraticCurveTo(-L * .75, wag, -L * (1 + (o.tail || 1) * .28), wag); ctx.stroke();
+      ctx.fillStyle = withA(acc, .58); ctx.beginPath(); ctx.moveTo(-L * .92, wag); ctx.lineTo(-L * (1.16 + (o.tail || 1) * .22), wag - W * (.9 - u * .35)); ctx.lineTo(-L * (1.08 + (o.tail || 1) * .2), wag); ctx.lineTo(-L * (1.16 + (o.tail || 1) * .22), wag + W * (.9 - u * .35)); ctx.closePath(); ctx.fill();
+      // Two webbed limb pairs; later forms have long rear legs and grasping forelimbs.
+      ctx.strokeStyle = shade(body, -.32); ctx.lineWidth = W * .25;
+      for (const [x, rear] of [[L * .28, false], [-L * .15, true]]) for (const s of [-1, 1]) {
+        const step = Math.sin(t * 6 + (rear ? Math.PI : 0) + (s > 0 ? 0 : Math.PI)) * 5;
+        const reach = W * limb * (rear ? 1.65 : 1.25);
+        const ex = x - (rear ? W * .35 : -W * .12) + step, ey = s * (W * .55 + reach);
+        ctx.beginPath(); ctx.moveTo(x, s * W * .52); ctx.quadraticCurveTo(x + step * .4, s * W * (1 + limb * .25), ex, ey); ctx.stroke();
+        ctx.save(); ctx.translate(ex, ey); ctx.rotate(s * .18);
+        ctx.fillStyle = acc; ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(5 + u * 3, -4); ctx.lineTo(3, 0); ctx.lineTo(5 + u * 3, 4); ctx.closePath(); ctx.fill(); ctx.restore();
+      }
+      // Fish-like torso and broad head.
+      const g = ctx.createLinearGradient(0, -W, 0, W); g.addColorStop(0, shade(body, .3)); g.addColorStop(.5, body); g.addColorStop(1, shade(body, -.3));
+      ctx.fillStyle = g; ctx.strokeStyle = shade(body, -.42); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(0, 0, L * (.68 - u * .06), W * (1 + u * .08), 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = shade(body, .08); ctx.beginPath(); ctx.ellipse(L * .62, 0, L * (.27 + u * .04), W * (1.02 + u * .08), 0, 0, TAU); ctx.fill(); ctx.stroke();
+      // Gill fans remain visible behind the skull.
+      ctx.strokeStyle = withA(acc, .85); ctx.lineWidth = 1.7;
+      for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { const x = L * (.38 - i * .05); ctx.beginPath(); ctx.moveTo(x, s * W * .42); ctx.lineTo(x - L * .08, s * W * (.72 + i * .12)); ctx.stroke(); }
+      // Body stripes and a crown that grows with each terrestrial tier.
+      ctx.strokeStyle = withA(acc, .48); ctx.lineWidth = 2;
+      for (let i = 0; i < (o.stripes || 0); i++) { const x = lerp(-L * .45, L * .25, i / Math.max(1, o.stripes - 1)); ctx.beginPath(); ctx.moveTo(x, -W * .65); ctx.lineTo(x - L * .04, W * .65); ctx.stroke(); }
+      ctx.fillStyle = acc;
+      for (let i = 0; i < (o.crest || 0); i++) {
+        const x = lerp(-L * .3, L * .32, i / Math.max(1, o.crest - 1));
+        ctx.beginPath(); ctx.moveTo(x - 3, W * .1); ctx.lineTo(x, -W * (.38 + u * .12)); ctx.lineTo(x + 3, W * .1); ctx.closePath(); ctx.fill();
+      }
+      // Vertical mouth seam at the forward snout and widely set eyes.
+      const mx = L * .91; ctx.strokeStyle = shade(body, -.58); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(mx, -W * .38); ctx.quadraticCurveTo(mx + (o.mouth || 0) * W * .35, 0, mx, W * .38); ctx.stroke();
+      for (const s of [-1, 1]) eye(ctx, L * .68, s * W * .48, Math.max(2.5, W * .23));
+      break;
+    }
     case 'tetrapod': {
       // salamander-like body facing +X: tail (-X) -> body -> rounded head (+X),
       // two pairs of splayed walking legs, optional teeth.
@@ -293,6 +329,11 @@ export function drawCreature(ctx, o) {
       ctx.beginPath(); ctx.moveTo(-L * 0.3, 0); ctx.quadraticCurveTo(-L * 0.8, ty * 0.6, -L * (0.95 + 0.4 * tf), ty); ctx.stroke();
       if (o.tailFin) {
         ctx.fillStyle = withA(acc, .65); ctx.beginPath(); ctx.moveTo(-L * .35, 0); ctx.quadraticCurveTo(-L * .8, -W * o.tailFin, -L * (1.12 + .25 * tf), ty); ctx.quadraticCurveTo(-L * .8, W * o.tailFin, -L * .35, 0); ctx.fill();
+      }
+      if (o.filterCrown) {
+        ctx.strokeStyle = withA(acc, .9); ctx.lineWidth = 1.5;
+        for (let i = 0; i < 9; i++) { const y = (i / 8 - .5) * W * 1.5; ctx.beginPath(); ctx.moveTo(L * .62, y * .35); ctx.lineTo(L * 1.18, y); ctx.stroke(); }
+        ctx.strokeStyle = shade(body, -.35); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(L * .7, 0, W * .4, 0, TAU); ctx.stroke();
       }
       // legs (front pair near head, rear pair near hips), alternating gait
       ctx.strokeStyle = shade(body, -0.3); ctx.lineWidth = W * 0.28; ctx.lineCap = 'round';
@@ -346,6 +387,10 @@ export function drawCreature(ctx, o) {
       ctx.lineTo(-L * (0.9 + 0.6 * tf), ty * 0.7 + W * 1.4 * tf); ctx.closePath(); ctx.fill(); ctx.stroke();
       // dorsal fin
       ctx.fillStyle = withA(acc, 0.5); ctx.beginPath(); ctx.moveTo(L * 0.05, -W * 0.85); ctx.lineTo(-L * 0.35, -W * (1.1 + 0.3 * tf)); ctx.lineTo(-L * 0.45, -W * 0.4); ctx.closePath(); ctx.fill();
+      if (o.dorsalSpike) {
+        ctx.fillStyle = withA(acc, .85); ctx.strokeStyle = shade(body, -.35); ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(L * .45, -W * .72); ctx.lineTo(L * .2, -W * (1.35 + o.dorsalSpike)); ctx.lineTo(-L * .05, -W * .68); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
       // pectoral fin
       const pf = Math.sin(t * 5) * 0.3;
       ctx.fillStyle = withA(acc, 0.55); ctx.save(); ctx.translate(L * 0.2, W * 0.55); ctx.rotate(0.5 + pf);
@@ -358,6 +403,14 @@ export function drawCreature(ctx, o) {
       ctx.quadraticCurveTo(-L * 0.85, -W * 0.2 + ty * 0.6, -L * 0.85, ty * 0.7);
       ctx.quadraticCurveTo(-L * 0.85, W * 0.2 + ty * 0.6, -L * 0.5, W * 0.62 + ty * 0.3);
       ctx.quadraticCurveTo(L * 0.4, W, L, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      if (o.bodyStripes) {
+        ctx.strokeStyle = withA(acc, .5); ctx.lineWidth = Math.max(1.5, L * .035);
+        for (let i = 0; i < o.bodyStripes; i++) { const x = lerp(-L * .58, L * .34, i / Math.max(1, o.bodyStripes - 1)); ctx.beginPath(); ctx.moveTo(x, -W * .58); ctx.lineTo(x - L * .04, W * .58); ctx.stroke(); }
+      }
+      if (o.wingFins) {
+        ctx.fillStyle = withA(acc, .55);
+        for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(L * .05, s * W * .65); ctx.lineTo(-L * .18, s * W * 1.65); ctx.lineTo(L * .34, s * W * .72); ctx.closePath(); ctx.fill(); }
+      }
       // belly sheen
       ctx.fillStyle = withA(acc, 0.25); ctx.beginPath(); ctx.ellipse(L * 0.15, W * 0.2, L * 0.4, W * 0.35, 0, 0, TAU); ctx.fill();
       // placoderm head armor: pale bony shield with a jagged rear seam (Dunkleosteus)

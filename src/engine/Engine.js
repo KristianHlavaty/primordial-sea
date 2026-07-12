@@ -175,7 +175,11 @@ export class Engine {
 
   availablePioneers() {
     const branch = this.player && this.player.species.branch;
-    return landPioneers(this.fantasyEvolution).filter(id => !SPECIES[id].seaBranches || SPECIES[id].seaBranches.includes(branch));
+    const fromId = this.player && this.player.speciesId;
+    return landPioneers(this.fantasyEvolution).filter(id =>
+      (!SPECIES[id].seaBranches || SPECIES[id].seaBranches.includes(branch)) &&
+      (!SPECIES[id].seaSpecies || SPECIES[id].seaSpecies.includes(fromId))
+    );
   }
 
   triggerEvolve() {

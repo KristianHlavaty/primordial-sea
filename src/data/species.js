@@ -44,7 +44,7 @@ export const SPECIES = {
     desc: 'A streamlined, glassy swimmer built for blistering bursts and sharp turns.',
     stats: { hp: 95, accel: 1330, maxSpeed: 335, dmg: 17, reach: 13, radius: 16, dashCd: 0.34, dashPow: 430, turn: 15 },
     plan: P({ kind: 'fish', len: 26, wid: 9, body: '#4bd0e0', accent: '#dbfbff', tail: 1.35, eyes: 1 }),
-    evolvesTo: ['predator_fish', 'cladoselache']
+    evolvesTo: ['cladoselache']
   },
 
   jawed_fish: {
@@ -52,7 +52,7 @@ export const SPECIES = {
     desc: 'The first true jaws in the sea. An armored head-shield and a hard, biting mouth.',
     stats: { hp: 125, accel: 1060, maxSpeed: 275, dmg: 27, reach: 14, radius: 18, dashCd: 0.44, dashPow: 360, turn: 12 },
     plan: P({ kind: 'fish', len: 25, wid: 12, body: '#5a76c8', accent: '#bccdff', tail: 1.05, teeth: true, eyes: 1 }),
-    evolvesTo: ['predator_fish', 'cladoselache']
+    evolvesTo: ['predator_fish']
   },
 
   sea_scorpion: {
@@ -68,7 +68,7 @@ export const SPECIES = {
     desc: 'A walking fortress bristling with defensive spines. Immense health, immovable will.',
     stats: { hp: 320, accel: 820, maxSpeed: 205, dmg: 27, reach: 13, radius: 25, dashCd: 0.55, dashPow: 340, turn: 9 },
     plan: P({ kind: 'arthro', len: 31, wid: 24, body: '#6b4a2f', accent: '#d8a066', segments: 9, spikes: 9, legs: 12, eyes: 2, stalks: true }),
-    evolvesTo: []
+    evolvesTo: ['isotelus_rex']
   },
 
   predator_fish: {
@@ -84,7 +84,7 @@ export const SPECIES = {
     desc: 'A fast, grasping apex hunter of the early seas — rippling swim-lobes and raptorial arms.',
     stats: { hp: 110, accel: 1160, maxSpeed: 285, dmg: 24, reach: 14, radius: 18, dashCd: 0.42, dashPow: 405, turn: 13 },
     plan: P({ kind: 'anomalo', len: 29, wid: 14, body: '#c07a5a', accent: '#ffcfa0', sideFlaps: true, eyes: 2, stalks: true }),
-    evolvesTo: ['sea_scorpion']
+    evolvesTo: ['hurdiid_hunter']
   },
 
   cnidarian_polyp: {
@@ -150,7 +150,7 @@ export const SPECIES = {
     desc: 'A grasping, colour-shifting terror — arms like nooses, skin like the sea itself.',
     stats: { hp: 210, accel: 1150, maxSpeed: 290, dmg: 34, reach: 16, radius: 24, dashCd: 0.42, dashPow: 440, turn: 13 },
     plan: P({ kind: 'squid', len: 32, wid: 13, body: '#8a5ac8', accent: '#e0c8ff', tentacles: 10, eyes: 1 }),
-    evolvesTo: ['cameroceras']
+    evolvesTo: ['abyssal_kraken']
   },
 
   cameroceras: {
@@ -168,7 +168,7 @@ export const SPECIES = {
     desc: 'A cube of glass trailing wires of pure venom — almost invisible, entirely lethal.',
     stats: { hp: 110, accel: 1000, maxSpeed: 245, dmg: 14, reach: 13, radius: 17, dashCd: 0.46, dashPow: 320, turn: 12 },
     plan: P({ kind: 'jelly', len: 18, wid: 17, body: '#9fd8e8', accent: '#eafcff', glow: '#b0f0ff', tentacles: 4 }),
-    evolvesTo: ['siphonophore']
+    evolvesTo: ['sea_wasp']
   },
 
   cladoselache: {
@@ -176,7 +176,7 @@ export const SPECIES = {
     desc: 'The first shark-shape — naked skin, blade fins, and a nose full of blood.',
     stats: { hp: 170, accel: 1300, maxSpeed: 345, dmg: 30, reach: 15, radius: 21, dashCd: 0.36, dashPow: 470, turn: 14 },
     plan: P({ kind: 'fish', len: 30, wid: 11, body: '#7a94a8', accent: '#d8ecf8', tail: 1.45, teeth: true, eyes: 1 }),
-    evolvesTo: []
+    evolvesTo: ['xenacanthus']
   },
 
   jaekelopterus: {
@@ -201,6 +201,50 @@ export const SPECIES = {
     stats: { hp: 360, accel: 900, maxSpeed: 230, dmg: 22, reach: 18, radius: 32, dashCd: 0.5, dashPow: 340, turn: 10 },
     plan: P({ kind: 'jelly', len: 36, wid: 30, body: '#7a9fe8', accent: '#f4f8ff', glow: '#a8e0ff', tentacles: 14 }),
     evolvesTo: []
+  },
+
+  // Every sea route finishes at its own tier-4 apex.
+  isotelus_rex: {
+    name: 'Isotelus Rex', tier: 4, branch: 'arth',
+    desc: 'A colossal smooth-shelled trilobite, broad as a shield and almost impossible to overturn.',
+    stats: { hp: 430, accel: 780, maxSpeed: 200, dmg: 38, reach: 15, radius: 33, dashCd: .58, dashPow: 350, turn: 8 },
+    plan: P({ kind: 'arthro', len: 42, wid: 31, body: '#52412f', accent: '#d3a967', segments: 12, legs: 18, eyes: 2, stalks: true, armorRidges: 8, horns: .4 }), evolvesTo: []
+  },
+  hurdiid_hunter: {
+    name: 'Hurdiid Hunter', tier: 3, branch: 'arth',
+    desc: 'A wide-headed radiodont whose great frontal appendages comb and seize the open water.',
+    stats: { hp: 215, accel: 1120, maxSpeed: 300, dmg: 35, reach: 18, radius: 25, dashCd: .4, dashPow: 455, turn: 12 },
+    plan: P({ kind: 'anomalo', len: 35, wid: 19, body: '#9e6645', accent: '#f0bd73', sideFlaps: true, eyes: 2, stalks: true }), evolvesTo: ['aegirocassis']
+  },
+  aegirocassis: {
+    name: 'Aegirocassis', tier: 4, branch: 'arth',
+    desc: 'A giant radiodont with twin rows of swimming flaps and a vast filtering basket.',
+    stats: { hp: 390, accel: 930, maxSpeed: 270, dmg: 42, reach: 21, radius: 34, dashCd: .46, dashPow: 440, turn: 9 },
+    plan: P({ kind: 'anomalo', len: 47, wid: 24, body: '#7b5262', accent: '#f0b89b', sideFlaps: true, eyes: 2, stalks: true, filterCrown: true }), evolvesTo: []
+  },
+  sea_wasp: {
+    name: 'Pelagic Sea Wasp', tier: 3, branch: 'cnid',
+    desc: 'A fast four-cornered hunter with long venom lines and clusters of lens-bearing eyes.',
+    stats: { hp: 205, accel: 1080, maxSpeed: 270, dmg: 22, reach: 18, radius: 24, dashCd: .42, dashPow: 365, turn: 13 },
+    plan: P({ kind: 'jelly', len: 28, wid: 24, body: '#6bc6ce', accent: '#d6ffff', glow: '#70f2ff', tentacles: 4, crown: 4, colonyNodes: 4 }), evolvesTo: ['crowned_sea_wasp']
+  },
+  crowned_sea_wasp: {
+    name: 'Crowned Sea Wasp', tier: 4, branch: 'cnid',
+    desc: 'A towering box medusa ringed with sensory crowns, trailing four lethal cables through the blue.',
+    stats: { hp: 325, accel: 1100, maxSpeed: 280, dmg: 35, reach: 22, radius: 31, dashCd: .4, dashPow: 390, turn: 13 },
+    plan: P({ kind: 'jelly', len: 38, wid: 29, body: '#387d9b', accent: '#b9fbff', glow: '#4ae7ff', tentacles: 4, crown: 8, colonyNodes: 8 }), evolvesTo: []
+  },
+  xenacanthus: {
+    name: 'Xenacanthus', tier: 4, branch: 'chord', swiftLineage: true,
+    desc: 'A long, swift shark with a backward-pointing head spine and ribbon-like dorsal fin.',
+    stats: { hp: 285, accel: 1370, maxSpeed: 365, dmg: 46, reach: 18, radius: 27, dashCd: .33, dashPow: 510, turn: 15 },
+    plan: P({ kind: 'fish', len: 43, wid: 13, body: '#526f75', accent: '#b9e4dc', tail: 1.5, teeth: true, eyes: 1, dorsalSpike: 1.3, bodyStripes: 7, wingFins: true }), evolvesTo: []
+  },
+  abyssal_kraken: {
+    name: 'Abyssal Kraken', tier: 4, branch: 'moll',
+    desc: 'A colossal soft-bodied hunter whose hooked arms and living camouflage rule the open darkness.',
+    stats: { hp: 350, accel: 1210, maxSpeed: 310, dmg: 49, reach: 23, radius: 32, dashCd: .38, dashPow: 480, turn: 13 },
+    plan: P({ kind: 'squid', len: 43, wid: 18, body: '#492f72', accent: '#d987dd', tentacles: 14, eyes: 1, mantleSpots: 10 }), evolvesTo: []
   },
 
   /* ============================================================
@@ -271,6 +315,13 @@ export const SPECIES = {
     plan: P({ kind: 'scorpion', len: 40, wid: 17, body: '#7a5a2f', accent: '#e0b070', segments: 9, claws: true, spikes: 3, legs: 8, eyes: 2 }),
     evolvesTo: []
   },
+  // Optional swift-fish future: an amphibious fish-descendant lineage.
+  mudfin_strider: { name: 'Mudfin Strider', tier: 1, branch: 'tideborn', stage: 'devonian', landfall: true, fantasy: true, seaBranches: ['chord'], seaSpecies: ['xenacanthus'], desc: 'Fantasy: a swift shark-descendant using reinforced paired fins to scramble between shrinking pools.', stats: { hp: 225, accel: 1120, maxSpeed: 275, dmg: 36, reach: 16, radius: 22, dashCd: .38, dashPow: 455, turn: 14 }, plan: P({ kind: 'fishwalker', len: 28, wid: 12, body: '#477f83', accent: '#9fe5d5', tail: 1.2, limb: .7, upright: .15, crest: 2, stripes: 5 }), evolvesTo: ['reedscale_stalker'] },
+  reedscale_stalker: { name: 'Reedscale Stalker', tier: 2, branch: 'tideborn', stage: 'devonian', fantasy: true, desc: 'Fantasy: webbed grasping forelimbs and stronger hips turn a pool-hopper into an alert reed-bed hunter.', stats: { hp: 270, accel: 1140, maxSpeed: 280, dmg: 42, reach: 18, radius: 24, dashCd: .37, dashPow: 465, turn: 14 }, plan: P({ kind: 'fishwalker', len: 30, wid: 14, body: '#356e68', accent: '#a4d98a', tail: .95, limb: .9, upright: .4, crest: 3, stripes: 4 }), evolvesTo: ['gillrunner'] },
+  gillrunner: { name: 'Gillrunner', tier: 3, branch: 'tideborn', stage: 'devonian', fantasy: true, desc: 'Fantasy: long weight-bearing legs, dexterous forefins and protected gills support sustained travel over mud.', stats: { hp: 315, accel: 1170, maxSpeed: 290, dmg: 49, reach: 20, radius: 27, dashCd: .35, dashPow: 485, turn: 14 }, plan: P({ kind: 'fishwalker', len: 33, wid: 15, body: '#315b52', accent: '#d0bb69', tail: .72, limb: 1.14, upright: .7, crest: 5, stripes: 3 }), evolvesTo: ['tide_hunter'] },
+  tide_hunter: { name: 'Tide Hunter', tier: 4, branch: 'tideborn', stage: 'devonian', fantasy: true, desc: 'Fantasy: a powerful amphibious fish-descendant with a raised torso, gripping hands and a finned crown.', stats: { hp: 355, accel: 1200, maxSpeed: 300, dmg: 56, reach: 22, radius: 29, dashCd: .34, dashPow: 500, turn: 15 }, plan: P({ kind: 'fishwalker', len: 36, wid: 17, body: '#294b47', accent: '#e18e63', tail: .5, limb: 1.35, upright: 1, crest: 7, stripes: 2 }), evolvesTo: ['bog_tide_hunter'] },
+  bog_tide_hunter: { name: 'Coal-Marsh Tide Hunter', tier: 1, branch: 'tideborn', stage: 'carboniferous', fantasy: true, desc: 'Fantasy: a mature swamp hunter adapted to humid coal forests and deep, root-tangled channels.', stats: { hp: 395, accel: 1190, maxSpeed: 300, dmg: 60, reach: 23, radius: 31, dashCd: .34, dashPow: 505, turn: 14 }, plan: P({ kind: 'fishwalker', len: 39, wid: 19, body: '#203e38', accent: '#db725e', tail: .42, limb: 1.45, upright: 1, crest: 8, stripes: 2 }), evolvesTo: [] },
+
   // Optional speculative bridges for lineages with no real land descendants.
   shore_polyp: { name: 'Shore Polyp', tier: 1, branch: 'terracnid', stage: 'devonian', landfall: true, fantasy: true, seaBranches: ['cnid'], desc: 'Fantasy: a cnidarian colony sealed against drying tides.', stats: { hp: 225, accel: 900, maxSpeed: 225, dmg: 34, reach: 16, radius: 22, dashCd: .48, dashPow: 390, turn: 11 }, plan: P({ kind: 'jelly', len: 21, wid: 19, body: '#b58add', accent: '#f2d6ff', glow: '#d0a8ff', tentacles: 6, landForm: true, footPads: 1, colonyNodes: 3 }), evolvesTo: ['walking_medusa'] },
   walking_medusa: { name: 'Walking Medusa', tier: 2, branch: 'terracnid', stage: 'devonian', fantasy: true, desc: 'Fantasy: muscular tentacles carry a moisture-hoarding bell over wet ground.', stats: { hp: 265, accel: 940, maxSpeed: 235, dmg: 40, reach: 17, radius: 24, dashCd: .46, dashPow: 410, turn: 11 }, plan: P({ kind: 'jelly', len: 27, wid: 23, body: '#8b70cb', accent: '#e9d7ff', glow: '#b995ff', tentacles: 8, landForm: true, footPads: 2, crown: 3 }), evolvesTo: ['grove_anemone'] },
