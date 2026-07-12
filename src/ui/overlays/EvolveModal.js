@@ -15,13 +15,18 @@ const MAX = STAT_MAX;
 export function EvolveModal({ engine, hud }) {
   const cur = engine.player.species.stats;
   const ascend = hud.evolveMode === 'ascend';
+  const advance = hud.evolveMode === 'advance';
+  const title = ascend ? '🏝 CRAWL ASHORE 🏝' : advance ? '◆ ENTER THE CARBONIFEROUS ◆' : '✦ EVOLUTION ✦';
+  const subtitle = ascend
+    ? 'The tide draws back and the shore beckons — choose the shape that first leaves the water'
+    : advance
+      ? 'Your Devonian lineage is ready for the coal forests — evolve now or remain and finish exploring'
+      : 'Your egg quivers and splits — choose the shape of the next generation';
   return html`
     <div className="scrim">
       <div className="card">
-        <div className="evolveTitle">${ascend ? '🏝 CRAWL ASHORE 🏝' : '✦ EVOLUTION ✦'}</div>
-        <div className="subtitle">${ascend
-          ? 'The tide draws back and the shore beckons — choose the shape that first leaves the water'
-          : 'Your egg quivers and splits — choose the shape of the next generation'}</div>
+        <div className="evolveTitle">${title}</div>
+        <div className="subtitle">${subtitle}</div>
         <div className="choices">
           ${hud.choices.map(id => {
             const sp = SPECIES[id];
@@ -48,6 +53,11 @@ export function EvolveModal({ engine, hud }) {
           <div className="ascendStay">
             <button className="stayBtn" onClick=${() => engine.dismissAscend()}>Not yet — stay in the sea</button>
             <div className="ascendHint">Finish hunting the deep (bosses, kills…) and reopen this from the <b>🏝 Ashore</b> button anytime.</div>
+          </div>`}
+        ${advance && html`
+          <div className="ascendStay">
+            <button className="stayBtn" onClick=${() => engine.dismissAdvance()}>Not yet — stay in the Devonian</button>
+            <div className="ascendHint">Finish exploring Devonian zones and reopen this transition from the <b>Carboniferous</b> button anytime.</div>
           </div>`}
       </div>
     </div>`;

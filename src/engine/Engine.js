@@ -54,11 +54,11 @@ export class Engine {
 
     // flow state
     this.playing = false; this.paused = false; this.dead = false;
-    this.pendingEvolve = false; this.choices = []; this.evolveMode = 'normal';   // 'normal' | 'ascend'
+    this.pendingEvolve = false; this.choices = []; this.evolveMode = 'normal';   // 'normal' | 'ascend' | 'advance'
     this.kills = 0; this.lastHurt = -99; this.spawnT = 0; this.hudT = 0;
 
     // stage transitions (crawling ashore)
-    this.ascendOffered = false; this.ascendAvailable = false;
+    this.ascendOffered = false; this.ascendAvailable = false; this.advanceAvailable = false;
     // map edge crossings
     this.transitionCd = 0; this.edgeDwell = 0; this.nearEdge = null; this.visitedMaps = new Set();
 
@@ -90,7 +90,7 @@ export class Engine {
     this.pendingEvolve = false; this.choices = []; this.evolveMode = 'normal';
     this.perks = { dmgReduce: 0, dodge: 0, webResist: 0, list: [] }; this.bossesDefeated = new Set();
     this.achievement = null; this.achT = 0;
-    this.ascendOffered = false; this.ascendAvailable = false;
+    this.ascendOffered = false; this.ascendAvailable = false; this.advanceAvailable = false;
     this.transitionCd = 0; this.edgeDwell = 0; this.nearEdge = null; this.visitedMaps = new Set();
     this.time = 0; this.lastHurt = -99;
     this.mouse.x = this.vw / 2; this.mouse.y = this.vh / 2;
@@ -189,8 +189,9 @@ export class Engine {
   }
 
   triggerEvolve() {
-    this.pendingEvolve = true; this.paused = true; this.evolveMode = 'normal';
+    this.pendingEvolve = true; this.paused = true;
     this.choices = this.player.species.evolvesTo.slice();
+    this.evolveMode = this.isStageAdvance() ? 'advance' : 'normal';
     this.eggs.push({ x: this.player.x, y: this.player.y + this.player.radius + 10, t: 0 });
     this.sfx.play('egg'); this.pushHud(true);
   }
@@ -204,6 +205,11 @@ export class Engine {
     this.sfx.play('egg'); this.pushHud(true);
   }
   openAscend() { if (this.playing && !this.dead && !this.pendingEvolve) this.triggerAscend(); }
+  isStageAdvance() {
+    const p = this.player;
+    return !!p && p.species.evolvesTo.length > 0 && p.species.evolvesTo.every(id => speciesStage(id) !== this.stage);
+  }
+  openAdvance() { if (this.playing && !this.dead && !this.pendingEvolve && this.advanceAvailable && this.isStageAdvance()) this.triggerEvolve(); }
 
   /* "Stay in the sea for now" — dismiss the crawl-ashore prompt but leave it
      re-openable so you can finish sea bosses first. */
@@ -218,7 +224,7 @@ export class Engine {
     if (!this.pendingEvolve) return;
     const fromStage = this.stage, toStage = speciesStage(id);
     this.makePlayer(id); this.era++;
-    this.pendingEvolve = false; this.paused = false; this.eggs.length = 0; this.choices = []; this.evolveMode = 'normal';
+    this.pendingEvolve = false; this.paused = false; this.eggs.length = 0; this.choices = []; this.evolveMode = 'normal'; this.advanceAvailable = false;
     if (toStage !== fromStage) {
       // crawl ashore — enter the new stage's first map
       this.ascendOffered = true; this.ascendAvailable = false;
@@ -243,6 +249,13 @@ export class Engine {
     this.achId++;
     this.achievement = { id: this.achId, boss: bossTitle, perk: perk.name, blurb: perk.blurb, icon: perk.icon, color: perk.color };
     this.achT = 0; this.paused = true;
+    this.pushHud(true);
+  }
+
+  dismissAdvance() {
+    if (this.evolveMode !== 'advance') return;
+    this.pendingEvolve = false; this.paused = false; this.evolveMode = 'normal';
+    this.eggs.length = 0; this.choices = []; this.advanceAvailable = true;
     this.pushHud(true);
   }
   dismissAchievement() {
@@ -327,7 +340,7 @@ export class Engine {
     for (const b of this.bubbles) { b.y -= b.sp * dt; b.x += Math.sin(this.time + b.ph) * 6 * dt; if (b.y < -4) { b.y = this.vh + 4; b.x = Math.random() * this.vw; } }
 
     // max level: evolve within the stage, or (sea apex) offer to crawl ashore
-    if (!this.pendingEvolve && !this.dead && p.level >= MAX_LEVEL && p.species.evolvesTo.length) this.triggerEvolve();
+    if (!this.pendingEvolve && !this.dead && !this.advanceAvailable && p.level >= MAX_LEVEL && p.species.evolvesTo.length) this.triggerEvolve();
     else if (!this.pendingEvolve && !this.dead && !this.ascendOffered && this.isSeaApex()) this.triggerAscend();
 
     // camera follows with a soft lag
@@ -373,7 +386,7 @@ export class Engine {
       // stage / map
       stage: this.stage, stageName: STAGES[this.stage] ? STAGES[this.stage].name : '',
       mapId: this.mapId, mapName: MAPS[this.mapId] ? MAPS[this.mapId].name : '',
-      canAscend: this.isSeaApex(), ascendAvailable: this.ascendAvailable, nearEdge: this.nearEdge,
+      canAscend: this.isSeaApex(), ascendAvailable: this.ascendAvailable, advanceAvailable: this.advanceAvailable, nearEdge: this.nearEdge,
       cheatsEnabled: this.cheatsEnabled, invincible: this.invincible
     });
   }
