@@ -15,13 +15,26 @@ edge walk. Open the **world atlas** (🗺 / `B`) to see every map and its boss.
 
 ## How to run
 
-**Double-click `start-game.bat`.** It starts a tiny local web server
-(PowerShell, no installs needed) and opens the game at
-<http://localhost:8000/>. Keep the console window open while playing.
+The game needs a local web server (native ES modules can't load from
+`file://`). There's a zero-install launcher per OS — it starts a tiny static
+server and opens the game at <http://localhost:8888/>. Keep the launcher
+window open while playing; close it or press Ctrl+C to stop.
 
-> Why a server? The game uses native ES modules, which browsers refuse to
-> load from `file://`. Any static server works — if you ever install
-> Node.js you can also just run `npx serve` in this folder.
+- **Windows** — double-click **`start-game.bat`** (uses built-in PowerShell;
+  no installs needed).
+- **macOS** — double-click **`start-game.command`**. First time only, run
+  `chmod +x start-game.command start-game.sh` in Terminal so Finder is allowed
+  to execute it.
+- **Linux** — run **`./start-game.sh`** (or `bash start-game.sh`).
+
+The Mac/Linux launcher uses whatever you already have — **Python 3**, Python,
+PHP, or Node — so one of those must be installed (Python 3 is easiest and ships
+on most systems).
+
+> Why a server? Browsers refuse to load ES modules from `file://`, so
+> double-clicking `index.html` won't work on any OS. Any static server does the
+> job — with Node you can skip the scripts entirely and run `npx serve` (or
+> `python3 -m http.server 8888`) in this folder, then open the printed URL.
 
 There is no build step: edit any file, refresh the browser, done.
 
@@ -29,8 +42,10 @@ There is no build step: edit any file, refresh the browser, done.
 
 ```
 index.html            entry page — loads styles, vendored libs, then src/main.js
-start-game.bat        double-click to play
-tools/serve.ps1       dependency-free static web server
+start-game.bat        double-click to play (Windows)
+start-game.command    double-click to play (macOS)
+start-game.sh         run to play (macOS / Linux)
+tools/serve.ps1       dependency-free static web server (Windows)
 vendor/               React 18, ReactDOM, htm (local copies; game works offline)
 styles/               base.css (theme/reset) · hud.css · overlays.css · tree.css
 src/
