@@ -326,40 +326,148 @@ export function drawCreature(ctx, o) {
       if (o.eyes) for (const s of [-1, 1]) { ctx.strokeStyle = shade(body, -0.2); ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(L * 0.55, s * W * 0.4); ctx.lineTo(L * 0.7, s * W * 0.85); ctx.stroke(); eye(ctx, L * 0.72, s * W * 0.85, W * 0.24); }
       break;
     }
-    case 'fishwalker': {
-      const u = o.upright || 0, limb = o.limb || 1, wag = Math.sin(t * 4) * W * .3;
-      // Tail and reduced swimming fin recede as the lineage becomes more terrestrial.
-      ctx.strokeStyle = shade(body, -.18); ctx.lineWidth = W * (.62 - u * .18); ctx.beginPath(); ctx.moveTo(-L * .35, 0); ctx.quadraticCurveTo(-L * .75, wag, -L * (1 + (o.tail || 1) * .28), wag); ctx.stroke();
-      ctx.fillStyle = withA(acc, .58); ctx.beginPath(); ctx.moveTo(-L * .92, wag); ctx.lineTo(-L * (1.16 + (o.tail || 1) * .22), wag - W * (.9 - u * .35)); ctx.lineTo(-L * (1.08 + (o.tail || 1) * .2), wag); ctx.lineTo(-L * (1.16 + (o.tail || 1) * .22), wag + W * (.9 - u * .35)); ctx.closePath(); ctx.fill();
-      // Two webbed limb pairs; later forms have long rear legs and grasping forelimbs.
-      ctx.strokeStyle = shade(body, -.32); ctx.lineWidth = W * .25;
-      for (const [x, rear] of [[L * .28, false], [-L * .15, true]]) for (const s of [-1, 1]) {
-        const step = Math.sin(t * 6 + (rear ? Math.PI : 0) + (s > 0 ? 0 : Math.PI)) * 5;
-        const reach = W * limb * (rear ? 1.65 : 1.25);
-        const ex = x - (rear ? W * .35 : -W * .12) + step, ey = s * (W * .55 + reach);
-        ctx.beginPath(); ctx.moveTo(x, s * W * .52); ctx.quadraticCurveTo(x + step * .4, s * W * (1 + limb * .25), ex, ey); ctx.stroke();
-        ctx.save(); ctx.translate(ex, ey); ctx.rotate(s * .18);
-        ctx.fillStyle = acc; ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(5 + u * 3, -4); ctx.lineTo(3, 0); ctx.lineTo(5 + u * 3, 4); ctx.closePath(); ctx.fill(); ctx.restore();
+    case 'lanternwalker': {
+      // The Devonian plans keep this body long, narrow and fin-driven. `morph`
+      // broadens the shoulders and skull, shortens the tail and turns the paired
+      // fin-lobes into feet as the Carboniferous Lantern Maw takes shape.
+      const morph = Math.max(0, Math.min(1, o.morph || 0));
+      const limb = o.limb || .2, tail = o.tail === undefined ? 1 : o.tail;
+      const gape = Math.max(0, Math.min(1, o.gape || 0));
+      const bite = Math.max(0, Math.min(1, o.mouth || 0));
+      const lure = Math.max(0, o.lure || 0);
+      const wag = Math.sin(t * 4) * W * (.38 - morph * .16);
+      const outline = shade(body, -.46);
+
+      // A large swimming tail in the Devonian becomes only a stabilising stub.
+      const tailEnd = -L * (.6 + tail * .48);
+      ctx.strokeStyle = shade(body, -.2); ctx.lineWidth = W * (.7 - morph * .26);
+      ctx.beginPath(); ctx.moveTo(-L * .37, 0); ctx.quadraticCurveTo(-L * (.55 + tail * .12), wag * .55, tailEnd, wag); ctx.stroke();
+      const finScale = .16 + Math.min(1.2, tail) * .65;
+      ctx.fillStyle = withA(acc, .58); ctx.strokeStyle = withA(outline, .72); ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(tailEnd + L * .08, wag);
+      ctx.lineTo(tailEnd - L * (.12 + tail * .08), wag - W * finScale);
+      ctx.lineTo(tailEnd - L * .05, wag);
+      ctx.lineTo(tailEnd - L * (.12 + tail * .08), wag + W * finScale);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      // Two paired fin-lobes. Early forms end in broad swimming fins; later
+      // forms plant luminous, webbed pads and use an alternating walking gait.
+      const bodyHalfW = W * (.78 + morph * .2);
+      for (const [x, rear] of [[L * .25, false], [-L * .2, true]]) for (const s of [-1, 1]) {
+        const phase = rear ? Math.PI : 0;
+        const step = Math.sin(t * 6 + phase + (s > 0 ? 0 : Math.PI)) * (1.5 + morph * 4);
+        const reach = W * (.45 + limb * .45) * (rear ? 1.08 : .95);
+        const sx = x, sy = s * bodyHalfW * .58;
+        const ex = x + (rear ? -W * .24 : W * .12) + step * morph;
+        const ey = s * (bodyHalfW * .55 + reach);
+        ctx.strokeStyle = morph > .45 ? shade(body, .12) : shade(body, -.22); ctx.lineWidth = W * (.18 + morph * .13);
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(x + step * .35, s * (bodyHalfW + reach * .3), ex, ey); ctx.stroke();
+
+        ctx.save(); ctx.translate(ex, ey); ctx.rotate(s * (.08 + morph * .12));
+        if (morph < .55) {
+          const fin = 1 - morph * .72;
+          ctx.fillStyle = withA(acc, .72); ctx.strokeStyle = withA(outline, .65); ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(-W * .14, 0); ctx.lineTo(W * (.48 + fin * .18), -s * W * (.26 + fin * .12));
+          ctx.lineTo(W * (.28 + fin * .12), 0); ctx.lineTo(W * (.48 + fin * .18), s * W * (.26 + fin * .12));
+          ctx.closePath(); ctx.fill(); ctx.stroke();
+        }
+        if (morph > .22) {
+          ctx.fillStyle = withA(acc, .48 + morph * .32); ctx.strokeStyle = withA(outline, .78); ctx.lineWidth = 1.3;
+          ctx.beginPath(); ctx.ellipse(W * .14, 0, W * (.28 + morph * .14), W * (.13 + morph * .07), 0, 0, TAU); ctx.fill(); ctx.stroke();
+        }
+        ctx.restore();
       }
-      // Fish-like torso and broad head.
-      const g = ctx.createLinearGradient(0, -W, 0, W); g.addColorStop(0, shade(body, .3)); g.addColorStop(.5, body); g.addColorStop(1, shade(body, -.3));
-      ctx.fillStyle = g; ctx.strokeStyle = shade(body, -.42); ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(0, 0, L * (.68 - u * .06), W * (1 + u * .08), 0, 0, TAU); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = shade(body, .08); ctx.beginPath(); ctx.ellipse(L * .62, 0, L * (.27 + u * .04), W * (1.02 + u * .08), 0, 0, TAU); ctx.fill(); ctx.stroke();
-      // Gill fans remain visible behind the skull.
-      ctx.strokeStyle = withA(acc, .85); ctx.lineWidth = 1.7;
-      for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { const x = L * (.38 - i * .05); ctx.beginPath(); ctx.moveTo(x, s * W * .42); ctx.lineTo(x - L * .08, s * W * (.72 + i * .12)); ctx.stroke(); }
-      // Body stripes and a crown that grows with each terrestrial tier.
-      ctx.strokeStyle = withA(acc, .48); ctx.lineWidth = 2;
-      for (let i = 0; i < (o.stripes || 0); i++) { const x = lerp(-L * .45, L * .25, i / Math.max(1, o.stripes - 1)); ctx.beginPath(); ctx.moveTo(x, -W * .65); ctx.lineTo(x - L * .04, W * .65); ctx.stroke(); }
-      ctx.fillStyle = acc;
-      for (let i = 0; i < (o.crest || 0); i++) {
-        const x = lerp(-L * .3, L * .32, i / Math.max(1, o.crest - 1));
-        ctx.beginPath(); ctx.moveTo(x - 3, W * .1); ctx.lineTo(x, -W * (.38 + u * .12)); ctx.lineTo(x + 3, W * .1); ctx.closePath(); ctx.fill();
+
+      // Fusiform torso and the widening shoulder hood. The extra hood is kept
+      // subtle in early stages so they still read immediately as fish.
+      const g = ctx.createLinearGradient(0, -W, 0, W);
+      g.addColorStop(0, shade(body, .28)); g.addColorStop(.5, body); g.addColorStop(1, shade(body, -.3));
+      ctx.fillStyle = g; ctx.strokeStyle = outline; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(-L * .03, 0, L * (.72 - morph * .1), bodyHalfW, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      if (morph > .35) {
+        ctx.fillStyle = withA(shade(body, .1), .72); ctx.beginPath();
+        ctx.ellipse(L * .16, 0, L * (.35 + morph * .05), W * (.78 + morph * .2), 0, 0, TAU); ctx.fill();
       }
-      // Vertical mouth seam at the forward snout and widely set eyes.
-      const mx = L * .91; ctx.strokeStyle = shade(body, -.58); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(mx, -W * .38); ctx.quadraticCurveTo(mx + (o.mouth || 0) * W * .35, 0, mx, W * .38); ctx.stroke();
-      for (const s of [-1, 1]) eye(ctx, L * .68, s * W * .48, Math.max(2.5, W * .23));
+
+      // Broad angler skull. Its face remains top-down rather than turning into
+      // a side profile, allowing the complete mouth and both eyes to coexist.
+      ctx.fillStyle = shade(body, .08); ctx.strokeStyle = outline; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(L * .53, 0, L * (.25 + morph * .09), W * (.77 + morph * .3), 0, 0, TAU); ctx.fill(); ctx.stroke();
+
+      // Gill slits stay prominent through the fish-like Devonian portion.
+      ctx.strokeStyle = withA(acc, .76 - morph * .24); ctx.lineWidth = 1.6;
+      const gillCount = morph < .45 ? 3 : 2;
+      for (const s of [-1, 1]) for (let i = 0; i < gillCount; i++) {
+        const x = L * (.31 - i * .045);
+        ctx.beginPath(); ctx.moveTo(x, s * W * .44); ctx.lineTo(x - L * .055, s * W * (.67 + i * .1)); ctx.stroke();
+      }
+
+      // Fading fish bars are replaced by small swamp-light photophores.
+      ctx.strokeStyle = withA(acc, .42); ctx.lineWidth = 1.8;
+      for (let i = 0; i < (o.stripes || 0); i++) {
+        const x = lerp(-L * .45, L * .16, i / Math.max(1, o.stripes - 1));
+        ctx.beginPath(); ctx.moveTo(x, -bodyHalfW * .68); ctx.lineTo(x - L * .035, bodyHalfW * .68); ctx.stroke();
+      }
+      if (o.spots) {
+        ctx.save(); if (o.glow) { ctx.shadowColor = o.glow; ctx.shadowBlur = 6; }
+        ctx.fillStyle = withA(o.glow || acc, .76);
+        for (let i = 0; i < o.spots; i++) {
+          const f = i / Math.max(1, o.spots - 1), x = lerp(-L * .4, L * .35, f);
+          const y = (i % 2 ? 1 : -1) * bodyHalfW * (.25 + (i % 3) * .12);
+          ctx.beginPath(); ctx.arc(x, y, Math.max(1.1, W * (.07 + morph * .025)), 0, TAU); ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // Small cranial spines break up the later forms' hunched silhouette.
+      if (o.spines) {
+        ctx.fillStyle = withA(acc, .62); ctx.strokeStyle = withA(outline, .7); ctx.lineWidth = 1;
+        for (let i = 0; i < o.spines; i++) {
+          const x = lerp(-L * .17, L * .29, i / Math.max(1, o.spines - 1));
+          ctx.beginPath(); ctx.moveTo(x - 3, -bodyHalfW * .72); ctx.lineTo(x, -bodyHalfW * (1 + morph * .14)); ctx.lineTo(x + 3, -bodyHalfW * .72); ctx.closePath(); ctx.fill(); ctx.stroke();
+        }
+      }
+
+      // The lure grows from an almost invisible Devonian bud into a bright,
+      // pulsing false prey. Its arc stays outside the upper eye's silhouette.
+      if (lure > 0) {
+        const lx = L * (.49 + .39 * Math.min(1.15, lure));
+        const ly = -W * (.76 + .34 * Math.min(1.15, lure));
+        ctx.save(); ctx.strokeStyle = withA(acc, .76); ctx.lineWidth = Math.max(1.4, W * (.07 + lure * .025));
+        if (o.glow) { ctx.shadowColor = o.glow; ctx.shadowBlur = 7 + lure * 6; }
+        ctx.beginPath(); ctx.moveTo(L * .4, -W * .2);
+        ctx.bezierCurveTo(L * .43, -W * (.7 + lure * .15), lx - L * .12, ly, lx, ly); ctx.stroke();
+        const pulse = 1 + Math.sin(t * 3.1) * .09;
+        ctx.fillStyle = o.glow || acc; ctx.beginPath(); ctx.arc(lx, ly, W * (.09 + lure * .1) * pulse, 0, TAU); ctx.fill();
+        ctx.fillStyle = withA('#ffffff', .72); ctx.beginPath(); ctx.arc(lx - W * .045, ly - W * .045, W * .04, 0, TAU); ctx.fill();
+        ctx.restore();
+      }
+
+      // A face-wide frontal gape. Teeth line both sides of the complete opening
+      // and the two eyes are deliberately drawn last, clear of the lip.
+      const mx = L * (.71 + morph * .05);
+      const mouthRx = L * (.045 + gape * .14 + bite * .035);
+      const mouthRy = W * (.2 + gape * .52 + bite * .15);
+      ctx.fillStyle = shade(o.maw || body, -.08); ctx.strokeStyle = shade(o.maw || body, .15); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(mx, 0, mouthRx * 1.12, mouthRy * 1.08, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#100f18'; ctx.beginPath(); ctx.ellipse(mx + mouthRx * .05, 0, mouthRx * .88, mouthRy * .86, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = withA(o.maw || '#8a536f', .68); ctx.beginPath(); ctx.ellipse(mx + mouthRx * .12, 0, mouthRx * .43, mouthRy * .48, 0, 0, TAU); ctx.fill();
+      if (gape > .2) {
+        const n = 4 + Math.round(gape * 3), tooth = Math.max(1.5, W * (.08 + gape * .035));
+        ctx.fillStyle = '#e9ead2';
+        for (const side of [-1, 1]) for (let i = 0; i < n; i++) {
+          const y = lerp(-mouthRy * .65, mouthRy * .65, i / Math.max(1, n - 1));
+          const x = mx + side * mouthRx * .72;
+          ctx.beginPath(); ctx.moveTo(x, y - tooth * .55); ctx.lineTo(x, y + tooth * .55); ctx.lineTo(x - side * tooth, y); ctx.closePath(); ctx.fill();
+        }
+      }
+
+      const eyeX = L * (.54 - morph * .015), eyeY = W * (.57 + morph * .2);
+      const eyeR = Math.max(2.5, W * (.2 + morph * .025));
+      for (const s of [-1, 1]) {
+        ctx.fillStyle = withA(o.glow || acc, .22); ctx.beginPath(); ctx.arc(eyeX, s * eyeY, eyeR * 1.65, 0, TAU); ctx.fill();
+        eye(ctx, eyeX, s * eyeY, eyeR, '#081518');
+      }
       break;
     }
     case 'tetrapod': {
