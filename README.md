@@ -8,10 +8,11 @@ creatures, powers and dedicated bosses. This folder is the modular rewrite of
 the original single-file `evolution.html`.
 
 **Stages & maps.** The world is a set of MAPS (`src/data/maps.js`) grouped into
-STAGES (`sea`, `land`). The sea is one map; the land has two (`The Tidal Coast`,
-`The Fern Lowlands`) that you cross by walking off a shared edge. Each map has a
-dedicated boss. Sea → land is a one-way *evolution* (crawling ashore), not an
-edge walk. Open the **world atlas** (🗺 / `B`) to see every map and its boss.
+STAGES. The sea contains `The Primordial Sea` and the darker `Starless Bloom`,
+connected through a marked descent in the southern seabed; the Devonian and
+Carboniferous stages each have their own connected land maps. Sea → land is a
+one-way *evolution* (crawling ashore), not an edge walk. Open the **world atlas**
+(🗺 / `B`) to see every map, crossing edge and dedicated boss.
 
 ## How to run
 
@@ -112,7 +113,8 @@ renders overlays from them — the UI never mutates engine internals directly.
   applies (passives), add an icon case in `render/drawAbilityIcon.js`, and — if
   it has a duration — map it to a Player timer field in `ACTIVE_TIMER`.
 - **New map**: add a `MAPS` entry in `data/maps.js` (size, theme, `bosses`,
-  and `neighbors` for edge links) plus its boss in `data/bosses.js`. The atlas
+  `neighbors`, and optional restricted-width `passages`) plus its boss in
+  `data/bosses.js`. The atlas
   and edge-crossing pick it up automatically.
 - **New stage**: add a `STAGES` entry, some species with that `stage`, and at
   least one map (with `STAGE_FIRST_MAP`). The tree wiki gains a stage tab.

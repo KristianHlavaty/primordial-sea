@@ -24,6 +24,10 @@ export const NPCS = {
     role: 'drifter', weight: 2.0, minEra: 1, hp: 34, dmg: 9, accel: 260, maxSpeed: 70, radius: 16, sense: 0, meat: 3, value: 7, floaty: 0.6,
     plan: P({ kind: 'jelly', len: 16, wid: 16, body: '#8fb8ff', accent: '#e6f0ff', glow: '#9fd0ff', tentacles: 6 })
   },
+  abyss_jelly: {
+    role: 'drifter', maps: ['starless_bloom'], weight: 5.5, minEra: 0, hp: 48, dmg: 12, accel: 210, maxSpeed: 58, radius: 18, sense: 0, meat: 3, value: 8, floaty: 0.32,
+    plan: P({ kind: 'jelly', len: 19, wid: 18, body: '#173b72', accent: '#8df8ff', glow: '#35ddff', tentacles: 8, colonyNodes: 3 })
+  },
   baby_trilo: {
     role: 'prey', weight: 1.8, minEra: 1, hp: 58, dmg: 8, accel: 820, maxSpeed: 160, radius: 14, sense: 250, meat: 4, value: 9,
     plan: P({ kind: 'arthro', len: 18, wid: 14, body: '#b98a55', accent: '#f0cd95', segments: 6, legs: 8, eyes: 2, stalks: true })

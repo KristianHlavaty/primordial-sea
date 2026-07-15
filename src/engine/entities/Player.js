@@ -25,6 +25,7 @@ export class Player extends Entity {
     this.enrollT = 0; this.burstT = 0; this.frenzyT = 0; this.bloomT = 0; this.bloomTick = 0;
     this.withdrawT = 0; this.stealthT = 0; this.ramT = 0; this.jetT = 0; this.ramHit = null;
     this.vortexT = 0; this.vortexTick = 0;
+    this.shockEchoT = 0; this.shockEchoX = 0; this.shockEchoY = 0;
     this.burrowT = 0; this.sprintT = 0;   // land: Burrow (invuln dig), Sprint (haste)
     this.rebirthUsed = false;   // Colony Rebirth fires once per life
     this.applyLevelStats(world); this.hp = this.maxHp;
@@ -173,6 +174,24 @@ export class Player extends Entity {
 
   /* Per-frame: cooldowns and power timers, input steering, bite, movement,
      active power effects and out-of-combat regeneration. */
+  releaseShockAfterglow(game) {
+    const bonus = game.talentBonus ? game.talentBonus.shockEchoPower : 0;
+    const power = 1 + bonus, R = 330 + bonus * 55, x = this.shockEchoX, y = this.shockEchoY;
+    for (const c of game.creatures.slice()) {
+      const dx = c.x - x, dy = c.y - y, d = hyp(dx, dy);
+      if (d >= R + c.radius) continue;
+      if (c.boss) c.slowT = Math.max(c.slowT || 0, 3.2 + bonus * 2);
+      else { c.stunT = Math.max(c.stunT || 0, 1.6 + bonus); c.takeDamage(game, 9 * power, x, y, true); }
+      const force = (220 + bonus * 260) * (c.boss ? .25 : 1), falloff = Math.max(.18, 1 - d / (R + c.radius));
+      c.vx += dx / (d || 1) * force * falloff; c.vy += dy / (d || 1) * force * falloff;
+    }
+    game.fx.push({ x, y, t: 0, max: .62, R, color: '#82f7ff', dir: 'out', width: 7 });
+    game.fx.push({ x, y, t: 0, max: .82, R: R * .78, color: '#e5ffff', dir: 'out', width: 3 });
+    burst(game, x, y, '#82f7ff', 24, 240);
+    addFloater(game, { x, y: y - this.radius - 18, vx: 0, vy: -34, text: 'AFTERGLOW', life: 1.1, max: 1.1, color: '#a6fbff', size: 14 });
+    game.shake = Math.min(16, game.shake + 6); game.sfx.play('power');
+  }
+
   update(game, dt) {
     const st = this.species.stats;
     for (const id in this.acd) { if (this.acd[id] > 0) this.acd[id] = Math.max(0, this.acd[id] - dt); }
@@ -182,6 +201,7 @@ export class Player extends Entity {
     this.withdrawT = Math.max(0, this.withdrawT - dt); this.stealthT = Math.max(0, this.stealthT - dt);
     this.ramT = Math.max(0, this.ramT - dt); this.jetT = Math.max(0, this.jetT - dt);
     this.vortexT = Math.max(0, this.vortexT - dt);
+    if (this.shockEchoT > 0) { this.shockEchoT -= dt; if (this.shockEchoT <= 0) { this.shockEchoT = 0; this.releaseShockAfterglow(game); } }
     this.burrowT = Math.max(0, this.burrowT - dt); this.sprintT = Math.max(0, this.sprintT - dt);
     const enrolled = this.enrollT > 0, withdrawn = this.withdrawT > 0, burrowed = this.burrowT > 0;
     const hasted = this.burstT > 0 || this.sprintT > 0;   // Burst (aquatic) or Sprint (land)

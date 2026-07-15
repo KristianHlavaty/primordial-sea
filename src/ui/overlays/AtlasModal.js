@@ -7,6 +7,7 @@ import { BOSSES } from '../../data/bosses.js';
 
 const THEME_SWATCH = {
   sea: 'linear-gradient(135deg,#1c6a92,#04121e)',
+  abyss: 'radial-gradient(circle at 60% 42%,#12647b,#061126 38%,#01030b 78%)',
   coast: 'linear-gradient(135deg,#b8a06a,#8a744a)',
   swamp: 'linear-gradient(135deg,#3f5a34,#20301b)',
   marsh: 'linear-gradient(135deg,#64734d,#293827)',

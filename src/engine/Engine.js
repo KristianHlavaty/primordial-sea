@@ -68,7 +68,7 @@ export class Engine {
     this.transitionCd = 0; this.edgeDwell = 0; this.nearEdge = null; this.visitedMaps = new Set();
 
     // boss trophies, achievements
-    this.perks = { dmgReduce: 0, dodge: 0, webResist: 0, list: [] };
+    this.perks = { dmgReduce: 0, dodge: 0, webResist: 0, shockAfterglow: 0, list: [] };
     this.bossesDefeated = new Set(); this.achievement = null; this.achT = 0; this.achId = 0;
 
     // UI-facing bits
@@ -97,7 +97,7 @@ export class Engine {
   resetRun() {
     this.era = 0; this.kills = 0; this.dead = false; this.paused = false;
     this.pendingEvolve = false; this.choices = []; this.evolveMode = 'normal';
-    this.perks = { dmgReduce: 0, dodge: 0, webResist: 0, list: [] }; this.bossesDefeated = new Set();
+    this.perks = { dmgReduce: 0, dodge: 0, webResist: 0, shockAfterglow: 0, list: [] }; this.bossesDefeated = new Set();
     this.achievement = null; this.achT = 0;
     this.ascendOffered = false; this.ascendAvailable = false; this.advanceAvailable = false;
     this.transitionCd = 0; this.edgeDwell = 0; this.nearEdge = null; this.visitedMaps = new Set();
@@ -452,6 +452,7 @@ export class Engine {
     if (perk.dmgReduce) this.perks.dmgReduce = Math.min(0.6, this.perks.dmgReduce + perk.dmgReduce);
     if (perk.dodge) this.perks.dodge = Math.min(0.6, this.perks.dodge + perk.dodge);
     if (perk.webResist) this.perks.webResist = Math.min(.85, this.perks.webResist + perk.webResist);
+    if (perk.shockAfterglow) this.perks.shockAfterglow = 1;
     if (!this.perks.list.some(x => x.id === id)) this.perks.list.push({ id, name: perk.name, icon: perk.icon, color: perk.color, blurb: perk.blurb });
     this.achId++;
     this.achievement = { id: this.achId, boss: bossTitle, perk: perk.name, blurb: perk.blurb, icon: perk.icon, color: perk.color };
@@ -481,12 +482,18 @@ export class Engine {
      Returns true if a transition happened (caller skips the rest of the frame). */
   maybeCrossEdge(dt) {
     if (this.transitionCd > 0) this.transitionCd -= dt;
-    const nb = MAPS[this.mapId].neighbors, p = this.player;
+    const map = MAPS[this.mapId], nb = map.neighbors, p = this.player;
+    const throughPassage = edge => {
+      const gate = map.passages && map.passages[edge]; if (!gate) return true;
+      const horizontalEdge = edge === 'top' || edge === 'bottom';
+      const pos = horizontalEdge ? p.x : p.y, span = horizontalEdge ? this.W : this.H;
+      return Math.abs(pos - span * gate.center) <= gate.width * 0.5;
+    };
     let via = null;
-    if (nb.left && p.x <= p.radius + 6) via = 'left';
-    else if (nb.right && p.x >= this.W - p.radius - 6) via = 'right';
-    else if (nb.top && p.y <= p.radius + 6) via = 'top';
-    else if (nb.bottom && p.y >= this.H - p.radius - 6) via = 'bottom';
+    if (nb.left && throughPassage('left') && p.x <= p.radius + 6) via = 'left';
+    else if (nb.right && throughPassage('right') && p.x >= this.W - p.radius - 6) via = 'right';
+    else if (nb.top && throughPassage('top') && p.y <= p.radius + 6) via = 'top';
+    else if (nb.bottom && throughPassage('bottom') && p.y >= this.H - p.radius - 6) via = 'bottom';
     this.nearEdge = via ? MAPS[nb[via]].name : null;
     if (via && this.transitionCd <= 0) {
       this.edgeDwell += dt;

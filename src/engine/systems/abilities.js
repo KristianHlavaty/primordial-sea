@@ -137,6 +137,10 @@ export function activateAbility(game, idx) {
       }
     }
     game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.55, R, color: '#9fdcff', dir: 'out', width: 4 });
+    if (game.perks.shockAfterglow) {
+      p.shockEchoT = .72; p.shockEchoX = p.x; p.shockEchoY = p.y;
+      game.fx.push({ x: p.x, y: p.y, t: 0, max: .72, R: 70, color: '#e5ffff', dir: 'in', width: 3 });
+    }
     game.shake = Math.min(16, game.shake + 4);
   }
   else if (id === 'websnare') {

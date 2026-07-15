@@ -7,8 +7,8 @@
    with that `stage`, and at least one map. The whole engine, atlas overlay and
    tree wiki read from here, so no other wiring is needed.
 
-   Neighbors connect land maps by their edges; the sea is left only by evolving
-   ashore (a stage change), never by walking off an edge. */
+   Neighbors connect maps by marked edge passages; leaving the sea stage itself
+   still happens only by evolving ashore. */
 
 export const STAGES = {
   sea:  { name: 'Sea',  order: 0, blurb: 'the ancient ocean where all life began' },
@@ -17,11 +17,19 @@ export const STAGES = {
 };
 
 export const MAPS = {
-  // --- sea stage (one map, the original world) ---
+  // --- sea stage ---
   sea_shallows: {
     stage: 'sea', name: 'The Primordial Sea', theme: 'sea',
     W: 4400, H: 2700, bosses: ['bulwark', 'render'],
-    neighbors: {},
+    neighbors: { bottom: 'starless_bloom' },
+    passages: { bottom: { center: 0.5, width: 680 } },
+  },
+  starless_bloom: {
+    stage: 'sea', name: 'The Starless Bloom', theme: 'abyss',
+    W: 4200, H: 3000, bosses: ['lumenara'],
+    neighbors: { top: 'sea_shallows' },
+    passages: { top: { center: 0.5, width: 680 } },
+    npcPool: ['abyss_jelly', 'jelly', 'plankton'], creatureCap: 14, preyTarget: 3, starterPrey: 3, plantCap: 6, bubbleCount: 65,
   },
 
   // --- Devonian landfall ---

@@ -9,6 +9,7 @@ import { drawCreature } from './drawCreature.js';
 import { drawPlant } from './drawPlant.js';
 import { drawObstacle } from './drawObstacle.js';
 import { SPECIES } from '../data/species.js';
+import { MAPS } from '../data/maps.js';
 
 /* Ground palettes for the land themes (top-down dirt/moss). */
 const LAND_THEMES = {
@@ -22,6 +23,7 @@ const SPECIAL_NAMES = {
   quake: 'SEISMIC QUAKE', shellRush: 'SHELL RUSH', charge: 'RENDING CHARGE', tailFan: 'TAIL FAN',
   tidalSweep: 'TIDAL SWEEP', undertow: 'UNDERTOW', stomp: 'CRUSHING STOMP', fissure: 'EARTH FISSURE',
   webBurst: 'SILK PRISON', cocoon: 'BROOD COCOON', mire: 'MIASMA POOL', tongueLash: 'TONGUE LASH',
+  radiantNova: 'RADIANT NOVA', starMotes: 'LIVING CONSTELLATION', abyssBeam: 'ABYSSAL BEAM',
 };
 
 function drawWebFields(E) {
@@ -58,9 +60,24 @@ function drawBossTelegraphs(E) {
       ctx.beginPath(); ctx.arc(x, y, q.r, 0, TAU); ctx.fill(); ctx.stroke();
       ctx.strokeStyle = withA('#ffffff', .35 + .35 * pulse); ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, Math.max(8, q.r * (1 - progress)), 0, TAU); ctx.stroke();
+      if (q.special === 'starMotes') {
+        ctx.strokeStyle = withA('#a6fbff', .28 + pulse * .35); ctx.beginPath();
+        for (let i = 0; i <= 8; i++) { const a = i / 8 * TAU + E.time * .5, px = x + Math.cos(a) * q.r * .68, py = y + Math.sin(a) * q.r * .68; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+        ctx.stroke(); ctx.fillStyle = withA('#e5ffff', .6 + pulse * .35);
+        for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + E.time * .5; ctx.beginPath(); ctx.arc(x + Math.cos(a) * q.r * .68, y + Math.sin(a) * q.r * .68, 3.5, 0, TAU); ctx.fill(); }
+      }
+    } else if (q.shape === 'ring') {
+      ctx.beginPath(); ctx.arc(x, y, q.outer, 0, TAU); ctx.arc(x, y, q.inner, 0, TAU, true); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, q.outer, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(x, y, q.inner, 0, TAU); ctx.stroke();
+      const sweep = q.inner + (q.outer - q.inner) * progress;
+      ctx.strokeStyle = withA('#ffffff', .45 + .4 * pulse); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, sweep, 0, TAU); ctx.stroke();
     } else if (q.shape === 'lane') {
       ctx.translate(ox, oy); ctx.rotate(q.angle); ctx.beginPath(); ctx.rect(0, -q.width / 2, q.length, q.width); ctx.fill(); ctx.stroke();
       ctx.strokeStyle = withA('#ffffff', .25 + .3 * pulse); ctx.beginPath(); ctx.moveTo(q.length * progress, -q.width / 2); ctx.lineTo(q.length * progress, q.width / 2); ctx.stroke();
+      if (q.special === 'abyssBeam') {
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.setLineDash([14, 10]); ctx.lineDashOffset = -E.time * 45;
+        ctx.strokeStyle = withA('#a6fbff', .35 + pulse * .45); ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(q.length, 0); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+      }
     } else if (q.shape === 'cone') {
       ctx.beginPath(); ctx.moveTo(ox, oy); ctx.arc(ox, oy, q.length, q.angle - q.spread, q.angle + q.spread); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.strokeStyle = withA('#ffffff', .3 + .3 * pulse); ctx.beginPath(); ctx.arc(ox, oy, q.length * progress, q.angle - q.spread, q.angle + q.spread); ctx.stroke();
@@ -89,17 +106,37 @@ function drawCocoon(E, c, sx, sy) {
   ctx.restore();
 }
 
+function drawLumenOrb(E, c, sx, sy) {
+  const ctx = E.ctx, pulse = .55 + .45 * Math.sin(E.time * 9 + c.animOff);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = withA('#49eaff', .22 + pulse * .22); ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - c.vx * .16, sy - c.vy * .16); ctx.stroke();
+  const gg = ctx.createRadialGradient(sx - 2, sy - 2, 1, sx, sy, 28); gg.addColorStop(0, '#ffffff'); gg.addColorStop(.2, withA('#a6fbff', .95)); gg.addColorStop(.48, withA('#49eaff', .5 + pulse * .2)); gg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(sx, sy, 28, 0, TAU); ctx.fill(); ctx.restore();
+}
+
+function drawBossGlow(E, c, sx, sy) {
+  if (!c.plan.glow) return;
+  const ctx = E.ctx, pulse = .5 + .5 * Math.sin(E.time * 2.6), R = c.radius * (3.1 + pulse * .35);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const gg = ctx.createRadialGradient(sx, sy, c.radius * .25, sx, sy, R); gg.addColorStop(0, withA(c.plan.glow, .28 + pulse * .12)); gg.addColorStop(.38, withA(c.plan.glow, .12)); gg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(sx, sy, R, 0, TAU); ctx.fill();
+  for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + E.time * (i % 2 ? .16 : -.12), rr = c.radius * (1.45 + (i % 3) * .25); ctx.fillStyle = withA(i % 2 ? '#a6fbff' : c.plan.glow, .32 + pulse * .3); ctx.beginPath(); ctx.arc(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr, 2 + i % 3, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+
 function drawBackground(E) {
   if (E.stage !== 'sea') { drawLandBackground(E); return; }
   const ctx = E.ctx;
+  const abyss = E.theme === 'abyss';
   const g = ctx.createLinearGradient(0, 0, 0, E.vh);
   const topDepth = clamp(E.cam.y / E.H, 0, 1);
-  g.addColorStop(0, shade('#1c6a92', -topDepth * 0.55));
-  g.addColorStop(0.5, shade('#0b3350', -topDepth * 0.3));
-  g.addColorStop(1, '#04121e');
+  g.addColorStop(0, abyss ? '#061126' : shade('#1c6a92', -topDepth * 0.55));
+  g.addColorStop(0.5, abyss ? '#020718' : shade('#0b3350', -topDepth * 0.3));
+  g.addColorStop(1, abyss ? '#00030c' : '#04121e');
   ctx.fillStyle = g; ctx.fillRect(0, 0, E.vw, E.vh);
   // light rays from the surface
-  if (E.cam.y < E.vh) {
+  if (!abyss && E.cam.y < E.vh) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < 5; i++) {
       const x = ((i * 0.27 + E.time * 0.01) % 1) * E.vw * 1.3 - E.vw * 0.15; const w = 60 + i * 18;
@@ -109,6 +146,25 @@ function drawBackground(E) {
     }
     ctx.restore();
   }
+  if (abyss) drawAbyssAmbience(E);
+}
+
+function drawAbyssAmbience(E) {
+  const ctx = E.ctx;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 42; i++) {
+    const wx = (i * 811 + 170) % E.W, wy = (i * 577 + 90) % E.H;
+    const x = wx - E.cam.x, y = wy - E.cam.y; if (x < -50 || x > E.vw + 50 || y < -50 || y > E.vh + 50) continue;
+    const pulse = .35 + .3 * Math.sin(E.time * (1.1 + i % 4 * .13) + i), r = 1.2 + i % 3;
+    ctx.fillStyle = i % 3 ? `rgba(73,234,255,${pulse})` : `rgba(142,111,255,${pulse * .75})`;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  }
+  for (let i = 0; i < 7; i++) {
+    const wx = (i * 617 + 360) % E.W, wy = (i * 941 + 420) % E.H, x = wx - E.cam.x, y = wy - E.cam.y;
+    const gg = ctx.createRadialGradient(x, y, 1, x, y, 85); gg.addColorStop(0, 'rgba(48,176,207,.065)'); gg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(x, y, 85, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
 }
 
 /* Top-down terrain: a ground gradient plus world-anchored dirt patches and
@@ -152,6 +208,51 @@ function drawBubbles(E) {
   for (const b of E.bubbles) { ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); }
 }
 
+function drawSeaFloor(E) {
+  const ctx = E.ctx, floorScreenY = E.H - 120 - E.cam.y;
+  if (floorScreenY >= E.vh) return;
+  const map = MAPS[E.mapId], passage = map.passages && map.passages.bottom;
+  let gapL = -1, gapR = -1;
+  if (passage) {
+    const center = E.W * passage.center - E.cam.x; gapL = center - passage.width * .5; gapR = center + passage.width * .5;
+    const gg = ctx.createLinearGradient(0, floorScreenY - 75, 0, E.vh);
+    gg.addColorStop(0, 'rgba(60,225,246,0)'); gg.addColorStop(.48, 'rgba(43,185,218,.11)'); gg.addColorStop(1, 'rgba(12,62,105,.32)');
+    ctx.fillStyle = gg; ctx.fillRect(gapL, floorScreenY - 75, passage.width, E.vh - floorScreenY + 75);
+  }
+  ctx.fillStyle = E.theme === 'abyss' ? '#020611' : '#071a13';
+  if (passage) {
+    const leftEnd = clamp(gapL, 0, E.vw), rightStart = clamp(gapR, 0, E.vw);
+    ctx.fillRect(0, floorScreenY + 60, leftEnd, E.vh); ctx.fillRect(rightStart, floorScreenY + 60, E.vw - rightStart, E.vh);
+  }
+  else ctx.fillRect(0, floorScreenY + 60, E.vw, E.vh);
+  ctx.fillStyle = E.theme === 'abyss' ? '#070c1b' : '#0c2a1e';
+  for (let i = 0; i < 8; i++) {
+    const x = (i * .14 + .03) * E.W - E.cam.x;
+    if (passage && x > gapL - 110 && x < gapR + 110) continue;
+    ctx.beginPath(); ctx.ellipse(x, floorScreenY + 70, 120, 40, 0, 0, TAU); ctx.fill();
+  }
+  if (passage && gapR > 0 && gapL < E.vw) {
+    const center = (gapL + gapR) * .5, pulse = .5 + .5 * Math.sin(E.time * 3.4);
+    ctx.strokeStyle = withA('#60efff', .4 + pulse * .35); ctx.lineWidth = 3;
+    for (const edge of [gapL, gapR]) { ctx.beginPath(); ctx.moveTo(edge, floorScreenY + 20); ctx.quadraticCurveTo(edge + (edge === gapL ? -34 : 34), floorScreenY + 68, edge + (edge === gapL ? -52 : 52), E.vh); ctx.stroke(); }
+    ctx.textAlign = 'center'; ctx.font = '900 11px "Segoe UI",sans-serif'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.75)';
+    ctx.strokeText('DESCEND  ·  THE STARLESS BLOOM', center, floorScreenY + 16); ctx.fillStyle = withA('#b7fbff', .76 + pulse * .22); ctx.fillText('DESCEND  ·  THE STARLESS BLOOM', center, floorScreenY + 16);
+    ctx.font = '900 22px "Segoe UI",sans-serif';
+    for (let i = 0; i < 3; i++) { ctx.globalAlpha = .3 + .22 * ((i + E.time * 2) % 3); ctx.fillText('▼', center, floorScreenY + 43 + i * 21); }
+    ctx.globalAlpha = 1; ctx.textAlign = 'left';
+  }
+}
+
+function drawTopSeaPassage(E) {
+  const passage = MAPS[E.mapId].passages && MAPS[E.mapId].passages.top;
+  if (!passage || E.cam.y > 150) return;
+  const ctx = E.ctx, center = E.W * passage.center - E.cam.x, pulse = .5 + .5 * Math.sin(E.time * 3.2);
+  const gg = ctx.createRadialGradient(center, 0, 8, center, 0, passage.width * .46); gg.addColorStop(0, withA('#78f2ff', .18 + pulse * .08)); gg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(center, 0, passage.width * .46, 0, TAU); ctx.fill();
+  ctx.textAlign = 'center'; ctx.font = '900 11px "Segoe UI",sans-serif'; ctx.fillStyle = withA('#c9fcff', .75 + pulse * .2);
+  ctx.fillText('▲  ASCEND TO THE PRIMORDIAL SEA  ▲', center, 28); ctx.textAlign = 'left';
+}
+
 /* Draw a creature/player at its world position (screen-space transform,
    flip vertically when facing left so it never renders upside-down). */
 function drawEntity(E, e) {
@@ -186,15 +287,8 @@ export function renderWorld(E) {
   const shX = (Math.random() * 2 - 1) * E.shake, shY = (Math.random() * 2 - 1) * E.shake;
   ctx.save(); ctx.translate(shX, shY);
 
-  // sea floor (sea stage only; land terrain is the whole background)
-  if (E.stage === 'sea') {
-    const floorScreenY = E.H - 120 - E.cam.y;
-    if (floorScreenY < E.vh) {
-      ctx.fillStyle = '#071a13'; ctx.fillRect(0, floorScreenY + 60, E.vw, E.vh);
-      ctx.fillStyle = '#0c2a1e';
-      for (let i = 0; i < 8; i++) { const x = ((i * 0.14 + 0.03) * E.W - E.cam.x); ctx.beginPath(); ctx.ellipse(x, floorScreenY + 70, 120, 40, 0, 0, TAU); ctx.fill(); }
-    }
-  }
+  // sea floor and the marked passages between connected ocean maps
+  if (E.stage === 'sea') { drawSeaFloor(E); drawTopSeaPassage(E); }
 
   drawWebFields(E);
   drawBossTelegraphs(E);
@@ -234,7 +328,8 @@ export function renderWorld(E) {
   for (const c of E.creatures) {
     const sx = c.x - E.cam.x, sy = c.y - E.cam.y;
     if (sx < -90 || sx > E.vw + 90 || sy < -90 || sy > E.vh + 90) continue;
-    if (c.cocoon) drawCocoon(E, c, sx, sy); else drawEntity(E, c);
+    if (c.boss) drawBossGlow(E, c, sx, sy);
+    if (c.cocoon) drawCocoon(E, c, sx, sy); else if (c.lumenOrb) drawLumenOrb(E, c, sx, sy); else drawEntity(E, c);
     if (c.stunT > 0 || c.slowT > 0) {
       ctx.strokeStyle = withA('#bfe6ff', 0.85); ctx.lineWidth = 2;
       for (let i = 0; i < 3; i++) { const a = E.time * 9 + i / 3 * TAU; ctx.beginPath(); ctx.arc(sx + Math.cos(a) * (c.radius + 7), sy + Math.sin(a) * (c.radius + 7), 2.4, 0, TAU); ctx.stroke(); }
@@ -265,7 +360,8 @@ export function renderWorld(E) {
     const sx = c.x - E.cam.x, sy = c.y - E.cam.y;
     if (sx < -260 || sx > E.vw + 260 || sy < -260 || sy > E.vh + 260) continue;
     const bpulse = 0.5 + 0.5 * Math.sin(E.time * 3);
-    ctx.strokeStyle = withA('#ff2a3a', 0.12 + 0.1 * bpulse); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, c.radius + 12, 0, TAU); ctx.stroke();
+    const auraColor = c.plan.glow || '#ff2a3a';
+    ctx.strokeStyle = withA(auraColor, c.plan.glow ? .4 + .3 * bpulse : .12 + .1 * bpulse); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, c.radius + 12, 0, TAU); ctx.stroke();
     if (c.hp < c.maxHp * .45) {
       ctx.strokeStyle = withA('#ff4055', .38 + .4 * Math.sin(E.time * 9) ** 2); ctx.lineWidth = 5;
       ctx.beginPath(); ctx.arc(sx, sy, c.radius + 18 + bpulse * 5, 0, TAU); ctx.stroke();

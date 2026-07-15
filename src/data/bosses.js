@@ -12,6 +12,7 @@ export const PERKS = {
   swiftstep: { name: 'Swift Step', icon: 'sprint',    color: '#9ce0a0', dodge: 0.08,     blurb: '+8% dodge chance' },
   mireblood: { name: 'Mireblood', icon: 'regen', color: '#9bd47a', dmgReduce: 0.05, blurb: '+5% damage resistance' },
   webwalker: { name: 'Web Walker', icon: 'websnare', color: '#e8d9df', webResist: 0.5, blurb: '+50% resistance to web slowing' },
+  afterglow: { name: 'Afterglow', icon: 'shock', color: '#82f7ff', shockAfterglow: 1, blurb: 'Shock blooms again after a short delay, damaging and repelling nearby enemies' },
 };
 
 export const BOSSES = {
@@ -25,6 +26,11 @@ export const BOSSES = {
     title: 'Xiphos, the Render', short: 'Render', kind: 'scorpion', at: { x: 0.90, y: 0.18 },
     radius: 42, hp: 660, dmg: 37, accel: 1150, maxSpeed: 305, sense: 660, leash: 900, perk: 'reflexes', meat: 110,
     plan: P({ kind: 'scorpion', len: 58, wid: 24, body: '#5a2c38', accent: '#ff8676', segments: 9, claws: true, spikes: 4, legs: 8, eyes: 2 })
+  },
+  lumenara: {
+    title: 'Lumenara, the Abyssal Crown', short: 'Abyssal Crown', kind: 'jelly', at: { x: 0.5, y: 0.58 },
+    radius: 72, scale: 1.45, hp: 1280, dmg: 44, accel: 480, maxSpeed: 125, sense: 880, leash: 1250, perk: 'afterglow', meat: 175,
+    plan: P({ kind: 'jelly', len: 82, wid: 70, body: '#214b88', accent: '#a6fbff', glow: '#49eaff', tentacles: 14, crown: 7, colonyNodes: 9 })
   },
 
   // --- land: The Tidal Coast ---

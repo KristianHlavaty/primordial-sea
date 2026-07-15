@@ -21,7 +21,10 @@ export function offscreenPoint(game) {
   return { x: rand(120, game.W - 120), y: rand(120, game.H - 120) };
 }
 
-function eligibleNpcs(game) { return Object.keys(NPCS).filter(k => npcStage(k) === game.stage && NPCS[k].minEra <= game.era && (!NPCS[k].maps || NPCS[k].maps.includes(game.mapId))); }
+function eligibleNpcs(game) {
+  const pool = MAPS[game.mapId].npcPool;
+  return Object.keys(NPCS).filter(k => npcStage(k) === game.stage && NPCS[k].minEra <= game.era && (!pool || pool.includes(k)) && (!NPCS[k].maps || NPCS[k].maps.includes(game.mapId)));
+}
 
 /* Weighted roll over every species of this stage unlocked in this era. */
 function weightedNpc(game) {
@@ -50,9 +53,15 @@ function randomPlantKind(game) {
 /* How many plants a map sustains, and where they grow. Sea flora clings to the
    floor (bottom of the world); land flora is scattered across the whole map and
    is a bit scarcer. */
-function plantCap(game) { return game.stage === 'sea' ? 12 : 8; }
+function plantCap(game) { return MAPS[game.mapId].plantCap ?? (game.stage === 'sea' ? 12 : 8); }
+function mapCreatureTarget(game) { return MAPS[game.mapId].creatureCap ?? creatureTarget(game.era); }
 function plantSpot(game) {
-  if (game.stage === 'sea') return { x: rand(120, game.W - 120), y: game.H - 30 };
+  if (game.stage === 'sea') {
+    const passage = MAPS[game.mapId].passages && MAPS[game.mapId].passages.bottom;
+    let x = rand(120, game.W - 120);
+    for (let i = 0; passage && i < 12 && Math.abs(x - game.W * passage.center) < passage.width * .5 + 100; i++) x = rand(120, game.W - 120);
+    return { x, y: game.H - 30 };
+  }
   return { x: rand(160, game.W - 160), y: rand(220, game.H - 180) };
 }
 function seedPlant(game) { const s = plantSpot(game); spawnPlant(game, s.x, s.y, randomPlantKind(game)); }
@@ -98,14 +107,17 @@ export function spawnInitial(game) {
     game.webs.push({ x, y, r: 92 + (i % 4) * 24, angle: i * .73 });
   }
   genObstacles(game);
-  const target = creatureTarget(game.era);
+  const target = mapCreatureTarget(game);
   for (let i = 0; i < target; i++) spawnRandomNpc(game);
   // seed some easy food near the player at start
-  for (let i = 0; i < 6; i++) game.creatures.push(Creature.spawn(easyPrey(game), game.player.x + rand(-260, 260), game.player.y + rand(-200, 200), game.era));
+  const starterPrey = MAPS[game.mapId].starterPrey ?? 6;
+  for (let i = 0; i < starterPrey; i++) game.creatures.push(Creature.spawn(easyPrey(game), game.player.x + rand(-260, 260), game.player.y + rand(-200, 200), game.era));
   for (let i = 0; i < plantCap(game); i++) seedPlant(game);
   game.bubbles.length = 0;
-  if (game.stage === 'sea')   // bubbles are underwater ambiance only
-    for (let i = 0; i < 120; i++) game.bubbles.push({ x: rand(0, game.vw), y: rand(0, game.vh), r: rand(0.6, 2.6), sp: rand(6, 26), ph: rand(0, TAU) });
+  if (game.stage === 'sea') { // bubbles are underwater ambiance only
+    const bubbleCount = MAPS[game.mapId].bubbleCount ?? 120;
+    for (let i = 0; i < bubbleCount; i++) game.bubbles.push({ x: rand(0, game.vw), y: rand(0, game.vh), r: rand(0.6, 2.6), sp: rand(6, 26), ph: rand(0, TAU) });
+  }
   for (const k of (MAPS[game.mapId].bosses || [])) if (!game.bossesDefeated.has(k)) game.creatures.push(new Boss(k, game));
 }
 
@@ -113,11 +125,11 @@ export function spawnInitial(game) {
    plants, and recycle the farthest-away creature when far over cap. */
 export function spawnMaintain(game, dt) {
   game.spawnT -= dt; if (game.spawnT > 0) return; game.spawnT = 0.5;
-  const alive = game.creatures.length, target = creatureTarget(game.era);
+  const alive = game.creatures.length, target = mapCreatureTarget(game);
   if (alive < target) { const n = Math.min(3, target - alive); for (let i = 0; i < n; i++) spawnRandomNpc(game); }
   // keep some easy prey around
-  const prey = game.creatures.filter(c => c.role === 'prey').length;
-  if (prey < 8) { const p = offscreenPoint(game); game.creatures.push(Creature.spawn(easyPrey(game), p.x, p.y, game.era)); }
+  const prey = game.creatures.filter(c => c.role === 'prey').length, preyTarget = MAPS[game.mapId].preyTarget ?? 8;
+  if (prey < preyTarget) { const p = offscreenPoint(game); game.creatures.push(Creature.spawn(easyPrey(game), p.x, p.y, game.era)); }
   // top up plants (slowly — plants persist and regrow in place, so this is really a total cap)
   if (game.plants.length < plantCap(game)) seedPlant(game);
   // recycle far creatures if far over cap

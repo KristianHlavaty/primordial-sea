@@ -12,7 +12,7 @@
    Effect keys fold into Engine.talentBonus (computeTalentBonus). Multiplicative
    (applied as 1 + sum): dmgMul, hpMul, spdMul, dashCdMul (neg = faster),
    powerCdMul (neg), xpMul. Additive: dodge, dmgReduce, regen (hp/s),
-   killHeal (hp/kill), startShieldPct, webResist.
+   killHeal (hp/kill), startShieldPct, webResist, shockEchoPower.
    `req` = needs >=1 rank in that talent (chains a path). `reqPath` = needs that
    many points spent in the same column first (opt-in gate for a capstone).
    `gate` = boss id that must be defeated. `display` overrides the auto value
@@ -43,6 +43,7 @@ export const TALENT_TREES = [
       // Trophies (boss-gated)
       { id: 'sea_ironhide', col: 3, row: 0, gate: 'bulwark', name: 'Ironhide Mastery', icon: 'thickhide', max: 3, effect: { dmgReduce: 0.03 }, gateLabel: 'Slay Kolossos, the Bulwark' },
       { id: 'sea_reflex',  col: 3, row: 1, gate: 'render',  name: 'Honed Reflexes',  icon: 'evasion',   max: 3, effect: { dodge: 0.03 },     gateLabel: 'Slay Xiphos, the Render' },
+      { id: 'sea_afterglow', col: 3, row: 2, gate: 'lumenara', name: 'Abyssal Resonance', icon: 'shock', max: 3, effect: { shockEchoPower: 0.2 }, gateLabel: 'Slay Lumenara, the Abyssal Crown' },
     ],
   },
   {
@@ -108,6 +109,7 @@ const EFFECT_FMT = {
   dodge:         { label: 'dodge',          kind: 'pct' },
   dmgReduce:     { label: 'resist',         kind: 'pct' },
   webResist:     { label: 'web resist',     kind: 'pct' },
+  shockEchoPower:{ label: 'Afterglow power',kind: 'pct' },
   startShieldPct:{ label: 'shield',         kind: 'pct' },
   regen:         { label: 'regen',          kind: 'flat', dp: 1, unit: ' HP/s' },
   killHeal:      { label: 'lifesteal',      kind: 'flat', dp: 0, unit: ' HP/kill' },
@@ -145,6 +147,6 @@ export function computeTalentBonus(trees) {
     dmgMul: 1 + (a.dmgMul || 0), hpMul: 1 + (a.hpMul || 0), spdMul: 1 + (a.spdMul || 0),
     dashCdMul: Math.max(0.4, 1 + (a.dashCdMul || 0)), powerCdMul: Math.max(0.4, 1 + (a.powerCdMul || 0)), xpMul: 1 + (a.xpMul || 0),
     dodge: a.dodge || 0, dmgReduce: a.dmgReduce || 0, regen: a.regen || 0, killHeal: a.killHeal || 0,
-    startShieldPct: a.startShieldPct || 0, webResist: a.webResist || 0,
+    startShieldPct: a.startShieldPct || 0, webResist: a.webResist || 0, shockEchoPower: a.shockEchoPower || 0,
   };
 }

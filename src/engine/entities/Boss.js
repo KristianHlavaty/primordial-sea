@@ -72,6 +72,37 @@ class Spiderling extends Creature {
   }
 }
 
+/* Lumenara releases these living sparks in a radial constellation. They bend
+   toward the player, but remain fragile enough to pop with a well-timed bite. */
+class LumenOrb extends Creature {
+  constructor(x, y, angle, owner) {
+    super(x, y);
+    Object.assign(this, {
+      lumenOrb: true, summoned: true, owner, radius: 11, maxHp: 22, hp: 22, hpBarT: 0,
+      angle, faceTarget: angle, lifeT: 6, speed: 205, turn: rand(1.7, 2.5), role: 'hazard', level: 0, animOff: rand(0, 10),
+      plan: { kind: 'microbe', len: 8, wid: 8, body: '#49eaff', accent: '#e5ffff', eyes: 0 },
+    });
+    this.vx = Math.cos(angle) * 150; this.vy = Math.sin(angle) * 150;
+  }
+
+  update(game, dt) {
+    this.lifeT -= dt; this.hurt = Math.max(0, this.hurt - dt * 3);
+    const p = game.player, dx = p.x - this.x, dy = p.y - this.y, d = hyp(dx, dy) || 1;
+    this.vx += dx / d * this.speed * this.turn * dt; this.vy += dy / d * this.speed * this.turn * dt;
+    this.angle = Math.atan2(this.vy, this.vx); this.integrate(game, dt, .7, this.speed);
+    if (d < this.radius + p.radius + 3) {
+      p.takeHit(game, this.owner.dmg * .62, this.x, this.y, this.owner); game.danger = 1; this.expire(game, true);
+    } else if (this.lifeT <= 0) this.expire(game, false);
+  }
+
+  expire(game, impact) {
+    burst(game, this.x, this.y, impact ? '#e5ffff' : '#49eaff', impact ? 14 : 7, impact ? 170 : 80);
+    const idx = game.creatures.indexOf(this); if (idx >= 0) game.creatures.splice(idx, 1);
+  }
+
+  die(game) { this.expire(game, false); }
+}
+
 export class Boss extends Creature {
   constructor(kind, world) {
     const b = BOSSES[kind];
@@ -81,7 +112,7 @@ export class Boss extends Creature {
       bossKind: kind, title: b.title, short: b.short, perk: b.perk, meatBiomass: b.meat,
       key: kind, kind: b.kind, plan: Object.assign({}, b.plan), role: 'predator',
       home: { x: this.x, y: this.y }, leash: b.leash,
-      radius: b.radius, scale: 1,
+      radius: b.radius, scale: b.scale || 1,
       maxHp: b.hp, hp: b.hp, dmg: b.dmg, accel: b.accel, maxSpeed: b.maxSpeed, sense: b.sense, aggro: true, floaty: 0,
       meat: 6, value: 8, biteCd: 0, abilT: rand(2.5, 4.5), dashT: 0, engaged: false, level: 10,
       telegraph: null, specialCount: 0,
@@ -104,7 +135,7 @@ export class Boss extends Creature {
         this.telegraph.t -= dt; this.faceTarget = this.telegraph.angle; bs = 0.12; // the wind-up is a deliberate opening for the player
         if (this.telegraph.t <= 0) this.resolveSpecial(game);
       } else if (this.abilT <= 0) this.beginSpecial(game);
-      const biteRate = this.bossKind === 'bulwark' ? 1.2 : this.bossKind === 'gilboa_matriarch' ? .85 : .7;
+      const biteRate = this.bossKind === 'bulwark' ? 1.2 : this.bossKind === 'lumenara' ? 1.1 : this.bossKind === 'gilboa_matriarch' ? .85 : .7;
       if (!this.telegraph && bd < this.radius + p.radius + 16 && this.biteCd <= 0) {
         this.biteCd = biteRate; this.mouth = 1; p.takeHit(game, this.dmg, this.x, this.y, this); game.danger = 1;
       }
@@ -123,7 +154,12 @@ export class Boss extends Creature {
     const p = game.player, a = Math.atan2(p.y - this.y, p.x - this.x);
     const common = { t: 1.25, max: 1.25, x: p.x, y: p.y, ox: this.x, oy: this.y, angle: a, color: this.plan.accent };
     const alt = this.specialCount % 2 === 1;
-    if (this.bossKind === 'bulwark') this.telegraph = alt
+    if (this.bossKind === 'lumenara') {
+      const move = this.specialCount % 3;
+      if (move === 0) this.telegraph = { ...common, special: 'radiantNova', shape: 'ring', x: this.x, y: this.y, inner: 105, outer: 345, t: 1.55, max: 1.55 };
+      else if (move === 1) this.telegraph = { ...common, special: 'starMotes', shape: 'circle', x: this.x, y: this.y, r: 155, t: 1.4, max: 1.4 };
+      else this.telegraph = { ...common, special: 'abyssBeam', shape: 'lane', length: 720, width: 125, t: 1.3, max: 1.3 };
+    } else if (this.bossKind === 'bulwark') this.telegraph = alt
       ? { ...common, special: 'shellRush', shape: 'lane', length: 500, width: 135, t: 1.25, max: 1.25 }
       : { ...common, special: 'quake', shape: 'circle', x: this.x, y: this.y, r: 235, t: 1.45, max: 1.45 };
     else if (this.bossKind === 'render') this.telegraph = alt
@@ -150,6 +186,7 @@ export class Boss extends Creature {
     const q = this.telegraph, p = game.player; if (!q) return;
     let hit = false;
     if (q.shape === 'circle') hit = hyp(p.x - q.x, p.y - q.y) < q.r + p.radius;
+    else if (q.shape === 'ring') { const d = hyp(p.x - q.x, p.y - q.y); hit = d > q.inner - p.radius && d < q.outer + p.radius; }
     else if (q.shape === 'lane') {
       const dx = p.x - q.ox, dy = p.y - q.oy, along = dx * Math.cos(q.angle) + dy * Math.sin(q.angle), side = Math.abs(-dx * Math.sin(q.angle) + dy * Math.cos(q.angle));
       hit = along > 0 && along < q.length && side < q.width / 2 + p.radius;
@@ -157,8 +194,9 @@ export class Boss extends Creature {
       const dx = p.x - q.ox, dy = p.y - q.oy, d = hyp(dx, dy), da = Math.atan2(Math.sin(Math.atan2(dy, dx) - q.angle), Math.cos(Math.atan2(dy, dx) - q.angle));
       hit = d < q.length + p.radius && Math.abs(da) < q.spread;
     }
-    if (q.special === 'cocoon') hit = false;
-    const damage = this.dmg * ((q.special === 'charge' || q.special === 'shellRush') ? 1.5 : 1.2);
+    if (q.special === 'cocoon' || q.special === 'starMotes') hit = false;
+    const heavy = q.special === 'charge' || q.special === 'shellRush' || q.special === 'abyssBeam';
+    const damage = this.dmg * (heavy ? 1.5 : 1.2);
     if (hit) {
       p.takeHit(game, damage, q.ox, q.oy, this); game.danger = 1;
       if (q.special === 'undertow') { const dx = q.x - p.x, dy = q.y - p.y, d = hyp(dx, dy) || 1; p.vx += dx / d * 440; p.vy += dy / d * 440; }
@@ -166,6 +204,8 @@ export class Boss extends Creature {
       if (q.special === 'tidalSweep') { p.vx += Math.cos(q.angle) * 520; p.vy += Math.sin(q.angle) * 520; }
       if (q.special === 'fissure') { p.vx += -Math.sin(q.angle) * 360; p.vy += Math.cos(q.angle) * 360; }
       if (q.special === 'tongueLash') { const dx = q.ox - p.x, dy = q.oy - p.y, d = hyp(dx, dy) || 1; p.vx += dx / d * 620; p.vy += dy / d * 620; }
+      if (q.special === 'radiantNova') { const dx = p.x - q.x, dy = p.y - q.y, d = hyp(dx, dy) || 1; p.vx += dx / d * 560; p.vy += dy / d * 560; }
+      if (q.special === 'abyssBeam') { p.vx += -Math.sin(q.angle) * 460; p.vy += Math.cos(q.angle) * 460; }
     }
     if (q.special === 'quake') { this.hardenT = 3.2; this.vx *= .2; this.vy *= .2; }
     if (q.special === 'charge' || q.special === 'shellRush') { this.dashT = .6; this.vx += Math.cos(q.angle) * 850; this.vy += Math.sin(q.angle) * 850; }
@@ -173,11 +213,21 @@ export class Boss extends Creature {
     if (q.special === 'webBurst') game.webs.push({ x: q.x, y: q.y, r: q.r, angle: game.time, life: 8 });
     if (q.special === 'cocoon') game.creatures.push(new SpiderCocoon(q.x, q.y, this));
     if (q.special === 'mire') game.webs.push({ x: q.x, y: q.y, r: q.r * .85, angle: game.time, life: 5 });
-    burst(game, q.x, q.y, q.color, 30, 250); game.fx.push({ x: q.x, y: q.y, t: 0, max: .45, R: q.r || q.length, color: q.color, dir: 'out', width: 6 });
+    if (q.special === 'starMotes') for (let i = 0; i < 8; i++) {
+      const a = i / 8 * Math.PI * 2 + this.specialCount * .17;
+      game.creatures.push(new LumenOrb(this.x + Math.cos(a) * 85, this.y + Math.sin(a) * 85, a, this));
+    }
+    if (q.special === 'radiantNova') {
+      game.fx.push({ x: q.x, y: q.y, t: 0, max: .65, R: 180, color: '#e5ffff', dir: 'out', width: 7 });
+      game.fx.push({ x: q.x, y: q.y, t: 0, max: .8, R: 270, color: '#82f7ff', dir: 'out', width: 6 });
+      game.fx.push({ x: q.x, y: q.y, t: 0, max: .95, R: q.outer, color: '#3abbdc', dir: 'out', width: 5 });
+    }
+    const impactR = q.shape === 'circle' ? q.r : q.shape === 'ring' ? q.outer : 180;
+    burst(game, q.x, q.y, q.color, 30, 250); game.fx.push({ x: q.x, y: q.y, t: 0, max: .45, R: impactR, color: q.color, dir: 'out', width: 6 });
     game.shake = Math.min(18, game.shake + 9); game.sfx.play('power');
     this.telegraph = null;
     const enraged = this.hp < this.maxHp * .45;
-    this.abilT = (this.bossKind === 'render' ? 4.6 : this.bossKind === 'gilboa_matriarch' ? 5.4 : 5.8) * (enraged ? .72 : 1);
+    this.abilT = (this.bossKind === 'lumenara' ? 4.8 : this.bossKind === 'render' ? 4.6 : this.bossKind === 'gilboa_matriarch' ? 5.4 : 5.8) * (enraged ? .72 : 1);
   }
 
   die(game, byPlayer) {
