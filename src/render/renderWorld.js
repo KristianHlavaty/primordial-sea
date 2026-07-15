@@ -18,6 +18,12 @@ const LAND_THEMES = {
   webgrove: { ground: '#3f4239', patch: '#252b27', pebble: '#6e6d61', mote: 'rgba(225,225,205,0.13)' },
 };
 
+const SPECIAL_NAMES = {
+  quake: 'SEISMIC QUAKE', shellRush: 'SHELL RUSH', charge: 'RENDING CHARGE', tailFan: 'TAIL FAN',
+  tidalSweep: 'TIDAL SWEEP', undertow: 'UNDERTOW', stomp: 'CRUSHING STOMP', fissure: 'EARTH FISSURE',
+  webBurst: 'SILK PRISON', cocoon: 'BROOD COCOON', mire: 'MIASMA POOL', tongueLash: 'TONGUE LASH',
+};
+
 function drawWebFields(E) {
   const ctx = E.ctx;
   for (const w of E.webs || []) {
@@ -37,6 +43,50 @@ function drawWebFields(E) {
     }
     ctx.fillStyle = `rgba(245,248,240,${.65 * fade})`; ctx.beginPath(); ctx.arc(0, 0, 3, 0, TAU); ctx.fill(); ctx.restore();
   }
+}
+
+/* Boss attacks are painted under the action during their wind-up. The fill is
+   intentionally faint; the bright, closing edge communicates when to dodge. */
+function drawBossTelegraphs(E) {
+  const ctx = E.ctx;
+  for (const b of E.creatures) {
+    const q = b.boss && b.telegraph; if (!q) continue;
+    const pulse = .65 + .35 * Math.sin(E.time * 13), progress = 1 - q.t / q.max;
+    const ox = q.ox - E.cam.x, oy = q.oy - E.cam.y, x = q.x - E.cam.x, y = q.y - E.cam.y;
+    ctx.save(); ctx.fillStyle = withA(q.color, .10 + progress * .12); ctx.strokeStyle = withA(q.color, .55 + .35 * pulse); ctx.lineWidth = 2.5 + progress * 2;
+    if (q.shape === 'circle') {
+      ctx.beginPath(); ctx.arc(x, y, q.r, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = withA('#ffffff', .35 + .35 * pulse); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, Math.max(8, q.r * (1 - progress)), 0, TAU); ctx.stroke();
+    } else if (q.shape === 'lane') {
+      ctx.translate(ox, oy); ctx.rotate(q.angle); ctx.beginPath(); ctx.rect(0, -q.width / 2, q.length, q.width); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = withA('#ffffff', .25 + .3 * pulse); ctx.beginPath(); ctx.moveTo(q.length * progress, -q.width / 2); ctx.lineTo(q.length * progress, q.width / 2); ctx.stroke();
+    } else if (q.shape === 'cone') {
+      ctx.beginPath(); ctx.moveTo(ox, oy); ctx.arc(ox, oy, q.length, q.angle - q.spread, q.angle + q.spread); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = withA('#ffffff', .3 + .3 * pulse); ctx.beginPath(); ctx.arc(ox, oy, q.length * progress, q.angle - q.spread, q.angle + q.spread); ctx.stroke();
+    }
+    const labelX = q.shape === 'lane' ? q.length * .5 : q.shape === 'cone' ? ox + Math.cos(q.angle) * q.length * .58 : x;
+    const labelY = q.shape === 'lane' ? 0 : q.shape === 'cone' ? oy + Math.sin(q.angle) * q.length * .58 : y;
+    ctx.font = '900 11px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.strokeText(SPECIAL_NAMES[q.special] || 'SPECIAL ATTACK', labelX, labelY);
+    ctx.fillStyle = withA('#ffffff', .78 + .2 * pulse); ctx.fillText(SPECIAL_NAMES[q.special] || 'SPECIAL ATTACK', labelX, labelY); ctx.textAlign = 'left';
+    ctx.restore();
+  }
+}
+
+function drawCocoon(E, c, sx, sy) {
+  const ctx = E.ctx, pulse = .5 + .5 * Math.sin(E.time * 7), urgency = 1 - c.hatchT / 7;
+  ctx.save(); ctx.translate(sx, sy); ctx.rotate(Math.sin(E.time * 2) * .035);
+  const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 52); glow.addColorStop(0, withA('#e08b9f', .18 + urgency * .22)); glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, 52, 0, TAU); ctx.fill();
+  ctx.strokeStyle = withA('#eee9df', .3); ctx.lineWidth = 1;
+  for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + E.time * .08; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 12, Math.sin(a) * 17); ctx.lineTo(Math.cos(a) * 46, Math.sin(a) * 46); ctx.stroke(); }
+  const body = ctx.createLinearGradient(-18, -25, 18, 25); body.addColorStop(0, '#f0eee7'); body.addColorStop(.55, '#bdb7ae'); body.addColorStop(1, '#766d6e');
+  ctx.fillStyle = body; ctx.strokeStyle = withA('#e08b9f', .6 + pulse * .3); ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.ellipse(0, 0, 23 + pulse * 2, 31 + pulse, -.16, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(90,75,78,.42)'; ctx.lineWidth = 1.3;
+  for (let y = -20; y <= 20; y += 8) { ctx.beginPath(); ctx.moveTo(-20, y); ctx.quadraticCurveTo(0, y + 7, 20, y - 1); ctx.stroke(); }
+  ctx.restore();
 }
 
 function drawBackground(E) {
@@ -147,6 +197,7 @@ export function renderWorld(E) {
   }
 
   drawWebFields(E);
+  drawBossTelegraphs(E);
 
   // plants
   for (const pl of E.plants) {
@@ -183,7 +234,7 @@ export function renderWorld(E) {
   for (const c of E.creatures) {
     const sx = c.x - E.cam.x, sy = c.y - E.cam.y;
     if (sx < -90 || sx > E.vw + 90 || sy < -90 || sy > E.vh + 90) continue;
-    drawEntity(E, c);
+    if (c.cocoon) drawCocoon(E, c, sx, sy); else drawEntity(E, c);
     if (c.stunT > 0 || c.slowT > 0) {
       ctx.strokeStyle = withA('#bfe6ff', 0.85); ctx.lineWidth = 2;
       for (let i = 0; i < 3; i++) { const a = E.time * 9 + i / 3 * TAU; ctx.beginPath(); ctx.arc(sx + Math.cos(a) * (c.radius + 7), sy + Math.sin(a) * (c.radius + 7), 2.4, 0, TAU); ctx.stroke(); }
@@ -200,6 +251,11 @@ export function renderWorld(E) {
         ctx.fillStyle = (E.player && c.level > E.player.level) ? '#ff9a9a' : 'rgba(200,220,235,0.85)';
         ctx.fillText('Lv ' + c.level, sx, topY); ctx.textAlign = 'left';
       }
+      if (c.cocoon) {
+        const urgency = clamp(1 - c.hatchT / 7, 0, 1); ctx.textAlign = 'center'; ctx.font = '900 12px "Segoe UI",sans-serif';
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.strokeText('COCOON  ' + c.hatchT.toFixed(1) + 's', sx, sy - 45);
+        ctx.fillStyle = urgency > .65 ? '#ff697a' : '#f4eee8'; ctx.fillText('COCOON  ' + c.hatchT.toFixed(1) + 's', sx, sy - 45); ctx.textAlign = 'left';
+      }
     }
   }
 
@@ -210,6 +266,10 @@ export function renderWorld(E) {
     if (sx < -260 || sx > E.vw + 260 || sy < -260 || sy > E.vh + 260) continue;
     const bpulse = 0.5 + 0.5 * Math.sin(E.time * 3);
     ctx.strokeStyle = withA('#ff2a3a', 0.12 + 0.1 * bpulse); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, c.radius + 12, 0, TAU); ctx.stroke();
+    if (c.hp < c.maxHp * .45) {
+      ctx.strokeStyle = withA('#ff4055', .38 + .4 * Math.sin(E.time * 9) ** 2); ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.arc(sx, sy, c.radius + 18 + bpulse * 5, 0, TAU); ctx.stroke();
+    }
     if (c.hardenT > 0) {
       const R = c.radius + 11; ctx.strokeStyle = withA('#7fd8ff', 0.5 + 0.35 * bpulse); ctx.lineWidth = 3.5; ctx.beginPath();
       for (let i = 0; i <= 6; i++) { const a = i / 6 * TAU - Math.PI / 2; const x = sx + Math.cos(a) * R, y = sy + Math.sin(a) * R; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
@@ -224,6 +284,7 @@ export function renderWorld(E) {
       ctx.fillStyle = '#ff5468'; ctx.fillRect(bx + 1, by + 1, (barW - 2) * clamp(c.hp / c.maxHp, 0, 1), 6);
       ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1; ctx.strokeRect(bx, by, barW, 8);
     }
+    if (c.hp < c.maxHp * .45) { ctx.font = '900 10px "Segoe UI",sans-serif'; ctx.fillStyle = '#ff697a'; ctx.fillText('ENRAGED', sx, by + 21); }
     ctx.textAlign = 'left';
   }
 
