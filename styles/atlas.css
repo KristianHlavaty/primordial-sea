@@ -10,8 +10,14 @@
 .atlasMaps{display:flex; gap:14px; flex-wrap:wrap}
 .atlasMap{width:250px; background:#08161f; border:1px solid var(--line); border-radius:12px; padding:11px; display:flex; flex-direction:column; gap:8px}
 .atlasMap.here{border-color:var(--acc); box-shadow:0 0 0 1px var(--acc), 0 10px 26px #0007}
-.atlasSwatch{position:relative; height:70px; border-radius:9px; border:1px solid #12324a; overflow:hidden}
+.atlasSwatch{position:relative; height:82px; border-radius:9px; border:1px solid #12324a; overflow:hidden}
 .atlasYouHere{position:absolute; top:6px; right:8px; font-size:10px; font-weight:900; letter-spacing:1px; color:#fff; background:#04121ecc; border:1px solid var(--acc); border-radius:6px; padding:1px 7px}
+.atlasExitMarker{position:absolute; z-index:2; display:flex; align-items:center; gap:3px; color:#efffff; background:#087b83e8; border:1px solid #7ffff2; border-radius:6px; box-shadow:0 0 12px #41e8da99; padding:2px 5px; font-size:10px; line-height:1; animation:atlasExitPulse 1.8s ease-in-out infinite}
+.atlasExitMarker span{font-size:15px; font-weight:900}.atlasExitMarker b{font-size:8px; letter-spacing:.8px}
+.atlasExitMarker.left{left:4px; top:50%; transform:translateY(-50%)}.atlasExitMarker.right{right:4px; top:50%; transform:translateY(-50%); flex-direction:row-reverse}
+.atlasExitMarker.top{top:4px; left:50%; transform:translateX(-50%)}.atlasExitMarker.bottom{bottom:4px; left:50%; transform:translateX(-50%)}
+.atlasMap.here .atlasExitMarker{background:#0c9ca5; border-color:#fff; box-shadow:0 0 15px #7ffff2cc}
+@keyframes atlasExitPulse{0%,100%{filter:brightness(.9)}50%{filter:brightness(1.25)}}
 .atlasMapName{font-size:14px; font-weight:800; color:#eaf2fb}
 .atlasBosses{display:flex; flex-direction:column; gap:5px}
 .atlasBoss{display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:#e6c07a}
@@ -20,4 +26,10 @@
 .atlasBoss.slain .atlasBossMark{color:var(--good)}
 .atlasBossName{flex:1}
 .atlasBossTag{font-size:9px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--good); border:1px solid var(--good); border-radius:5px; padding:0 5px}
-.atlasLinks{font-size:11px; color:var(--dim); font-weight:600; margin-top:auto; border-top:1px dashed var(--line); padding-top:6px}
+.atlasRoutes{display:flex; flex-direction:column; gap:5px; margin-top:auto; border-top:1px dashed var(--line); padding-top:7px}
+.atlasRoutesTitle{font-size:8.5px; color:#78d8df; font-weight:900; letter-spacing:1.2px}
+.atlasRoute{display:grid; grid-template-columns:83px minmax(0,1fr) auto; align-items:center; gap:6px; min-height:25px; font-size:10.5px}
+.atlasRouteEdge{display:flex; align-items:center; gap:4px; color:#dffffc; background:#0a454bcc; border:1px solid #24757b; border-radius:5px; padding:3px 5px; font-size:8px; font-weight:900; letter-spacing:.35px; white-space:nowrap}
+.atlasRouteEdge i{color:#7ffff2; font-size:13px; font-style:normal; line-height:8px}.atlasRouteTarget{color:#c8d9e5; font-weight:700; overflow:hidden; text-overflow:ellipsis}.atlasRoute em{color:#d6a96a; font-size:8px; font-style:normal; text-transform:uppercase; letter-spacing:.4px}
+.atlasNoRoutes{font-size:9.5px; color:var(--dim); font-weight:600; margin-top:auto; border-top:1px dashed var(--line); padding-top:7px}
+@media(max-width:560px){.atlasMap{width:100%}.atlasStageBlurb{display:none}.atlasRoute{grid-template-columns:83px minmax(0,1fr) auto}}
