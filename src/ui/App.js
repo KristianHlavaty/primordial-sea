@@ -6,6 +6,7 @@ import { Hud } from './components/Hud.js';
 import { AchievementToast } from './components/AchievementToast.js';
 import { TreeModal } from './tree/TreeModal.js';
 import { AtlasModal } from './overlays/AtlasModal.js';
+import { TalentModal } from './overlays/TalentModal.js';
 import { EvolveModal } from './overlays/EvolveModal.js';
 import { PauseOverlay } from './overlays/PauseOverlay.js';
 import { GameOverScreen } from './overlays/GameOverScreen.js';
@@ -18,6 +19,7 @@ export function App() {
   const [treeOpen, setTreeOpen] = useState(false);
   const [atlasOpen, setAtlasOpen] = useState(false);
   const [bossEffectsOpen, setBossEffectsOpen] = useState(false);
+  const [talentsOpen, setTalentsOpen] = useState(false);
   const uiRef = useRef({});                       // latest UI state for input handlers / debug API
   const { engineRef, hud } = useEngine(canvasRef, uiRef);
   const engine = engineRef.current;
@@ -32,28 +34,32 @@ export function App() {
   const closeAtlas = () => { setAtlasOpen(false); if (engineRef.current) engineRef.current.setPaused(false); };
   const openBossEffects = () => { if (engineRef.current && engineRef.current.canWiki()) { engineRef.current.setPaused(true); setBossEffectsOpen(true); } };
   const closeBossEffects = () => { setBossEffectsOpen(false); if (engineRef.current) engineRef.current.setPaused(false); };
+  const openTalents = () => { if (engineRef.current && engineRef.current.canWiki()) { engineRef.current.setPaused(true); setTalentsOpen(true); } };
+  const closeTalents = () => { setTalentsOpen(false); if (engineRef.current) engineRef.current.setPaused(false); };
   const closeAchievement = () => { if (engineRef.current) engineRef.current.dismissAchievement(); };
   const mainMenu = () => {
-    setTreeOpen(false); setAtlasOpen(false); setBossEffectsOpen(false);
+    setTreeOpen(false); setAtlasOpen(false); setBossEffectsOpen(false); setTalentsOpen(false);
     if (engineRef.current) engineRef.current.returnToMenu();
     setPhase('start');
   };
   const curId = (engine && engine.player) ? engine.player.speciesId : 'protocell';
-  uiRef.current = { phase, treeOpen, openTree, closeTree, atlasOpen, openAtlas, closeAtlas, bossEffectsOpen, openBossEffects, closeBossEffects, achievementOpen: !!(hud && hud.achievement), closeAchievement };
+  uiRef.current = { phase, treeOpen, openTree, closeTree, atlasOpen, openAtlas, closeAtlas, bossEffectsOpen, openBossEffects, closeBossEffects, talentsOpen, openTalents, closeTalents, achievementOpen: !!(hud && hud.achievement), closeAchievement };
 
-  const anyModal = treeOpen || atlasOpen || bossEffectsOpen;
+  const anyModal = treeOpen || atlasOpen || bossEffectsOpen || talentsOpen;
 
   return html`
     <${Fragment}>
       <canvas id="game" ref=${canvasRef}/>
 
-      ${phase === 'play' && hud && !hud.dead && html`<${Hud} hud=${hud} engine=${engine} onOpenTree=${openTree} onOpenAtlas=${openAtlas} onOpenBossEffects=${openBossEffects}/>`}
+      ${phase === 'play' && hud && !hud.dead && html`<${Hud} hud=${hud} engine=${engine} onOpenTree=${openTree} onOpenAtlas=${openAtlas} onOpenBossEffects=${openBossEffects} onOpenTalents=${openTalents}/>`}
 
       ${phase === 'play' && hud && hud.achievement && html`<${AchievementToast} key=${hud.achievement.id} ach=${hud.achievement} onClose=${closeAchievement}/>`}
 
       ${phase === 'play' && treeOpen && html`<${TreeModal} curId=${curId} onClose=${closeTree}/>`}
 
       ${phase === 'play' && atlasOpen && hud && html`<${AtlasModal} engine=${engine} hud=${hud} onClose=${closeAtlas}/>`}
+
+      ${phase === 'play' && talentsOpen && engine && html`<${TalentModal} engine=${engine} onClose=${closeTalents}/>`}
 
       ${phase === 'play' && bossEffectsOpen && hud && html`<${BossEffectsModal} perks=${hud.perks || []} onClose=${closeBossEffects}/>`}
 

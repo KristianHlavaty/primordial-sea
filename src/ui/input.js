@@ -18,12 +18,13 @@ export function attachInput(engine, canvas, ui) {
     if (e.code === 'Digit3') { engine.useAbility(2); return; }
     const k = e.key.toLowerCase();
     const u = ui.current;
-    const anyModal = u.treeOpen || u.atlasOpen || u.bossEffectsOpen || u.achievementOpen;
-    // T / B toggle the tree wiki and world atlas (only one open at a time)
+    const anyModal = u.treeOpen || u.atlasOpen || u.bossEffectsOpen || u.talentsOpen || u.achievementOpen;
+    // T / B / K toggle the tree wiki, world atlas and talents (only one open at a time)
     if (k === 't') { if (u.treeOpen) u.closeTree && u.closeTree(); else if (!anyModal) u.openTree && u.openTree(); return; }
     if (k === 'b') { if (u.atlasOpen) u.closeAtlas && u.closeAtlas(); else if (!anyModal) u.openAtlas && u.openAtlas(); return; }
+    if (k === 'k') { if (u.talentsOpen) u.closeTalents && u.closeTalents(); else if (!anyModal) u.openTalents && u.openTalents(); return; }
     if (k === ' ') engine.setBite(true);
-    else if (k === 'escape') { if (u.achievementOpen) u.closeAchievement && u.closeAchievement(); else if (u.bossEffectsOpen) u.closeBossEffects && u.closeBossEffects(); else if (u.treeOpen) u.closeTree && u.closeTree(); else if (u.atlasOpen) u.closeAtlas && u.closeAtlas(); else engine.togglePause(); }
+    else if (k === 'escape') { if (u.achievementOpen) u.closeAchievement && u.closeAchievement(); else if (u.bossEffectsOpen) u.closeBossEffects && u.closeBossEffects(); else if (u.talentsOpen) u.closeTalents && u.closeTalents(); else if (u.treeOpen) u.closeTree && u.closeTree(); else if (u.atlasOpen) u.closeAtlas && u.closeAtlas(); else engine.togglePause(); }
     else if (k === 'p') { if (!anyModal) engine.togglePause(); }   // ignore P while an overlay is open — it manages pause itself
     else if (k === 'm') engine.toggleMute();
     else if (k === 'l') engine.toggleLevels();

@@ -27,26 +27,32 @@ export class Player extends Entity {
     this.vortexT = 0; this.vortexTick = 0;
     this.burrowT = 0; this.sprintT = 0;   // land: Burrow (invuln dig), Sprint (haste)
     this.rebirthUsed = false;   // Colony Rebirth fires once per life
-    this.applyLevelStats(); this.hp = this.maxHp;
+    this.applyLevelStats(world); this.hp = this.maxHp;
+    const tb = world && world.talentBonus;                 // Carapace talent: each new form starts shielded
+    if (tb && tb.startShieldPct > 0) { this.shield = Math.round(this.maxHp * tb.startShieldPct); this.shieldMax = this.shield; this.shieldT = 30; }
   }
 
   hasAbility(id) { return this.abilities.includes(id); }
 
-  applyLevelStats() {
+  applyLevelStats(game) {
     const st = this.species.stats, L = this.level - 1;
-    this.maxHp = Math.round(st.hp * (1 + L * 0.08)); this.atkMul = 1 + L * 0.06; this.spdMul = 1 + L * 0.02;
+    const b = (game && game.talentBonus) || { hpMul: 1, dmgMul: 1, spdMul: 1 };
+    this.maxHp = Math.round(st.hp * (1 + L * 0.08) * b.hpMul);
+    this.atkMul = (1 + L * 0.06) * b.dmgMul;
+    this.spdMul = (1 + L * 0.02) * b.spdMul;
   }
 
   addXp(game, v) {
     if (game.pendingEvolve || game.dead || this.level >= MAX_LEVEL) return;
-    this.xp += v * XP_MULT;
+    this.xp += v * XP_MULT * (game.talentBonus ? game.talentBonus.xpMul : 1);
     while (this.level < MAX_LEVEL && this.xp >= xpNeed(this.level)) { this.xp -= xpNeed(this.level); this.level++; this.levelUp(game); }
     if (this.level >= MAX_LEVEL) { this.xp = 0; if (this.species.evolvesTo.length) game.triggerEvolve(); }
   }
 
   levelUp(game) {
-    const old = this.maxHp; this.applyLevelStats();
+    const old = this.maxHp; this.applyLevelStats(game);
     this.hp = Math.min(this.maxHp, this.hp + (this.maxHp - old) + this.maxHp * 0.15);   // heal the added HP + a bonus
+    game.gainTalentPoint();   // a talent point for this stage's tree
     game.fx.push({ x: this.x, y: this.y, t: 0, max: 0.6, R: this.radius + 42, color: '#ffe27a', dir: 'out', width: 4 });
     game.floaters.push({ x: this.x, y: this.y - this.radius - 12, vx: 0, vy: -34, text: 'LEVEL ' + this.level, life: 1.5, max: 1.5, color: '#ffe27a', size: 16 });
     game.shake = Math.min(10, game.shake + 3); game.sfx.play('power');
@@ -56,7 +62,7 @@ export class Player extends Entity {
   bite(game) {
     if (this.cd > 0) return;
     const st = this.species.stats;
-    this.cd = st.dashCd * (this.frenzyT > 0 ? 0.5 : 1); this.biteT = 0.28; this.biteAnim = 1; this.hitSet = new Set();
+    this.cd = st.dashCd * (this.frenzyT > 0 ? 0.5 : 1) * (game.talentBonus ? game.talentBonus.dashCdMul : 1); this.biteT = 0.28; this.biteAnim = 1; this.hitSet = new Set();
     this.vx += Math.cos(this.angle) * st.dashPow; this.vy += Math.sin(this.angle) * st.dashPow;
     const mx = this.x + Math.cos(this.angle) * this.radius, my = this.y + Math.sin(this.angle) * this.radius;
     burst(game, mx, my, '#bfefff', 5, 90);
@@ -86,6 +92,7 @@ export class Player extends Entity {
             burst(game, c.x, c.y, '#b0e05e', 4, 70);
           }
           if (hasBloodscent && c.hp <= 0) this.hp = Math.min(this.maxHp, this.hp + 4);   // kill mends you
+          if (c.hp <= 0 && game.talentBonus.killHeal) this.hp = Math.min(this.maxHp, this.hp + game.talentBonus.killHeal);   // Bloodfeast talent
           burst(game, c.x, c.y, '#ffdfe4', 6, 120);
         }
       }
@@ -112,7 +119,7 @@ export class Player extends Entity {
     if (game.invincible) { burst(game, this.x, this.y, '#ff5d68', 3, 45); return; }
     if (this.enrollT > 0) { burst(game, this.x, this.y, '#ffe6b0', 4, 60); return; }
     if (this.burrowT > 0) { burst(game, this.x, this.y, '#c79a5e', 4, 60); return; }   // underground — untouchable
-    const dodgeCh = (this.hasAbility('evasion') ? 0.25 : 0) + (this.hasAbility('ampullae') ? .15 : 0) + (this.hasAbility('silksense') ? .14 : 0) + game.perks.dodge;
+    const dodgeCh = (this.hasAbility('evasion') ? 0.25 : 0) + (this.hasAbility('ampullae') ? .15 : 0) + (this.hasAbility('silksense') ? .14 : 0) + game.perks.dodge + (game.talentBonus ? game.talentBonus.dodge : 0);
     if (dodgeCh > 0 && Math.random() < dodgeCh) {
       for (let i = 0; i < 7; i++) game.particles.push({ x: this.x + rand(-6, 6), y: this.y + rand(-6, 6), vx: rand(-60, 60), vy: rand(-60, 60), life: 0.3, max: 0.3, size: 2.2, color: 'rgba(138,255,208,0.75)' });
       game.sfx.play('dodge'); return;
@@ -127,7 +134,8 @@ export class Player extends Entity {
       if (!attacker.boss) attacker.stunT = Math.max(attacker.stunT || 0, 0.5);
       burst(game, attacker.x, attacker.y, '#c79bff', 4, 70);
     }
-    if (game.perks.dmgReduce) dmg *= (1 - game.perks.dmgReduce);   // Ironhide trophy
+    const dr = Math.min(0.8, (game.perks.dmgReduce || 0) + (game.talentBonus ? game.talentBonus.dmgReduce : 0));   // boss trophy + talents
+    if (dr) dmg *= (1 - dr);
     if (this.hasAbility('thickhide')) dmg *= 0.85;                 // cornified armored skin
     if (this.hasAbility('bastion')) dmg *= 0.82;
     if (this.withdrawT > 0) dmg *= 0.3;                            // tucked into the shell
@@ -180,7 +188,8 @@ export class Player extends Entity {
     const accMul = enrolled ? 0.25 : withdrawn ? 0.35 : burrowed ? 1.5 : (hasted ? 1.6 : 1);
     const baseSpd = st.maxSpeed * this.spdMul * (this.hasAbility('sail') ? 1.08 : 1);   // sun-warmed muscles drive harder
     const spdCap = enrolled ? baseSpd * 0.5 : withdrawn ? baseSpd * 0.55 : burrowed ? baseSpd * 1.5 : (hasted ? baseSpd * 1.8 : baseSpd);
-    const webM = 1 - game.webSlowAt(this.x, this.y) * .55 * (1 - (game.perks.webResist || 0));
+    const webRes = Math.min(0.95, (game.perks.webResist || 0) + (game.talentBonus ? game.talentBonus.webResist : 0));
+    const webM = 1 - game.webSlowAt(this.x, this.y) * .55 * (1 - webRes);
 
     // keyboard wins; otherwise steer toward the mouse (dead zone of 24px)
     let ix = 0, iy = 0;
@@ -268,6 +277,8 @@ export class Player extends Entity {
 
     // passive regen once out of combat
     if (game.time - game.lastHurt > 3 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 6 * dt);
+    // Mending talent — steady regeneration, in and out of combat
+    if (game.talentBonus && game.talentBonus.regen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + game.talentBonus.regen * dt);
     // Regenerate — amphibian regrowth that knits wounds even mid-fight
     if (this.hasAbility('regen') && this.hp < this.maxHp) {
       const inCombat = game.time - game.lastHurt < 3;

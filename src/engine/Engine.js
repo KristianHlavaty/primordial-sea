@@ -17,10 +17,11 @@
    - particles/fx/floaters/eggs/bubbles   cosmetic bits */
 import { Player } from './entities/Player.js';
 import { ABILITIES, ACTIVE_TIMER } from '../data/abilities.js';
-import { PERKS } from '../data/bosses.js';
+import { PERKS, BOSSES } from '../data/bosses.js';
 import { MAPS, STAGES, firstMapOf, OPPOSITE_EDGE } from '../data/maps.js';
 import { SPECIES, landPioneers, speciesStage } from '../data/species.js';
 import { MAX_LEVEL, xpNeed } from '../data/progression.js';
+import { freshTalentState, computeTalentBonus, talentValue, TALENT_TREES, TALENT_BY_ID, TREE_BY_ID } from '../data/talents.js';
 import { clamp, lerp, hyp } from '../core/math.js';
 import { spawnInitial, spawnMaintain, spawnRandomNpc } from './systems/spawning.js';
 import { activateAbility } from './systems/abilities.js';
@@ -75,6 +76,10 @@ export class Engine {
     this.fantasyEvolution = false;
     this.cheatsEnabled = false; this.invincible = false;
     this.previewCanvas = {};   // evolve-modal preview canvases, keyed by species id
+
+    // talent trees (per-stage; earned by leveling, spent for boosts; reset each run)
+    this.talent = freshTalentState();
+    this.talentBonus = computeTalentBonus(this.talent.trees);
   }
 
   resize() {
@@ -98,6 +103,8 @@ export class Engine {
     this.transitionCd = 0; this.edgeDwell = 0; this.nearEdge = null; this.visitedMaps = new Set();
     this.time = 0; this.lastHurt = -99;
     this.mouse.x = this.vw / 2; this.mouse.y = this.vh / 2;
+    this.talent = freshTalentState();
+    this.talentBonus = computeTalentBonus(this.talent.trees);
   }
 
   start(options = {}) {
@@ -127,6 +134,7 @@ export class Engine {
   loadMap(mapId, via) {
     const m = MAPS[mapId];
     this.mapId = mapId; this.stage = m.stage; this.theme = m.theme; this.W = m.W; this.H = m.H;
+    if (this.talent.trees[this.stage]) this.talent.trees[this.stage].unlocked = true;   // entering a stage unlocks its tree
     const p = this.player;
     if (!via) { p.x = this.W / 2; p.y = this.H * 0.5; }
     else {
@@ -161,6 +169,91 @@ export class Engine {
   cheatLevelUp() {
     if (!this.cheatsEnabled || !this.player || this.pendingEvolve || this.player.level >= MAX_LEVEL) return;
     this.player.addXp(this, xpNeed(this.player.level) / 2); this.pushHud(true);
+  }
+
+  /* ---------------- talents ---------------- */
+
+  nowMs() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : this.time * 1000; }
+  spentCount(treeId) { const r = this.talent.trees[treeId].ranks; let s = 0; for (const k in r) s += r[k]; return s; }
+  talentAvail(treeId) { const t = this.talent.trees[treeId]; return Math.max(0, t.earned - this.spentCount(treeId)); }
+  pathPoints(treeId, col) { const tr = this.talent.trees[treeId]; let s = 0; for (const t of TREE_BY_ID[treeId].talents) if (t.col === col) s += (tr.ranks[t.id] || 0); return s; }
+  talentUnspent() { let s = 0; for (const tree of TALENT_TREES) { if (this.talent.trees[tree.id].unlocked) s += this.talentAvail(tree.id); } return s; }
+
+  /* Bank one point into the current stage's tree (called on every level-up). */
+  gainTalentPoint() { const tr = this.talent.trees[this.stage]; if (tr) tr.earned++; }
+
+  /* Recompute the aggregate bonus and re-apply it to the player's live stats
+     (preserving HP fraction) so spending a point is felt immediately. */
+  recomputeTalents() {
+    this.talentBonus = computeTalentBonus(this.talent.trees);
+    const p = this.player;
+    if (p) { const frac = p.maxHp > 0 ? p.hp / p.maxHp : 1; p.applyLevelStats(this); p.hp = Math.max(1, Math.min(p.maxHp, Math.round(p.maxHp * frac))); }
+    this.pushHud(true);
+  }
+
+  spendTalent(treeId, talentId) {
+    const tr = this.talent.trees[treeId], t = TALENT_BY_ID[talentId];
+    if (!tr || !t || !tr.unlocked || this.talentAvail(treeId) <= 0) return;
+    if ((tr.ranks[talentId] || 0) >= t.max) return;
+    if (t.req && (tr.ranks[t.req] || 0) <= 0) return;
+    if (t.gate && !this.bossesDefeated.has(t.gate)) return;
+    if (t.reqPath && this.pathPoints(treeId, t.col) < t.reqPath) return;   // must opt into the path first
+    tr.ranks[talentId] = (tr.ranks[talentId] || 0) + 1;
+    (tr.spentAt[talentId] = tr.spentAt[talentId] || []).push(this.nowMs());
+    this.recomputeTalents();
+  }
+
+  /* Refund a talent's last rank if it's within the 30s misclick window and
+     nothing that requires it would break. */
+  undoTalent(treeId, talentId) {
+    const tr = this.talent.trees[treeId], t = TALENT_BY_ID[talentId];
+    if (!tr || !t) return;
+    const rank = tr.ranks[talentId] || 0; if (rank <= 0) return;
+    const times = tr.spentAt[talentId] || [], last = times[times.length - 1];
+    if (last == null || this.nowMs() - last > 30000) return;
+    if (rank - 1 <= 0 && TREE_BY_ID[treeId].talents.some(x => x.req === talentId && (tr.ranks[x.id] || 0) > 0)) return;
+    tr.ranks[talentId] = rank - 1; times.pop();
+    if (tr.ranks[talentId] === 0) delete tr.ranks[talentId];
+    this.recomputeTalents();
+  }
+
+  /* One free full respec per tree per run. */
+  respecTree(treeId) {
+    const tr = this.talent.trees[treeId]; if (!tr || tr.respecUsed) return;
+    tr.respecUsed = true; tr.ranks = {}; tr.spentAt = {};
+    this.recomputeTalents();
+  }
+
+  /* Ready-to-render snapshot of every tree for the talent modal. */
+  talentInfo() {
+    const now = this.nowMs();
+    const trees = TALENT_TREES.map(tree => {
+      const st = this.talent.trees[tree.id], spent = this.spentCount(tree.id), avail = st.earned - spent;
+      const nodes = tree.talents.map(t => {
+        const rank = st.ranks[t.id] || 0, maxed = rank >= t.max;
+        let locked = false, lockReason = '', lockShort = '';
+        if (t.req && (st.ranks[t.req] || 0) <= 0) { locked = true; lockReason = 'Requires ' + TALENT_BY_ID[t.req].name; lockShort = 'needs ' + TALENT_BY_ID[t.req].name; }
+        if (t.gate && !this.bossesDefeated.has(t.gate)) { locked = true; lockReason = t.gateLabel || 'Boss-locked'; lockShort = '🔒 ' + (BOSSES[t.gate] ? BOSSES[t.gate].short : 'boss'); }
+        if (t.reqPath) { const have = this.pathPoints(tree.id, t.col); if (have < t.reqPath) { locked = true; lockReason = `Invest ${t.reqPath} in this path (${have}/${t.reqPath})`; lockShort = `${have}/${t.reqPath} in path`; } }
+        const times = st.spentAt[t.id] || [], last = times[times.length - 1];
+        const undoable = rank > 0 && last != null && (now - last) <= 30000;
+        const vNow = talentValue(t, rank), vFull = talentValue(t, t.max);
+        return {
+          id: t.id, name: t.name, icon: t.icon, col: t.col, row: t.row,
+          req: t.req || null, gate: t.gate || null, gateLabel: t.gateLabel || '',
+          capstone: !!t.capstone, display: t.display || '', perRank: talentValue(t, 1).text,
+          valueNow: vNow.text, valueFull: vFull.text, valueLabel: vFull.label,
+          rank, max: t.max, locked, lockReason, lockShort, gated: !!t.gate,
+          canSpend: st.unlocked && !locked && !maxed && avail > 0,
+          undoable, undoIn: undoable ? Math.max(1, Math.ceil((30000 - (now - last)) / 1000)) : 0,
+        };
+      });
+      return {
+        id: tree.id, name: tree.name, color: tree.color, stage: tree.stage, paths: tree.paths,
+        unlocked: st.unlocked, earned: st.earned, spent, available: avail, respecUsed: st.respecUsed, nodes,
+      };
+    });
+    return { trees, currentStage: this.stage };
   }
 
   /* ---------------- input (called by ui/input.js) ---------------- */
@@ -491,6 +584,7 @@ export class Engine {
       // stage / map
       stage: this.stage, stageName: STAGES[this.stage] ? STAGES[this.stage].name : '',
       mapId: this.mapId, mapName: MAPS[this.mapId] ? MAPS[this.mapId].name : '',
+      talentUnspent: this.talentUnspent(),
       canAscend: this.isSeaApex(), ascendAvailable: this.ascendAvailable, advanceAvailable: this.advanceAvailable, nearEdge: this.nearEdge,
       landDeadEnd: !!(p && p.level >= MAX_LEVEL && this.isLandDeadEnd()),
       cheatsEnabled: this.cheatsEnabled, invincible: this.invincible

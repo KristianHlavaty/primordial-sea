@@ -235,5 +235,5 @@ export function activateAbility(game, idx) {
     game.shake = Math.min(10, game.shake + 3);
   }
 
-  p.acd[id] = ab.cd; game.sfx.play('power'); game.pushHud(true);
+  p.acd[id] = ab.cd * (game.talentBonus ? game.talentBonus.powerCdMul : 1); game.sfx.play('power'); game.pushHud(true);
 }

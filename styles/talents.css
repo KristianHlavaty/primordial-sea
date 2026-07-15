@@ -1,0 +1,66 @@
+/* ---------- talents: HUD button + tree modal ---------- */
+/* HUD talents button (glows gold with a badge when you have unspent points) */
+.talentBtn{position:relative}
+.talentBtn.glow{border-color:#f2c15e; color:#f2c15e; animation:talentGlow 1.6s ease-in-out infinite}
+.talentBtn em{position:absolute; top:-6px; right:-6px; min-width:16px; height:16px; padding:0 3px; display:flex; align-items:center; justify-content:center;
+  background:#f2c15e; color:#17202a; border-radius:9px; font-style:normal; font-weight:900; font-size:10px; box-shadow:0 0 8px #f2c15e}
+@keyframes talentGlow{0%,100%{box-shadow:0 0 6px -2px #f2c15e} 50%{box-shadow:0 0 16px 0 #f2c15e}}
+
+.talentScrim{background:radial-gradient(120% 100% at 50% 30%, #05141fee, #010a12fb); z-index:24}
+.talentCard{width:min(96vw,900px); max-height:92vh; display:flex; flex-direction:column;
+  background:linear-gradient(#0e2537,#091622); border:1px solid var(--line); border-radius:16px; box-shadow:0 30px 90px #000b; padding:14px 16px}
+.talentHead{display:flex; align-items:center; gap:14px; margin-bottom:10px}
+.talentTitle{font-size:19px; font-weight:900; letter-spacing:2px; color:var(--tc)}
+.talentTabs{display:flex; gap:7px; flex-wrap:wrap}
+.ttab{position:relative; background:#0a1a28; border:1px solid var(--line); color:var(--dim); border-radius:9px; padding:5px 13px; font-size:12.5px; font-weight:800; cursor:pointer; transition:color .12s, border-color .12s, background .12s}
+.ttab.active{color:var(--tc); border-color:var(--tc); background:#0c2233}
+.ttab.locked{opacity:.5; cursor:not-allowed}
+.ttab em{position:absolute; top:-7px; right:-7px; min-width:17px; height:17px; padding:0 4px; display:flex; align-items:center; justify-content:center; background:#f2c15e; color:#17202a; border-radius:9px; font-style:normal; font-weight:900; font-size:10px}
+.talentClose{margin-left:auto; width:34px; height:34px; flex:none; border-radius:9px; background:#0a1a28; border:1px solid var(--line); color:var(--txt); font-size:16px; cursor:pointer}
+.talentClose:hover{border-color:var(--bad); color:var(--bad)}
+.talentLockedMsg{padding:46px 20px; text-align:center; color:#c4d6e6; font-size:14px; line-height:1.6}
+.talentLockedMsg b{color:var(--tc)}
+
+.talentSub{display:flex; align-items:center; gap:14px; margin-bottom:8px; padding:0 4px}
+.tpoints{font-size:14px; color:#dfeaf5}.tpoints b{color:#f2c15e; font-size:19px; font-weight:900}
+.tspent{font-size:11.5px; color:var(--dim)}
+.respecBtn{margin-left:auto; background:#160d14; color:#e7cbd0; border:1px solid #78404b; border-radius:8px; padding:6px 14px; font-size:12px; font-weight:800; cursor:pointer}
+.respecBtn:hover:not(:disabled){border-color:#ff6676; color:#ff8a96}
+.respecBtn:disabled{opacity:.4; cursor:not-allowed}
+
+.talentScroll{overflow:auto; flex:1; min-height:0; background:#071420; border:1px solid var(--line); border-radius:12px; padding:26px 16px 16px}
+.talentPaths{position:relative; height:20px; margin-bottom:4px}
+.tpath{position:absolute; top:0; text-align:center; font-size:10px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:var(--dim)}
+.talentGrid{position:relative}
+.talentSvg{position:absolute; left:0; top:0; pointer-events:none}
+
+.tnode{position:absolute; background:#0b1d2c; border:1px solid var(--line); border-radius:12px; padding:9px 9px 8px; display:flex; flex-direction:column; align-items:center; text-align:center;
+  cursor:default; transition:transform .1s, box-shadow .12s, border-color .12s; overflow:hidden}
+.tnode.has{border-color:var(--tc)}
+.tnode.maxed{border-color:var(--tc); box-shadow:0 0 12px -3px var(--tc)}
+.tnode.can{cursor:pointer; border-color:#f2c15e; box-shadow:0 0 14px -4px #f2c15e}
+.tnode.can:hover{transform:translateY(-2px); box-shadow:0 0 18px -2px #f2c15e}
+.tnode.locked{opacity:.66}
+.tnode.gated.locked{opacity:.7; border-style:dashed}
+.tnlock{display:block; margin-top:3px; font-size:8.5px; font-weight:800; letter-spacing:.2px; color:#e6b06a}
+.tnode.capstone{background:linear-gradient(#241d0e,#0d1a29); border-color:#7a5f28}
+.tnode.capstone.has,.tnode.capstone.maxed{border-color:#f2c15e; box-shadow:0 0 18px -3px #f2c15e88}
+.tnicon{width:44px; height:44px; display:flex; align-items:center; justify-content:center; margin-bottom:2px}
+.tnicon canvas{width:40px; height:40px}
+.tninfo b{font-size:13px; font-weight:800; color:#eaf2fb; display:block; line-height:1.15}
+.tninfo b .star{color:#f2c15e; font-size:11px; margin-left:3px}
+.tnblurb{display:block; font-size:10px; color:var(--dim); line-height:1.28; margin-top:3px}
+.tnblurb .tval{font-size:10.5px; color:#9fb6c8}
+.tnblurb .tval b{font-weight:800}
+.tnblurb .tval .cur{color:#f2c15e}            /* current accumulated bonus */
+.tnblurb .tval .cur.full{color:var(--tc)}     /* fully ranked */
+.tnblurb .tval .mx{color:#cfe0ee}             /* full bonus at max ranks */
+.tnblurb .tval.cap{color:#ffe2a0; font-size:10.5px; font-weight:700; line-height:1.35}   /* capstone combined effect */
+.tnpips{display:flex; gap:4px; margin-top:auto; padding-top:6px}
+.tnpips i{width:9px; height:9px; border-radius:50%; background:#1e3348; border:1px solid #2a4258}
+.tnpips i.on{background:var(--tc); border-color:var(--tc); box-shadow:0 0 5px -1px var(--tc)}
+.tnplus{position:absolute; top:5px; right:8px; color:#f2c15e; font-weight:900; font-size:16px}
+.tnundo{position:absolute; top:4px; left:5px; pointer-events:auto; background:#04121edd; border:1px solid #6c3540; color:#ff9aa6; border-radius:6px; font-size:10px; font-weight:800; padding:2px 6px; cursor:pointer}
+.tnundo:hover{border-color:#ff6676; color:#ffb0ba}
+.talentHint{margin-top:9px; text-align:center; color:var(--dim); font-size:11.5px}
+.talentHint b{color:var(--tc)}
