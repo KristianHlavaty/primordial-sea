@@ -1,13 +1,18 @@
 /* Title screen: the game's premise, controls, and a shortcut to begin already
    ashore as one of the land pioneers. */
 import { html, useState } from '../react.js';
-import { SPECIES, landPioneers } from '../../data/species.js';
+import { SPECIES, stagePioneers } from '../../data/species.js';
 import { BRANCH_WORD } from '../../data/branches.js';
 
 export function StartScreen({ onBegin, onSkipToLand }) {
   const [showLand, setShowLand] = useState(false);
   const [fantasyEvolution, setFantasyEvolution] = useState(false);
   const [cheats, setCheats] = useState(false);
+  const pioneerBtn = id => {
+    const sp = SPECIES[id];
+    return html`<button key=${id} className=${'skipBtn ' + sp.branch} onClick=${() => onSkipToLand(id, { fantasyEvolution, cheats })}>
+      ${sp.name}<small>${BRANCH_WORD[sp.branch] || sp.branch}</small></button>`;
+  };
   return html`
     <div className="scrim"><div className="card">
       <div className="title">PRIMORDIAL SEA</div>
@@ -29,16 +34,17 @@ export function StartScreen({ onBegin, onSkipToLand }) {
       <label className="cheatsToggle"><input type="checkbox" checked=${cheats} onChange=${e => setCheats(e.target.checked)}/> Cheats <small>(show testing controls in game)</small></label>
       <button className="bigbtn" onClick=${() => onBegin({ fantasyEvolution, cheats })}>BEGIN LIFE</button>
       <div className="skipRow">
-        <button className="skipToggle" onClick=${() => setShowLand(v => !v)}>${showLand ? '▾ hide' : '▸ skip to land'}</button>
+        <button className="skipToggle" onClick=${() => setShowLand(v => !v)}>${showLand ? '▾ hide' : '▸ skip ahead'}</button>
         ${showLand && html`
           <div className="skipChoices">
-            <div className="skipLabel">Begin already ashore as a land pioneer:</div>
-            <div className="skipBtns">
-              ${landPioneers(fantasyEvolution).map(id => {
-                const sp = SPECIES[id];
-                return html`<button key=${id} className=${'skipBtn ' + sp.branch} onClick=${() => onSkipToLand(id, { fantasyEvolution, cheats })}>
-                  ${sp.name}<small>${BRANCH_WORD[sp.branch]}</small></button>`;
-              })}
+            <div className="skipLabel">Start further along — you keep the <b>talent points</b> you'd have earned getting there, so it's no setback.</div>
+            <div className="skipStage">
+              <div className="skipStageName" style=${{ color: 'var(--tetra)' }}>Devonian <span>+45 sea talent points</span></div>
+              <div className="skipBtns">${stagePioneers('devonian', fantasyEvolution).map(pioneerBtn)}</div>
+            </div>
+            <div className="skipStage">
+              <div className="skipStageName" style=${{ color: 'var(--myria)' }}>Carboniferous <span>+45 sea &amp; +36 Devonian points</span></div>
+              <div className="skipBtns">${stagePioneers('carboniferous', fantasyEvolution).map(pioneerBtn)}</div>
             </div>
           </div>`}
       </div>

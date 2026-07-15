@@ -116,16 +116,34 @@ export class Engine {
     this.playing = true; this.sfx.unlock(); this.pushHud(true);
   }
 
-  /* "Skip to land": begin already ashore as one of the land pioneers. */
+  /* "Skip ahead": begin already in a later stage as one of its tier-1 entrants
+     (Devonian pioneer or Carboniferous entrant). You keep the talent points you
+     would have banked getting there, so skipping isn't a talent penalty. */
   startAt(speciesId, options = {}) {
     this.resetRun();
     this.fantasyEvolution = !!options.fantasyEvolution;
     this.cheatsEnabled = !!options.cheats; this.invincible = false;
-    this.era = 4;                       // land NPCs scale to a mid-game difficulty
-    this.ascendOffered = true;          // already ashore — no crawl-ashore prompt
+    const stage = speciesStage(speciesId);
+    this.era = stage === 'carboniferous' ? 8 : 4;   // NPCs scale to the skipped-to depth
+    this.ascendOffered = true;                       // already ashore — no crawl-ashore prompt
+    this.grantSkipTalents(stage);
     this.player = null; this.makePlayer(speciesId);
-    this.loadMap(firstMapOf('devonian'));
+    this.loadMap(firstMapOf(stage));
     this.playing = true; this.sfx.unlock(); this.pushHud(true);
+  }
+
+  /* Bank the talent points a full playthrough of each SKIPPED stage would have
+     earned (5 sea forms × 9 = 45; 4 Devonian forms × 9 = 36), unspent, and
+     unlock those trees so you can spend them right away. */
+  grantSkipTalents(targetStage) {
+    const SKIP = { sea: 45, devonian: 36 };
+    const targetOrder = STAGES[targetStage] ? STAGES[targetStage].order : 0;
+    for (const id in this.talent.trees) {
+      const tree = TREE_BY_ID[id]; if (!tree) continue;
+      const order = STAGES[tree.stage] ? STAGES[tree.stage].order : 0;
+      if (order < targetOrder) { this.talent.trees[id].earned = SKIP[tree.stage] || 0; this.talent.trees[id].unlocked = true; }
+    }
+    this.talentBonus = computeTalentBonus(this.talent.trees);
   }
 
   /* Swap the active map. `via` is the edge the player LEFT through (they arrive

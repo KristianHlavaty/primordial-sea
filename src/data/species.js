@@ -411,6 +411,11 @@ export const SPECIES = {
 export const LAND_PIONEERS = Object.keys(SPECIES).filter(id => SPECIES[id].stage === 'devonian' && SPECIES[id].tier === 1);
 export const landPioneers = fantasy => LAND_PIONEERS.filter(id => fantasy || !SPECIES[id].fantasy);
 
+/* The tier-1 "entry" forms of any stage — what the start screen's "skip ahead"
+   offers for each stage (Devonian pioneers, Carboniferous entrants, …). */
+export const stagePioneers = (stage, fantasy) =>
+  Object.keys(SPECIES).filter(id => SPECIES[id].stage === stage && SPECIES[id].tier === 1 && (fantasy || !SPECIES[id].fantasy));
+
 /* The stage a species belongs to (sea species omit the field). */
 export const speciesStage = id => (SPECIES[id] && SPECIES[id].stage) || 'sea';
 
