@@ -11,14 +11,17 @@
 
    Packet kinds (inside the relay's {t:'relay', data}):
      host -> clients:  {k:'S', ...snapshot}   {k:'W', ...worldInit}
-     client -> host:   {k:'I', tx,ty,m,b}  {k:'E', id}  {k:'C', action}  {k:'ready'} */
+     client -> host:   {k:'I', tx,ty,m,b}  {k:'A'|'U'|'D', i}  {k:'E', id}
+                       {k:'C', action}  {k:'ready'} */
 import { RemotePlayer } from './entities/RemotePlayer.js';
 import { activateAbility } from './systems/abilities.js';
+import { useHeldItem, dropHeldItem } from './systems/items.js';
 import { SPECIES, speciesOfStageTier, speciesStage } from '../data/species.js';
 import { ABILITY_SETS, ACTIVE_TIMER } from '../data/abilities.js';
 import { NPCS } from '../data/npcs.js';
 import { MAPS } from '../data/maps.js';
 import { BOSSES } from '../data/bosses.js';
+import { ITEMS, ITEM_SLOT_COUNT } from '../data/items.js';
 import { MAX_LEVEL, xpNeed } from '../data/progression.js';
 import { angLerp, clamp, lerp, hyp } from '../core/math.js';
 
@@ -44,12 +47,13 @@ export function mpStartHost(engine, { room, profile, lobby, selfConn, roster }) 
   const evolution = room.evolution !== false;
   const bosses = room.bosses === true;
   const mapTransitions = room.mapTransitions === true;
+  const funItems = room.funItems === true;
   const cheats = room.cheats === true;
   engine.fantasyEvolution = fantasy; engine.cheatsEnabled = cheats; engine.invincible = false;
   const map = MAPS[room.map], stage = map.stage, tier = room.tier;
   engine.era = room.era || 0;
   engine.mp = {
-    role: 'host', lobby, self: selfConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, cheats,
+    role: 'host', lobby, self: selfConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, funItems, cheats,
     selfName: profile ? profile.name : 'Host', selfColor: profile ? profile.color : '#8affd0',
     inputs: {}, seq: 0, sendAcc: 0, nextNet: 1, feed: [], feedId: 0,
     worldDirty: false, edgeKey: null, edgeDwell: 0, edgeConn: null, edgeName: null,
@@ -73,22 +77,24 @@ export function mpStartClient(engine, { room, profile, lobby, selfConn, hostConn
   const evolution = room.evolution !== false;
   const bosses = room.bosses === true;
   const mapTransitions = room.mapTransitions === true;
+  const funItems = room.funItems === true;
   const cheats = room.cheats === true;
   engine.fantasyEvolution = fantasy; engine.cheatsEnabled = cheats; engine.invincible = false;
   const map = MAPS[room.map], stage = map.stage, tier = room.tier;
   engine.era = room.era || 0;
   engine.mp = {
-    role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, cheats,
+    role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, funItems, cheats,
     selfName: profile ? profile.name : 'You', selfColor: profile ? profile.color : '#8affd0',
     sendAcc: 0, inputKeepalive: INPUT_KEEPALIVE, lastInput: null, reAsk: 0, gotInit: false,
-    npcById: new Map(), rpById: new Map(), foodById: new Map(),
-    seenNpcs: new Set(), seenPlayers: new Set(), seenFood: new Set(), feed: [], feedId: 0,
+    npcById: new Map(), rpById: new Map(), foodById: new Map(), itemById: new Map(), projectileById: new Map(),
+    seenNpcs: new Set(), seenPlayers: new Set(), seenFood: new Set(), seenItems: new Set(), seenProjectiles: new Set(), feed: [], feedId: 0,
   };
   engine.mapId = room.map; engine.stage = stage; engine.theme = map.theme; engine.W = map.W; engine.H = map.H;
   const mine = resolveSpecies(roster[selfConn] && roster[selfConn].species, stage, tier, fantasy);
   engine.player = null; engine.makePlayer(mine);
   engine.player.x = engine.W / 2; engine.player.y = engine.H / 2; engine.player._netInit = false;
   engine.remotePlayers = []; engine.creatures = []; engine.plants = []; engine.food = []; engine.obstacles = []; engine.webs = []; engine.bubbles = [];
+  engine.worldItems = []; engine.itemProjectiles = [];
   seedBubbles(engine);
   engine.cam.x = clamp(engine.player.x - engine.vw / 2, 0, Math.max(0, engine.W - engine.vw));
   engine.cam.y = clamp(engine.player.y - engine.vh / 2, 0, Math.max(0, engine.H - engine.vh));
@@ -121,6 +127,12 @@ export function mpOnPacket(engine, from, data) {
     } else if (data.k === 'C') {
       const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
       if (rp) applyCheat(engine, rp, data.action);
+    } else if (data.k === 'U') {
+      const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
+      if (rp) useHeldItem(engine, rp, data.i | 0);
+    } else if (data.k === 'D') {
+      const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
+      if (rp) dropHeldItem(engine, rp, data.i | 0);
     } else if (data.k === 'ready') {
       if (mp.lobby) mp.lobby.raw({ t: 'relay', to: from, data: buildWorldInit(engine) });
     }
@@ -212,6 +224,20 @@ export function mpUseCheat(engine, action) {
     return;
   }
   applyCheat(engine, engine.player, action);
+}
+
+export function mpUseItem(engine, slot) {
+  const mp = engine.mp; if (!mp || !engine.player || slot < 0 || slot >= ITEM_SLOT_COUNT) return;
+  if (mp.role === 'client') {
+    if (mp.lobby) sendTransient(mp.lobby, { t: 'relay', to: mp.host, data: { k: 'U', i: slot } });
+  } else useHeldItem(engine, engine.player, slot);
+}
+
+export function mpDropItem(engine, slot) {
+  const mp = engine.mp; if (!mp || !engine.player || slot < 0 || slot >= ITEM_SLOT_COUNT) return;
+  if (mp.role === 'client') {
+    if (mp.lobby) mp.lobby.raw({ t: 'relay', to: mp.host, data: { k: 'D', i: slot } });
+  } else dropHeldItem(engine, engine.player, slot);
 }
 
 function applyCheat(engine, player, action) {
@@ -306,6 +332,7 @@ function buildSnapshot(engine) {
       ab: abilityState, k: pl.kills || 0, d: Math.ceil(pl.deadT || 0),
       ev: pl.mpEvolveChoices && pl.mpEvolveChoices.length ? pl.mpEvolveChoices : undefined,
       iv: pl.mpInvincible ? 1 : 0,
+      it: (pl.items || []).map(item => item ? [item.id, item.uses, Math.ceil((item.cd || 0) * 10)] : 0),
     });
   };
   pushP(engine.player, mp.self);
@@ -333,8 +360,21 @@ function buildSnapshot(engine) {
   const dynamicWebs = engine.webs.filter(w => w.life != null).map(w => ({
     x: Math.round(w.x), y: Math.round(w.y), r: Math.round(w.r), angle: roundTo(w.angle || 0, 2), life: roundTo(w.life, 1),
   }));
+  const worldItems = engine.worldItems.map(item => {
+    if (item.netId == null) item.netId = mp.nextNet++;
+    return { n: item.netId, t: item.type, x: Math.round(item.x), y: Math.round(item.y), u: item.uses };
+  });
+  const itemProjectiles = engine.itemProjectiles.map(projectile => {
+    if (projectile.netId == null) projectile.netId = mp.nextNet++;
+    return {
+      n: projectile.netId, t: projectile.type, v: projectile.visual, x: Math.round(projectile.x), y: Math.round(projectile.y),
+      a: roundTo(projectile.angle || 0, 2), r: Math.round(projectile.radius || 0), l: roundTo(projectile.life || 0, 2),
+      ml: roundTo(projectile.maxLife || 0, 2), len: Math.round(projectile.length || 0),
+      sp: roundTo(projectile.spread || 0, 2), c: projectile.color,
+    };
+  });
   return {
-    k: 'S', q: mp.seq++, players, npcs, food, dynamicWebs,
+    k: 'S', q: mp.seq++, players, npcs, food, dynamicWebs, worldItems, itemProjectiles,
     edgeC: mp.edgeConn, edgeName: mp.edgeName,
     perks: engine.perks, bossesDefeated: [...engine.bossesDefeated],
   };
@@ -359,9 +399,10 @@ function makeRenderPlayer(engine, pd) {
     vx: 0, vy: 0, mouth: 0, hurt: 0, x: pd.x, y: pd.y, angle: pd.a, gx: pd.x, gy: pd.y, ga: pd.a,
     hp: pd.hp, maxHp: pd.mhp, level: pd.lv, xp: pd.xp || 0, shield: pd.sh, shieldMax: pd.sm || 0,
     abilities: (ABILITY_SETS[pd.s] || []).slice(), acd: {}, biteAnim: pd.b, kills: pd.k || 0, deadT: pd.d || 0,
-    mpInvincible: !!pd.iv,
+    mpInvincible: !!pd.iv, items: Array(ITEM_SLOT_COUNT).fill(null),
   };
   applyAbilityState(player, pd.ab);
+  applyItemState(player, pd.it);
   return player;
 }
 function makeRenderNpc(nd) {
@@ -393,6 +434,14 @@ function applyAbilityState(player, state) {
   }
 }
 
+function applyItemState(player, state) {
+  if (!player) return;
+  player.items = Array.from({ length: ITEM_SLOT_COUNT }, (_, i) => {
+    const item = Array.isArray(state) && state[i];
+    return item && ITEMS[item[0]] ? { id: item[0], uses: item[1] || 0, cd: (item[2] || 0) / 10 } : null;
+  });
+}
+
 function applySnapshot(engine, s) {
   const mp = engine.mp;
   engine.nearEdge = s.edgeC === mp.self ? (s.edgeName || null) : null;
@@ -409,6 +458,7 @@ function applySnapshot(engine, s) {
       const pl = engine.player;
       pl.gx = pd.x; pl.gy = pd.y; pl.ga = pd.a; pl.hp = pd.hp; pl.maxHp = pd.mhp; pl.level = pd.lv; pl.xp = pd.xp || 0;
       pl.shield = pd.sh; pl.shieldMax = pd.sm || 0; applyAbilityState(pl, pd.ab);
+      applyItemState(pl, pd.it);
       pl.kills = pd.k || 0; pl.deadT = pd.d || 0;
       pl.mpInvincible = !!pd.iv;
       pl.mpEvolveChoices = Array.isArray(pd.ev) ? pd.ev.slice() : [];
@@ -426,6 +476,7 @@ function applySnapshot(engine, s) {
     }
     rp.gx = pd.x; rp.gy = pd.y; rp.ga = pd.a; rp.hp = pd.hp; rp.maxHp = pd.mhp; rp.level = pd.lv; rp.xp = pd.xp || 0;
     rp.shield = pd.sh; rp.shieldMax = pd.sm || 0; applyAbilityState(rp, pd.ab);
+    applyItemState(rp, pd.it);
     rp.kills = pd.k || 0; rp.deadT = pd.d || 0; rp.mpInvincible = !!pd.iv;
     if (pd.b > (rp.biteAnim || 0)) rp.biteAnim = pd.b;
   }
@@ -459,6 +510,37 @@ function applySnapshot(engine, s) {
   for (const f of mp.foodById.values()) engine.food.push(f);
   const staticWebs = engine.webs.filter(w => w.life == null);
   engine.webs = staticWebs.concat((s.dynamicWebs || []).map(w => ({ ...w })));
+
+  const seenI = mp.seenItems; seenI.clear();
+  for (const itemData of (s.worldItems || [])) {
+    if (!ITEMS[itemData.t]) continue;
+    seenI.add(itemData.n);
+    let item = mp.itemById.get(itemData.n);
+    if (!item) {
+      item = { netId: itemData.n, type: itemData.t, x: itemData.x, y: itemData.y, gx: itemData.x, gy: itemData.y, uses: itemData.u, radius: 18, bob: itemData.n % 6.28 };
+      mp.itemById.set(itemData.n, item);
+    }
+    item.type = itemData.t; item.gx = itemData.x; item.gy = itemData.y; item.uses = itemData.u;
+  }
+  for (const [id] of mp.itemById) if (!seenI.has(id)) mp.itemById.delete(id);
+  engine.worldItems = [...mp.itemById.values()];
+
+  const seenP = mp.seenProjectiles; seenP.clear();
+  for (const projectileData of (s.itemProjectiles || [])) {
+    seenP.add(projectileData.n);
+    let projectile = mp.projectileById.get(projectileData.n);
+    if (!projectile) {
+      projectile = { netId: projectileData.n, x: projectileData.x, y: projectileData.y, gx: projectileData.x, gy: projectileData.y };
+      mp.projectileById.set(projectileData.n, projectile);
+    }
+    Object.assign(projectile, {
+      type: projectileData.t, visual: projectileData.v, gx: projectileData.x, gy: projectileData.y,
+      angle: projectileData.a, radius: projectileData.r, life: projectileData.l, maxLife: projectileData.ml,
+      length: projectileData.len, spread: projectileData.sp, color: projectileData.c,
+    });
+  }
+  for (const [id] of mp.projectileById) if (!seenP.has(id)) mp.projectileById.delete(id);
+  engine.itemProjectiles = [...mp.projectileById.values()];
 }
 
 function applyWorldInit(engine, w) {
@@ -470,9 +552,10 @@ function applyWorldInit(engine, w) {
     if (MAPS[w.map]) { engine.stage = MAPS[w.map].stage; mp.stage = engine.stage; }
   }
   if (mapChanged) {
-    mp.npcById.clear(); mp.rpById.clear(); mp.foodById.clear();
-    mp.seenNpcs.clear(); mp.seenPlayers.clear(); mp.seenFood.clear();
+    mp.npcById.clear(); mp.rpById.clear(); mp.foodById.clear(); mp.itemById.clear(); mp.projectileById.clear();
+    mp.seenNpcs.clear(); mp.seenPlayers.clear(); mp.seenFood.clear(); mp.seenItems.clear(); mp.seenProjectiles.clear();
     engine.creatures.length = 0; engine.remotePlayers.length = 0; engine.food.length = 0;
+    engine.worldItems.length = 0; engine.itemProjectiles.length = 0;
     engine.bubbles.length = 0; seedBubbles(engine);
     if (engine.player) engine.player._netInit = false;
     engine.transitionCd = 1.2; engine.nearEdge = null;
@@ -485,13 +568,18 @@ function applyWorldInit(engine, w) {
 export function mpClientUpdate(engine, dt) {
   engine.time += dt;
   const k = 1 - Math.exp(-dt * 14);
-  const smooth = e => { if (e.gx != null) { e.x += (e.gx - e.x) * k; e.y += (e.gy - e.y) * k; e.angle = angLerp(e.angle, e.ga, k); } };
+  const smooth = e => {
+    if (e.gx == null) return;
+    e.x += (e.gx - e.x) * k; e.y += (e.gy - e.y) * k;
+    if (Number.isFinite(e.ga)) e.angle = angLerp(Number.isFinite(e.angle) ? e.angle : e.ga, e.ga, k);
+  };
   const decay = e => {
     e.biteAnim = Math.max(0, (e.biteAnim || 0) - dt * 3); e.mouth = e.biteAnim; e.hurt = Math.max(0, (e.hurt || 0) - dt * 3);
     for (const id of (e.abilities || [])) {
       if (e.acd && e.acd[id] > 0) e.acd[id] = Math.max(0, e.acd[id] - dt);
       const timer = ACTIVE_TIMER[id]; if (timer && e[timer] > 0) e[timer] = Math.max(0, e[timer] - dt);
     }
+    for (const item of (e.items || [])) if (item && item.cd > 0) item.cd = Math.max(0, item.cd - dt);
   };
   if (engine.player) { smooth(engine.player); decay(engine.player); }
   for (const rp of engine.remotePlayers) { smooth(rp); decay(rp); }
@@ -502,6 +590,8 @@ export function mpClientUpdate(engine, dt) {
     if (c.telegraph && c.telegraph.t > 0) c.telegraph.t = Math.max(0, c.telegraph.t - dt);
     if (c.cocoon && c.hatchT > 0) c.hatchT = Math.max(0, c.hatchT - dt);
   }
+  for (const item of engine.worldItems) smooth(item);
+  for (const projectile of engine.itemProjectiles) { smooth(projectile); projectile.life = Math.max(0, (projectile.life || 0) - dt); }
 
   const p = engine.player;
   if (p) {

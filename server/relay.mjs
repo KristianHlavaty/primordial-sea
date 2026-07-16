@@ -143,7 +143,7 @@ function roomList() {
   return [...rooms.values()].map(r => ({
     id: r.id, name: r.name, hostName: r.hostName, hostColor: r.hostColor,
     map: r.map, mapName: r.mapName, stage: r.stage, tier: r.tier, era: r.era,
-    fantasy: r.fantasy, evolution: r.evolution, cheats: r.cheats, bosses: r.bosses, mapTransitions: r.mapTransitions,
+    fantasy: r.fantasy, evolution: r.evolution, cheats: r.cheats, bosses: r.bosses, mapTransitions: r.mapTransitions, funItems: r.funItems,
     count: r.members.length, maxPlayers: r.maxPlayers, started: r.started,
   }));
 }
@@ -151,7 +151,7 @@ function roomList() {
 function roomDetail(r) {
   return {
     id: r.id, name: r.name, map: r.map, mapName: r.mapName, stage: r.stage, tier: r.tier, era: r.era,
-    fantasy: r.fantasy, evolution: r.evolution, cheats: r.cheats, bosses: r.bosses, mapTransitions: r.mapTransitions,
+    fantasy: r.fantasy, evolution: r.evolution, cheats: r.cheats, bosses: r.bosses, mapTransitions: r.mapTransitions, funItems: r.funItems,
     maxPlayers: r.maxPlayers, host: r.host, started: r.started,
     players: r.members.map(cid => {
       const c = conns.get(cid), p = (c && c.profile) || {};
@@ -212,7 +212,7 @@ function onMessage(conn, m) {
         map: str(m.map, 40), mapName: str(m.mapName, 60), stage: str(m.stage, 20),
         tier: int(m.tier, 1, 9, 1), era: int(m.era, 0, 30, 0), maxPlayers: int(m.maxPlayers, 2, 8, 4),
         fantasy: m.fantasy === true, evolution: m.evolution !== false, cheats: m.cheats === true,
-        bosses: m.bosses === true, mapTransitions: m.mapTransitions === true,
+        bosses: m.bosses === true, mapTransitions: m.mapTransitions === true, funItems: m.funItems === true,
         started: false, members: [conn.id], species: {},
       };
       if (m.species) r.species[conn.id] = str(m.species, 40);

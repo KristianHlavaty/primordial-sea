@@ -27,6 +27,7 @@ function HostPanel({ profile, onCreate, onCancel }) {
   const [evolution, setEvolution] = useState(true);
   const [bosses, setBosses] = useState(false);
   const [mapTransitions, setMapTransitions] = useState(false);
+  const [funItems, setFunItems] = useState(false);
   const [cheats, setCheats] = useState(false);
   const stage = MAPS[mapId].stage;
   const tiers = tiersOfStage(stage, fantasy);
@@ -37,7 +38,7 @@ function HostPanel({ profile, onCreate, onCancel }) {
   const era = eraFor(stage, tier);
   const create = () => onCreate({
     name: name.trim() || (profile.name + "'s game"), map: mapId, mapName: MAPS[mapId].name,
-    stage, tier, era, maxPlayers, fantasy, evolution, bosses, mapTransitions, cheats,
+    stage, tier, era, maxPlayers, fantasy, evolution, bosses, mapTransitions, funItems, cheats,
   });
 
   return html`
@@ -74,6 +75,10 @@ function HostPanel({ profile, onCreate, onCancel }) {
           <input type="checkbox" checked=${mapTransitions} onChange=${e => setMapTransitions(e.target.checked)}/>
           <span><b>Allow travel to adjacent maps</b><small>When a player crosses an edge, the whole room travels to that neighboring map</small></span>
         </label>
+        <label className="roomToggle funItemsRoomToggle">
+          <input type="checkbox" checked=${funItems} onChange=${e => setFunItems(e.target.checked)}/>
+          <span><b>Fun mode items</b><small>Expands collectible weapons with AK-47s, grenades, shotguns and rocket launchers</small></span>
+        </label>
         <label className="roomToggle cheatRoomToggle">
           <input type="checkbox" checked=${cheats} onChange=${e => setCheats(e.target.checked)}/>
           <span><b>Enable cheats for testing purposes</b><small>Adds invincibility and level-up controls for every player</small></span>
@@ -100,10 +105,12 @@ function RoomView({ room, connId, onSetSpecies, onLeave, onStart }) {
   const isHost = !!(me && me.isHost);
   const picks = speciesOfStageTier(room.stage, room.tier, !!room.fantasy);
   const enabledOptions = [
+    ['Collectible items', 'items'],
     room.fantasy && ['Fantasy animals', 'fantasy'],
     room.evolution && ['Same-stage evolution', 'evolution'],
     room.bosses && ['Bosses', 'bosses'],
     room.mapTransitions && ['Adjacent-map travel', 'maps'],
+    room.funItems && ['Fun mode items', 'funitems'],
     room.cheats && ['Testing cheats', 'cheats'],
   ].filter(Boolean);
 
@@ -180,7 +187,7 @@ export function MultiplayerScreen({ profile, lobby, ls, onBack }) {
             ? html`<div className="mpEmpty">${connected ? 'No games yet. Host one below and share your address, or wait for a friend to host.' : 'Connecting…'}</div>`
             : ls.rooms.map(r => html`<div key=${r.id} className="roomRow">
                 ${dot(r.hostColor)}
-                <div className="rrMain"><b>${r.name}</b><small>${r.hostName} · ${r.mapName} · Tier ${r.tier}${r.fantasy ? ' · Fantasy animals' : ''}${r.evolution ? ' · Evolution' : ''}${r.bosses ? ' · Bosses' : ''}${r.mapTransitions ? ' · Map travel' : ''}${r.cheats ? ' · Cheats' : ''}</small></div>
+                <div className="rrMain"><b>${r.name}</b><small>${r.hostName} · ${r.mapName} · Tier ${r.tier}${r.fantasy ? ' · Fantasy animals' : ''}${r.evolution ? ' · Evolution' : ''}${r.bosses ? ' · Bosses' : ''}${r.mapTransitions ? ' · Map travel' : ''}${r.funItems ? ' · Fun items' : ''}${r.cheats ? ' · Cheats' : ''}</small></div>
                 <span className="rrCount">${r.count}/${r.maxPlayers}</span>
                 <button className="rrJoin" disabled=${r.count >= r.maxPlayers} onClick=${() => L && L.joinRoom(r.id)}>${r.count >= r.maxPlayers ? 'Full' : 'Join'}</button>
               </div>`)}

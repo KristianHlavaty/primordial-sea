@@ -8,6 +8,7 @@ import { shade, withA } from '../core/color.js';
 import { drawCreature } from './drawCreature.js';
 import { drawPlant } from './drawPlant.js';
 import { drawObstacle } from './drawObstacle.js';
+import { drawWorldItem, drawItemProjectile } from './drawItem.js';
 import { SPECIES } from '../data/species.js';
 import { MAPS } from '../data/maps.js';
 
@@ -351,6 +352,10 @@ export function renderWorld(E) {
     if (f.kind === 'meat') { g.addColorStop(0, '#ffb0a0'); g.addColorStop(1, '#c8524a'); } else { g.addColorStop(0, '#b8f0bf'); g.addColorStop(1, '#4fa860'); }
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, f.r, 0, TAU); ctx.fill();
   }
+
+  // multiplayer collectible weapons and their authoritative attack visuals
+  for (const item of E.worldItems) drawWorldItem(E, item);
+  for (const projectile of E.itemProjectiles) drawItemProjectile(E, projectile);
 
   // eggs (laid when an evolution is pending)
   for (const e of E.eggs) {

@@ -141,6 +141,8 @@
 .bossRoomToggle b{color:#d9b975}
 .mapRoomToggle input{accent-color:#60d8ff}
 .mapRoomToggle b{color:#80cbe4}
+.funItemsRoomToggle input{accent-color:#ff9b45}
+.funItemsRoomToggle b{color:#f0ad70}
 .cheatRoomToggle input{accent-color:#ff5363}
 .cheatRoomToggle b{color:#d78b96}
 
@@ -154,9 +156,11 @@
 .roomOptionChips{display:flex; gap:5px; flex-wrap:wrap}
 .roomOptionChip,.roomOptionNone{font-size:10px; font-weight:700; color:#b9c8d6; background:#091a28; border:1px solid var(--line); border-radius:999px; padding:3px 7px}
 .roomOptionChip.fantasy{color:#c5a6ff; border-color:#705a9588}
+.roomOptionChip.items{color:#b7e4d8; border-color:#548c7d88}
 .roomOptionChip.evolution{color:#86e0b2; border-color:#4d987588}
 .roomOptionChip.bosses{color:#ffcf76; border-color:#98733b88}
 .roomOptionChip.maps{color:#7ddfff; border-color:#407f9588}
+.roomOptionChip.funitems{color:#ffad6c; border-color:#9a603888}
 .roomOptionChip.cheats{color:#ff8c98; border-color:#98495288}
 .roomRoster{display:flex; flex-direction:column; gap:6px; background:#07131d; border:1px solid var(--line); border-radius:10px; padding:10px 12px}
 .rosterRow{display:flex; align-items:center; gap:9px; font-size:13px}

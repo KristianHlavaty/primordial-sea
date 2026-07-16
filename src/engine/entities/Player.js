@@ -4,6 +4,7 @@
 import { Entity } from './Entity.js';
 import { SPECIES } from '../../data/species.js';
 import { ABILITY_SETS } from '../../data/abilities.js';
+import { ITEM_SLOT_COUNT } from '../../data/items.js';
 import { MAX_LEVEL, XP_MULT, xpNeed } from '../../data/progression.js';
 import { TAU, hyp, rand, angLerp } from '../../core/math.js';
 import { withA } from '../../core/color.js';
@@ -21,6 +22,9 @@ export class Player extends Entity {
     this.biteT = 0; this.cd = 0; this.biteAnim = 0; this.hurt = 0; this.mouth = 0; this.hitSet = null;
     this.animOff = 0;
     this.abilities = (ABILITY_SETS[speciesId] || []).slice(); this.acd = {};   // acd = per-ability cooldowns
+    this.items = prev && Array.isArray(prev.items)
+      ? prev.items.map(item => item ? { ...item } : null)
+      : Array(ITEM_SLOT_COUNT).fill(null);
     this.shield = 0; this.shieldMax = 0; this.shieldT = 0;
     this.enrollT = 0; this.burstT = 0; this.frenzyT = 0; this.bloomT = 0; this.bloomTick = 0;
     this.withdrawT = 0; this.stealthT = 0; this.ramT = 0; this.jetT = 0; this.ramHit = null;
@@ -165,6 +169,11 @@ export class Player extends Entity {
 
   /* Incoming bite: enroll makes us invulnerable, evasion/Reflexes may dodge,
      Barbs/Nettle punish the attacker, Ironhide and the shield soak damage. */
+  // Creature retaliation calls takeDamage(). Players expose the same small
+  // interface so reflected damage is safe in multiplayer PvP without causing
+  // another retaliation chain.
+  takeDamage(game, dmg, fromx, fromy) { this.takeHit(game, dmg, fromx, fromy, null); }
+
   takeHit(game, dmg, fromx, fromy, attacker) {
     if (this.hp <= 0 || this.deadT > 0) return;
     if (this.spawnProtT > 0 || (this.mpEvolveChoices && this.mpEvolveChoices.length)) { burst(game, this.x, this.y, '#a0ffd8', 3, 45); return; }   // respawning or choosing an evolution

@@ -17,6 +17,7 @@
    - particles/fx/floaters/eggs/bubbles   cosmetic bits */
 import { Player } from './entities/Player.js';
 import { ABILITIES, ACTIVE_TIMER } from '../data/abilities.js';
+import { ITEMS, ITEM_KEYS } from '../data/items.js';
 import { PERKS, BOSSES } from '../data/bosses.js';
 import { MAPS, STAGES, firstMapOf, OPPOSITE_EDGE } from '../data/maps.js';
 import { SPECIES, landPioneers, speciesStage } from '../data/species.js';
@@ -26,8 +27,9 @@ import { clamp, lerp, hyp } from '../core/math.js';
 import { spawnInitial, spawnMaintain, spawnRandomNpc } from './systems/spawning.js';
 import { activateAbility } from './systems/abilities.js';
 import { burst } from './systems/effects.js';
+import { updateItems } from './systems/items.js';
 import { renderWorld } from '../render/renderWorld.js';
-import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpMinimap, mpMaybeCrossMap, mpQueueEvolution, mpChooseEvolution, mpUseCheat } from './mp.js';
+import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpMinimap, mpMaybeCrossMap, mpQueueEvolution, mpChooseEvolution, mpUseCheat, mpUseItem, mpDropItem } from './mp.js';
 import { Sfx } from './audio.js';
 
 const CURRENT_SPEED = 165;   // sea-stage water current — px/s of drift at full strength
@@ -79,6 +81,7 @@ export class Engine {
     this.mp = null;                 // multiplayer session (engine/mp.js) — null in single-player
     this.remotePlayers = [];        // host: RemotePlayer entities; client: interpolated render-objects
     this.creatures = []; this.plants = []; this.food = [];
+    this.worldItems = []; this.itemProjectiles = []; this.itemSpawnT = 0;
     this.webs = [];
     this.obstacles = [];   // static land blockers (rocks, logs, stumps…)
     this.flow = [];   // sea-current streak particles (screen-space visual)
@@ -310,6 +313,8 @@ export class Engine {
     if (this.pendingEvolve || this.player.level >= MAX_LEVEL) return;
     this.player.addXp(this, xpNeed(this.player.level) / 2); this.pushHud(true);
   }
+  useItem(slot) { if (this.mp) mpUseItem(this, slot); }
+  dropItem(slot) { if (this.mp) mpDropItem(this, slot); }
 
   /* ---------------- talents ---------------- */
 
@@ -659,6 +664,7 @@ export class Engine {
 
     this.applyCurrent(dt);   // sea current sweeps player + free creatures + food
     this.resolveObstacles(); // keep player + creatures out of land blockers
+    updateItems(this, dt);
 
     // Food is host-authoritative in multiplayer. Let every living player pull
     // and collect pellets; if ranges overlap, the closest player gets them.
@@ -746,6 +752,8 @@ export class Engine {
     for (const object of this.remotePlayers) visitor(object);
     for (const object of this.creatures) visitor(object);
     for (const object of this.food) visitor(object);
+    for (const object of this.worldItems) visitor(object);
+    for (const object of this.itemProjectiles) visitor(object);
     for (const object of this.particles) visitor(object);
     for (const object of this.bubbles) visitor(object);
     for (const object of this.eggs) visitor(object);
@@ -799,6 +807,15 @@ export class Engine {
         cd: Math.ceil(cd), cdFrac: ab.cd ? clamp(cd / ab.cd, 0, 1) : 0, ready: cd <= 0, active, activeFrac
       };
     }) : [];
+    const items = this.mp && p ? ITEM_KEYS.map((key, slot) => {
+      const held = p.items && p.items[slot], def = held && ITEMS[held.id];
+      if (!def) return { slot, key, empty: true };
+      return {
+        slot, key, id: held.id, name: def.name, icon: def.icon, color: def.color, desc: def.desc,
+        modern: !!def.modern, uses: held.uses, maxUses: def.uses, cd: held.cd || 0,
+        cdFrac: def.cooldown ? clamp((held.cd || 0) / def.cooldown, 0, 1) : 0,
+      };
+    }) : null;
     this.onHud({
       hp: p ? p.hp : 0, maxHp: p ? p.maxHp : 1,
       level: p ? p.level : 1, xp: p ? Math.round(p.xp) : 0, xpNeed: p ? xpNeed(p.level) : 1,
@@ -807,6 +824,7 @@ export class Engine {
       kills: this.kills, dead: this.dead, paused: this.paused, pendingEvolve: pendingEvolution, evolveMode: this.mp ? 'normal' : this.evolveMode,
       choices: this.mp ? mpChoices.slice() : this.choices.slice(), muted: this.sfx.muted,
       abilities: abils, shield: p ? Math.round(p.shield) : 0, shieldMax: p ? p.shieldMax : 0,
+      items,
       perks: this.perks.list.map(x => ({ id: x.id, name: x.name, icon: x.icon, color: x.color, blurb: x.blurb })),
       achievement: this.achievement,
       // stage / map
