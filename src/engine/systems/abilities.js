@@ -6,9 +6,9 @@ import { ABILITIES } from '../../data/abilities.js';
 import { hyp, rand } from '../../core/math.js';
 import { burst } from './effects.js';
 
-export function activateAbility(game, idx) {
-  const p = game.player;
-  if (!p || game.paused || game.dead || game.pendingEvolve || !game.playing) return;
+export function activateAbility(game, idx, actor) {
+  const p = actor || game.player;
+  if (!p || p.deadT > 0 || game.paused || game.dead || game.pendingEvolve || !game.playing) return;
   const id = p.abilities[idx]; if (!id) return;
   const ab = ABILITIES[id]; if (!ab || ab.passive) return;
   if ((p.acd[id] || 0) > 0) return;

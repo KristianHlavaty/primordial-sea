@@ -31,6 +31,16 @@ export function installDebugApi(engine, ui) {
     spendTalent: (tree, id) => { engine.spendTalent(tree, id); return engine.talentBonus; },
     undoTalent: (tree, id) => engine.undoTalent(tree, id),
     respecTree: tree => engine.respecTree(tree),
+    // multiplayer inspection + test hooks
+    mp: () => engine.mp ? { role: engine.mp.role, self: engine.mp.self, remotes: engine.remotePlayers.length, creatures: engine.creatures.length, era: engine.era, stage: engine.stage, map: engine.mapId } : null,
+    mpPlayers: () => {
+      const own = engine.player ? [{ self: true, connId: engine.mp && engine.mp.self, sp: engine.player.speciesId, x: Math.round(engine.player.x), y: Math.round(engine.player.y), hp: Math.round(engine.player.hp), lv: engine.player.level }] : [];
+      return own.concat(engine.remotePlayers.map(r => ({ self: false, connId: r.connId, name: r.name, sp: r.species || r.speciesId, x: Math.round(r.x), y: Math.round(r.y), hp: Math.round(r.hp), lv: r.level, bite: +(r.biteAnim || 0).toFixed(2) })));
+    },
+    mpFeed: data => engine.onNetPacket(engine.mp ? engine.mp.host : 0, data),
+    mpPacket: (from, data) => engine.onNetPacket(from, data),
+    mpTestClient: room => engine.startMpClient({ room, profile: { id: 't', name: 'Tester', color: '#8affd0' }, lobby: null, selfConn: 99, hostConn: 1, roster: {} }),
+    mpTestHost: room => engine.startMpHost({ room, profile: { id: 'h', name: 'Host', color: '#8affd0' }, lobby: room.lobby || null, selfConn: 1, roster: room.roster || {} }),
     abState: () => {
       const p = engine.player;
       return p && p.abilities.map((id, i) => ({ i, id, cd: +(p.acd[id] || 0).toFixed(2), active: +((p[ACTIVE_TIMER[id]] || 0)).toFixed(2), passive: ABILITIES[id].passive }));

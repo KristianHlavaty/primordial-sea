@@ -28,12 +28,39 @@ export class Player extends Entity {
     this.shockEchoT = 0; this.shockEchoX = 0; this.shockEchoY = 0;
     this.burrowT = 0; this.sprintT = 0;   // land: Burrow (invuln dig), Sprint (haste)
     this.rebirthUsed = false;   // Colony Rebirth fires once per life
+    this.kills = 0; this.deaths = 0; this.deadT = 0; this.spawnProtT = 0;   // multiplayer FFA state
     this.applyLevelStats(world); this.hp = this.maxHp;
     const tb = world && world.talentBonus;                 // Carapace talent: each new form starts shielded
     if (tb && tb.startShieldPct > 0) { this.shield = Math.round(this.maxHp * tb.startShieldPct); this.shieldMax = this.shield; this.shieldT = 30; }
   }
 
   hasAbility(id) { return this.abilities.includes(id); }
+
+  /* Movement intent this frame — {tx,ty,moving}. Base reads keyboard, else
+     steers toward the world-space mouse (24px dead zone). RemotePlayer overrides
+     this to use input arriving over the network. */
+  steer(game) {
+    let ix = 0, iy = 0;
+    if (game.keys.left) ix -= 1; if (game.keys.right) ix += 1; if (game.keys.up) iy -= 1; if (game.keys.down) iy += 1;
+    if (ix || iy) { const l = hyp(ix, iy); return { tx: ix / l, ty: iy / l, moving: true }; }
+    const dx = game.worldMouse.x - this.x, dy = game.worldMouse.y - this.y, l = hyp(dx, dy);
+    if (l > 24) return { tx: dx / l, ty: dy / l, moving: true };
+    return { tx: 0, ty: 0, moving: false };
+  }
+  wantsBite(game) { return game.biteHeld; }
+
+  /* Multiplayer FFA: pop back in at a random spot with brief spawn immunity. */
+  respawn(game) {
+    this.hp = this.maxHp; this.shield = 0; this.shieldT = 0; this.vx = 0; this.vy = 0;
+    this.biteT = 0; this.cd = 0; this.hitSet = null;
+    this.enrollT = this.burstT = this.frenzyT = this.withdrawT = this.stealthT = 0;
+    this.ramT = this.jetT = this.bloomT = this.vortexT = this.burrowT = this.sprintT = 0;
+    this.rebirthUsed = false;
+    this.x = game.W * (0.2 + Math.random() * 0.6);
+    this.y = game.H * (0.2 + Math.random() * 0.6);
+    this.spawnProtT = 2.5;
+    burst(game, this.x, this.y, '#a0ffd8', 20, 200);
+  }
 
   applyLevelStats(game) {
     const st = this.species.stats, L = this.level - 1;
@@ -47,13 +74,13 @@ export class Player extends Entity {
     if (game.pendingEvolve || game.dead || this.level >= MAX_LEVEL) return;
     this.xp += v * XP_MULT * (game.talentBonus ? game.talentBonus.xpMul : 1);
     while (this.level < MAX_LEVEL && this.xp >= xpNeed(this.level)) { this.xp -= xpNeed(this.level); this.level++; this.levelUp(game); }
-    if (this.level >= MAX_LEVEL) { this.xp = 0; if (this.species.evolvesTo.length) game.triggerEvolve(); }
+    if (this.level >= MAX_LEVEL) { this.xp = 0; if (this.species.evolvesTo.length && !game.mp) game.triggerEvolve(); }
   }
 
   levelUp(game) {
     const old = this.maxHp; this.applyLevelStats(game);
     this.hp = Math.min(this.maxHp, this.hp + (this.maxHp - old) + this.maxHp * 0.15);   // heal the added HP + a bonus
-    game.gainTalentPoint();   // a talent point for this stage's tree
+    if (!game.mp) game.gainTalentPoint();   // a talent point for this stage's tree (single-player only)
     game.fx.push({ x: this.x, y: this.y, t: 0, max: 0.6, R: this.radius + 42, color: '#ffe27a', dir: 'out', width: 4 });
     game.floaters.push({ x: this.x, y: this.y - this.radius - 12, vx: 0, vy: -34, text: 'LEVEL ' + this.level, life: 1.5, max: 1.5, color: '#ffe27a', size: 16 });
     game.shake = Math.min(10, game.shake + 3); game.sfx.play('power');
@@ -111,12 +138,29 @@ export class Player extends Entity {
         }
       }
     }
+    // multiplayer FFA: bites also strike other players (host authoritative)
+    if (game.mp && game.mp.role === 'host') {
+      for (const other of game.allPlayers()) {
+        if (other === this || other.deadT > 0 || this.hitSet.has(other)) continue;
+        const dx = other.x - this.x, dy = other.y - this.y, d = hyp(dx, dy);
+        if (d < reach + other.radius) {
+          const dot = (dx * fx + dy * fy) / (d || 1);
+          if (dot > 0.25) {
+            this.hitSet.add(other);
+            other.takeHit(game, dmg, this.x, this.y, this);
+            if (other.hp <= 0 && this.hasAbility('bloodscent')) this.hp = Math.min(this.maxHp, this.hp + 6);
+            burst(game, other.x, other.y, '#ffdfe4', 6, 120);
+          }
+        }
+      }
+    }
   }
 
   /* Incoming bite: enroll makes us invulnerable, evasion/Reflexes may dodge,
      Barbs/Nettle punish the attacker, Ironhide and the shield soak damage. */
   takeHit(game, dmg, fromx, fromy, attacker) {
-    if (this.hp <= 0) return;
+    if (this.hp <= 0 || this.deadT > 0) return;
+    if (this.spawnProtT > 0) { burst(game, this.x, this.y, '#a0ffd8', 3, 45); return; }   // just respawned — briefly immune
     if (game.invincible) { burst(game, this.x, this.y, '#ff5d68', 3, 45); return; }
     if (this.enrollT > 0) { burst(game, this.x, this.y, '#ffe6b0', 4, 60); return; }
     if (this.burrowT > 0) { burst(game, this.x, this.y, '#c79a5e', 4, 60); return; }   // underground — untouchable
@@ -151,6 +195,7 @@ export class Player extends Entity {
       game.sfx.play('hurt'); burst(game, this.x, this.y, '#ff6a7a', 8, 120);
       addFloater(game, { x: this.x + rand(-6, 6), y: this.y - this.radius - 4, vx: rand(-16, 16), vy: -48, text: '' + Math.round(dmg), life: 0.9, max: 0.9, color: '#ff6a7a', size: 15 });
       if (this.hp <= 0) {
+        if (game.mp) { this.hp = 0; game.mpPlayerDied(this, attacker); return; }   // FFA: respawn instead of ending the run
         if (this.hasAbility('rebirth') && !this.rebirthUsed) {
           // Colony Rebirth: the surviving zooids rebuild you and scatter everything nearby
           this.rebirthUsed = true;
@@ -193,6 +238,12 @@ export class Player extends Entity {
   }
 
   update(game, dt) {
+    if (this.deadT > 0) {              // multiplayer: dead & respawning — inert until the timer ends
+      this.deadT = Math.max(0, this.deadT - dt);
+      if (this.deadT > 0) return;
+      this.respawn(game);
+    }
+    if (this.spawnProtT > 0) this.spawnProtT = Math.max(0, this.spawnProtT - dt);
     const st = this.species.stats;
     for (const id in this.acd) { if (this.acd[id] > 0) this.acd[id] = Math.max(0, this.acd[id] - dt); }
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) { this.shieldT = 0; this.shield = 0; } }
@@ -211,19 +262,12 @@ export class Player extends Entity {
     const webRes = Math.min(0.95, (game.perks.webResist || 0) + (game.talentBonus ? game.talentBonus.webResist : 0));
     const webM = 1 - game.webSlowAt(this.x, this.y) * .55 * (1 - webRes);
 
-    // keyboard wins; otherwise steer toward the mouse (dead zone of 24px)
-    let ix = 0, iy = 0;
-    if (game.keys.left) ix -= 1; if (game.keys.right) ix += 1; if (game.keys.up) iy -= 1; if (game.keys.down) iy += 1;
-    let tx = 0, ty = 0, moving = false;
-    if (ix || iy) { const l = hyp(ix, iy); tx = ix / l; ty = iy / l; moving = true; }
-    else {
-      const dx = game.worldMouse.x - this.x, dy = game.worldMouse.y - this.y, l = hyp(dx, dy);
-      if (l > 24) { tx = dx / l; ty = dy / l; moving = true; }
-    }
-    if (moving) { this.vx += tx * st.accel * accMul * webM * dt; this.vy += ty * st.accel * accMul * webM * dt; this.faceTarget = Math.atan2(ty, tx); }
+    // steering intent (local: keyboard/mouse; remote: network input)
+    const mv = this.steer(game);
+    if (mv.moving) { this.vx += mv.tx * st.accel * accMul * webM * dt; this.vy += mv.ty * st.accel * accMul * webM * dt; this.faceTarget = Math.atan2(mv.ty, mv.tx); }
     this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * st.turn * (hasted ? 1.3 : 1)));
 
-    if (game.biteHeld && !enrolled && !withdrawn && !burrowed) this.bite(game);
+    if (this.wantsBite(game) && !enrolled && !withdrawn && !burrowed) this.bite(game);
     this.cd = Math.max(0, this.cd - dt); this.biteT = Math.max(0, this.biteT - dt);
     this.biteAnim = Math.max(0, this.biteAnim - dt * 3); this.mouth = this.biteAnim; this.hurt = Math.max(0, this.hurt - dt * 3);
     const lunging = this.biteT > 0 || this.jetT > 0 || this.ramT > 0;   // dash windows lift the speed cap

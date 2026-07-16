@@ -1,0 +1,161 @@
+/* ---------- main menu, profile modal, multiplayer lobby ---------- */
+
+.menuCard{position:relative}
+.menuTop{position:absolute; top:14px; right:14px; display:flex; gap:8px}
+
+/* profile chip (top-right of the menu) */
+.profileChip{pointer-events:auto; cursor:pointer; display:flex; align-items:center; gap:8px;
+  background:#0a1c2b; border:1px solid var(--line); border-radius:999px; padding:6px 12px 6px 10px;
+  color:#dfeaf5; font-weight:700; font-size:13px; transition:border-color .12s, background .12s}
+.profileChip:hover{border-color:var(--acc); background:#0d2437}
+.profileChip .pcName{max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.profileChip small{color:var(--dim); font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase}
+.pfDot{width:12px; height:12px; border-radius:50%; flex:none; box-shadow:0 0 8px currentColor}
+
+/* home view: the two big mode buttons */
+.menuChoices{display:flex; flex-direction:column; gap:12px; margin-top:8px; align-items:stretch}
+.menuChoice{pointer-events:auto; cursor:pointer; display:flex; flex-direction:column; gap:3px; text-align:left;
+  padding:15px 22px; border-radius:14px; border:1px solid var(--line); border-left:4px solid var(--acc);
+  background:linear-gradient(#0d2537,#0a1a28); color:#eaf4ff; transition:transform .1s, border-color .1s, box-shadow .12s}
+.menuChoice:hover{transform:translateY(-2px); box-shadow:0 12px 30px #0007}
+.menuChoice.sp{border-left-color:var(--acc)}
+.menuChoice.sp:hover{border-color:var(--acc)}
+.menuChoice.mp{border-left-color:var(--cnid)}
+.menuChoice.mp:hover{border-color:var(--cnid)}
+.mcTitle{font-size:17px; font-weight:900; letter-spacing:1.5px}
+.mcTitle em{font-style:normal; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--cnid);
+  border:1px solid var(--cnid); border-radius:8px; padding:1px 6px; margin-left:8px; vertical-align:middle}
+.mcSub{font-size:12px; color:var(--dim)}
+
+.menuBackRow{margin-top:16px}
+.menuBack{pointer-events:auto; cursor:pointer; background:transparent; color:var(--dim); border:none;
+  font-size:13px; font-weight:700; letter-spacing:.5px}
+.menuBack:hover{color:var(--acc)}
+
+/* ---------- profile modal ---------- */
+.profileScrim{z-index:30}
+.profileCard{width:min(92vw,420px)}
+.profileForm{margin:20px 0 8px; text-align:left; display:flex; flex-direction:column; gap:7px}
+.pfLabel{font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--dim); margin-top:8px}
+.pfInput{pointer-events:auto; background:#07131d; border:1px solid var(--line); border-radius:10px; padding:11px 14px;
+  color:#eaf4ff; font-size:16px; font-weight:700; font-family:inherit; outline:none; transition:border-color .12s}
+.pfInput:focus{border-color:var(--acc)}
+.pfColors{display:flex; gap:9px; flex-wrap:wrap}
+.pfSwatch{pointer-events:auto; cursor:pointer; width:32px; height:32px; border-radius:50%; border:2px solid transparent;
+  box-shadow:0 0 0 1px #0006; transition:transform .1s}
+.pfSwatch:hover{transform:scale(1.12)}
+.pfSwatch.sel{border-color:#fff; box-shadow:0 0 12px 1px currentColor; transform:scale(1.12)}
+.pfPreview{display:flex; align-items:center; gap:9px; margin-top:14px; padding:10px 14px;
+  background:#07131d; border:1px solid var(--line); border-radius:10px; font-size:15px}
+.pfPreview .pfDot{width:14px; height:14px}
+.pfActions{display:flex; gap:12px; justify-content:center; align-items:center; margin-top:18px}
+.pfActions .bigbtn{padding:12px 34px; font-size:15px}
+.pfActions .bigbtn:disabled{opacity:.4; cursor:not-allowed; transform:none; box-shadow:none}
+
+/* ---------- multiplayer lobby ---------- */
+.mpCard{width:min(94vw,640px); text-align:left}
+.mpHead{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; margin-bottom:8px}
+.mpHead .title{grid-column:2; text-align:center}
+.mpBack{pointer-events:auto; cursor:pointer; justify-self:start; background:#0a1c2b; border:1px solid var(--line);
+  border-radius:9px; color:#cfe0ef; font-weight:800; font-size:13px; padding:7px 13px; transition:border-color .12s}
+.mpBack:hover{border-color:var(--acc); color:#eaf4ff}
+.mpMe{grid-column:3; justify-self:end; display:flex; align-items:center; gap:8px; font-size:13px}
+.mpMe .pfDot{width:12px; height:12px}
+
+.mpBody{display:flex; flex-direction:column; gap:14px; margin-top:10px}
+.mpStatus{display:flex; align-items:center; gap:9px; font-size:13px; font-weight:700; color:#cfe0ef;
+  background:#07131d; border:1px solid var(--line); border-radius:10px; padding:10px 14px}
+.mpStatus .mpDot{width:9px; height:9px; border-radius:50%; background:var(--good); box-shadow:0 0 8px var(--good)}
+.mpStatus.off{color:var(--dim)} .mpStatus.off .mpDot{background:#5a6b7a; box-shadow:none}
+
+.mpRooms{background:#07131d; border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.mpRoomsHead{display:flex; justify-content:space-between; align-items:center; padding:11px 15px;
+  border-bottom:1px solid var(--line); font-size:13px}
+.mpRoomsHead b{letter-spacing:.5px} .mpRoomsHead span{color:var(--dim); font-size:12px}
+.mpEmpty{padding:26px 18px; text-align:center; color:var(--dim); font-size:13px; line-height:1.5}
+
+.mpActions{display:flex; gap:12px; align-items:center; justify-content:center}
+.mpActions .bigbtn:disabled, .mpActions .stayBtn:disabled{opacity:.4; cursor:not-allowed; transform:none; box-shadow:none}
+
+.mpNote{font-size:12px; color:var(--dim); line-height:1.55; background:#0a1c2b66; border:1px dashed var(--line);
+  border-radius:10px; padding:12px 15px}
+.mpNote b{color:var(--acc2)}
+.mpErr{font-size:12.5px; color:#ffb1bc; background:#2a1119; border:1px solid #6b2f3a; border-radius:9px; padding:9px 13px}
+
+/* live room list */
+.roomRow{display:flex; align-items:center; gap:11px; padding:11px 14px; border-top:1px solid var(--line)}
+.roomRow:first-of-type{border-top:none}
+.rrMain{flex:1; display:flex; flex-direction:column; min-width:0}
+.rrMain b{font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.rrMain small{color:var(--dim); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.rrCount{color:var(--dim); font-size:12px; font-weight:700}
+.rrJoin{pointer-events:auto; cursor:pointer; background:linear-gradient(#12507a,#0e3a5b); color:#dff2ff; border:1px solid #2f7dab;
+  border-radius:9px; padding:7px 16px; font-weight:800; font-size:13px}
+.rrJoin:hover:not(:disabled){filter:brightness(1.15)}
+.rrJoin:disabled{opacity:.4; cursor:not-allowed; background:#0a1c2b; border-color:var(--line)}
+
+.mpJoinAddr{display:flex; align-items:center; gap:9px; font-size:12px; color:var(--dim)}
+.mpJoinAddr span{flex:none}
+.addrInput{flex:1; padding:8px 11px; font-size:13px; font-weight:600}
+.mpJoinAddr .stayBtn:disabled{opacity:.4; cursor:not-allowed}
+
+/* host-a-game panel */
+.hostPanel{display:flex; flex-direction:column; gap:7px; text-align:left}
+.hpMaps{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.hpMap{pointer-events:auto; cursor:pointer; text-align:left; display:flex; flex-direction:column; gap:2px;
+  background:#07131d; border:1px solid var(--line); border-left:3px solid var(--line); border-radius:9px; padding:9px 12px; color:#eaf4ff}
+.hpMap b{font-size:13px} .hpMap small{color:var(--dim); font-size:10.5px; text-transform:uppercase; letter-spacing:.5px}
+.hpMap:hover{border-color:var(--acc)} .hpMap.sel{border-left-color:var(--acc); border-color:var(--acc); background:#0d2437}
+.hpTiers{display:flex; gap:8px; flex-wrap:wrap}
+.hpTier{pointer-events:auto; cursor:pointer; min-width:42px; background:#07131d; border:1px solid var(--line); border-radius:9px;
+  padding:8px 12px; color:#dfeaf5; font-weight:800; font-size:13px}
+.hpTier:hover{border-color:var(--acc)} .hpTier.sel{background:#12507a; border-color:#2f7dab; color:#eaf7ff}
+.hpPicks{font-size:11.5px; color:var(--dim); line-height:1.5; padding:2px 0 2px}
+
+/* room roster */
+.roomView{display:flex; flex-direction:column; gap:10px; text-align:left}
+.roomInfo b{font-size:16px}
+.roomMeta{font-size:12px; color:var(--dim); margin-top:2px}
+.ffa{color:#ff9a6a; font-weight:700}
+.roomRoster{display:flex; flex-direction:column; gap:6px; background:#07131d; border:1px solid var(--line); border-radius:10px; padding:10px 12px}
+.rosterRow{display:flex; align-items:center; gap:9px; font-size:13px}
+.rosterRow .rName{font-weight:700; color:#eaf4ff}
+.hostBadge{font-size:9px; font-weight:800; letter-spacing:1px; color:var(--acc2); border:1px solid var(--acc2); border-radius:6px; padding:0 5px}
+.rSpecies{margin-left:auto; color:var(--dim); font-size:12px}
+.speciesPick{display:flex; gap:8px; flex-wrap:wrap}
+.spBtn{pointer-events:auto; cursor:pointer; background:#0a1c2b; border:1px solid var(--line); border-left:3px solid var(--line);
+  border-radius:9px; padding:8px 13px; color:#dfeaf5; font-weight:700; font-size:12.5px; transition:transform .08s, border-color .1s}
+.spBtn:hover{transform:translateY(-2px)}
+.spBtn.sel{background:#0d2437; border-color:#fff8}
+.spBtn.arth{border-left-color:var(--arth)} .spBtn.chord{border-left-color:var(--chord)}
+.spBtn.cnid{border-left-color:var(--cnid)} .spBtn.moll{border-left-color:var(--moll)}
+.spBtn.tetra{border-left-color:var(--tetra)} .spBtn.myria{border-left-color:var(--myria)}
+.waitHost{color:var(--dim); font-size:12.5px; font-style:italic}
+
+/* leave-game button shown during a multiplayer match (no pause menu there) */
+.mpLeaveBtn{position:fixed; left:14px; bottom:14px; z-index:15; pointer-events:auto; cursor:pointer;
+  background:#160d14cc; color:#e7cbd0; border:1px solid #78404b; border-radius:9px; padding:8px 14px;
+  font-size:13px; font-weight:800; letter-spacing:.5px}
+.mpLeaveBtn:hover{border-color:#ff6676; color:#ff8a96; background:#241018e6}
+
+/* ---------- in-game multiplayer overlay: scoreboard / kill feed / respawn ---------- */
+.mpScore{position:fixed; top:92px; right:12px; z-index:14; min-width:184px; background:#07131dcc; border:1px solid var(--line);
+  border-radius:11px; padding:8px 10px; pointer-events:none}
+.mpScoreHead{font-size:10px; font-weight:800; letter-spacing:1.5px; color:#ff9a6a; text-align:center; margin-bottom:6px}
+.mpScoreRow{display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:8px; padding:3px 5px; border-radius:6px; font-size:12.5px}
+.mpScoreRow.me{background:#12283c88}
+.mpScoreRow.dead{opacity:.42}
+.mpScoreRow .pfDot{width:10px; height:10px}
+.msName{font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px}
+.msLv{color:var(--dim); font-size:10.5px}
+.msK{font-weight:900; color:#ffd27a; min-width:16px; text-align:right}
+
+.mpKillFeed{position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:14; display:flex; flex-direction:column; align-items:center; gap:4px; pointer-events:none}
+.mpKillLine{font-size:13px; background:#07131dd9; border:1px solid var(--line); border-radius:8px; padding:3px 13px; animation:mpFeedIn .2s ease}
+.mpKillLine b{font-weight:800}
+@keyframes mpFeedIn{from{opacity:0; transform:translateY(-6px)} to{opacity:1; transform:none}}
+
+.mpRespawn{position:fixed; inset:0; z-index:16; display:flex; align-items:center; justify-content:center; pointer-events:none}
+.mpRespawnCard{background:#160d14ea; border:1px solid #78404b; border-radius:14px; padding:18px 32px; text-align:center; display:flex; flex-direction:column; gap:7px; box-shadow:0 20px 60px #000a}
+.mpRespawnCard b{font-size:20px; color:#ff8a96; letter-spacing:1px}
+.mpRespawnCard span{color:#e7cbd0; font-size:13px}

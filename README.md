@@ -14,44 +14,91 @@ Carboniferous stages each have their own connected land maps. Sea → land is a
 one-way *evolution* (crawling ashore), not an edge walk. Open the **world atlas**
 (🗺 / `B`) to see every map, crossing edge and dedicated boss.
 
+**Multiplayer.** One player can host a free-for-all arena on the local network;
+everyone else joins from a browser on the same Wi-Fi and picks an animal of the
+host's chosen tier. See **Host multiplayer** below (the host needs Node.js
+installed; joiners need only a browser).
+
 ## How to run
 
-The game needs a local web server (native ES modules can't load from
-`file://`). There's a zero-install launcher per OS — it starts a tiny static
-server and opens the game at <http://localhost:8888/>. Keep the launcher
-window open while playing; close it or press Ctrl+C to stop.
+There is **no build step** — edit any file, refresh the browser, done. But the
+game must be *served over http*: browsers can't load ES modules from `file://`,
+so double-clicking `index.html` won't work on any OS. There are two ways to run
+it, each with a one-file launcher.
 
-- **Windows** — double-click **`start-game.bat`** (uses built-in PowerShell;
-  no installs needed).
-- **macOS** — double-click **`start-game.command`**. First time only, run
-  `chmod +x start-game.command start-game.sh` in Terminal so Finder is allowed
-  to execute it.
-- **Linux** — run **`./start-game.sh`** (or `bash start-game.sh`).
+### What you need installed (preconditions)
 
-The Mac/Linux launcher uses whatever you already have — **Python 3**, Python,
-PHP, or Node — so one of those must be installed (Python 3 is easiest and ships
-on most systems).
+| To…                             | Precondition                                                                                   |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Play solo** — Windows         | Nothing — uses built-in PowerShell                                                             |
+| **Play solo** — macOS / Linux   | One of **Python 3** (easiest), Python 2, PHP, or Node — most systems already ship Python 3     |
+| **Host multiplayer** — any OS   | **Node.js** (LTS) — install once from <https://nodejs.org> (Windows: `winget install OpenJS.NodeJS.LTS`) |
+| **Join** a multiplayer game     | Nothing but a web browser                                                                      |
 
-> Why a server? Browsers refuse to load ES modules from `file://`, so
-> double-clicking `index.html` won't work on any OS. Any static server does the
-> job — with Node you can skip the scripts entirely and run `npx serve` (or
-> `python3 -m http.server 8888`) in this folder, then open the printed URL.
+No `npm install` is ever required — React/htm are vendored in `vendor/`, and the
+multiplayer server is a single dependency-free Node script.
 
-There is no build step: edit any file, refresh the browser, done.
+### Play solo
+
+A zero-install launcher starts a tiny static server and opens the game at
+<http://localhost:8888/>. Keep the window open while playing; close it or press
+Ctrl+C to stop.
+
+- **Windows** — double-click **`start-game.bat`** (built-in PowerShell; nothing to install).
+- **macOS** — double-click **`start-game.command`** (first time only, run
+  `chmod +x start-game.command start-game.sh` in Terminal so Finder may execute it).
+- **Linux** — run **`./start-game.sh`** (or `bash start-game.sh`). Pass a port as the
+  first argument if 8888 is busy, e.g. `./start-game.sh 9000`.
+
+> With Node you can skip the scripts and serve the folder any way you like, e.g.
+> `npx serve` or `python3 -m http.server 8888`, then open the printed URL.
+
+### Host multiplayer (local network)
+
+One person hosts; everyone else joins from a browser on the same Wi-Fi. The host
+runs a small **Node** server, `server/relay.mjs`, that serves the game **and**
+runs the lobby/relay on one port. It has **no dependencies** and never runs game
+logic — the host's *browser* is the authority — so hosting stays "run one file."
+
+1. **Install Node** once on the host machine (see the table above). Joiners install nothing.
+2. **Start the host server:**
+   - **Windows** — double-click **`host-game.bat`**
+   - **macOS** — double-click **`host-game.command`** (first time: `chmod +x host-game.command host-game.sh`)
+   - **Linux** — run **`./host-game.sh`**
+   - …or from a terminal in this folder: **`node server/relay.mjs`** (custom port:
+     `node server/relay.mjs 9100`; the default is **8899**).
+3. The server prints its addresses, including a **LAN URL to share**:
+   ```
+   On THIS machine:   http://localhost:8899/
+   On the network:    http://192.168.1.23:8899/   <- share this
+   ```
+4. Everyone (host included) opens one of those URLs, sets a name + colour, then
+   **Multiplayer**. The host clicks **Host a game** (pick a map + tier); others
+   **Join** and pick an animal; the host hits **START**. Combat is free-for-all.
+
+> The host keeps simulating even if its tab is backgrounded (a background Web
+> Worker drives it), but keeping the host window **visible** is most reliable.
+> If port 8899 is busy, pass another port to the launcher/command. Stop the
+> server with Ctrl+C (or close the window).
 
 ## Folder structure
 
 ```
 index.html            entry page — loads styles, vendored libs, then src/main.js
-start-game.bat        double-click to play (Windows)
-start-game.command    double-click to play (macOS)
-start-game.sh         run to play (macOS / Linux)
-tools/serve.ps1       dependency-free static web server (Windows)
+start-game.bat        double-click to PLAY SOLO (Windows · static server, no installs)
+start-game.command    double-click to play solo (macOS)
+start-game.sh         run to play solo (macOS / Linux)
+host-game.bat         double-click to HOST MULTIPLAYER (Windows · needs Node.js)
+host-game.command     double-click to host multiplayer (macOS · needs Node.js)
+host-game.sh          run to host multiplayer (macOS / Linux · needs Node.js)
+server/relay.mjs      zero-dependency Node host: serves the game + WebSocket lobby/relay
+tools/serve.ps1       dependency-free static web server (Windows, solo play)
 vendor/               React 18, ReactDOM, htm (local copies; game works offline)
-styles/               base.css (theme/reset) · hud.css · overlays.css · tree.css
+styles/               base.css (theme/reset) · hud.css · overlays.css · tree.css · atlas.css · talents.css · menu.css
 src/
   main.js             boots the React app
   core/               math.js, color.js — pure helpers
+  net/                multiplayer client — profile.js (local name/colour) · lobby.js (WebSocket lobby client)
   data/               ALL game content as plain data (no logic):
     species.js          player evolution tree (sea + land) + LAND_PIONEERS + STAT_MAX
     maps.js             stages (sea/land), maps, sizes, themes, boss lists, edge links
@@ -64,10 +111,12 @@ src/
   engine/
     Engine.js           orchestrator: world state, update loop, evolution, HUD snapshots
     audio.js            Sfx — tiny WebAudio beep synth
+    mp.js               multiplayer netcode — host authority, snapshots, client replica, packets
     entities/           class hierarchy:
       Entity.js           base (position, velocity, integration)
-      Player.js           extends Entity — input steering, XP, bite, powers
-      Creature.js         extends Entity — NPC AI (prey/predator/drifter)
+      Player.js           extends Entity — input steering, XP, bite, powers, FFA death/respawn
+      Creature.js         extends Entity — NPC AI (prey/predator/drifter), targets nearest player
+      RemotePlayer.js     extends Player — another player, steered by network input (host side)
       Boss.js             extends Creature — leashed guardian AI, perk drop
     systems/
       spawning.js         population control + world seeding
@@ -85,7 +134,8 @@ src/
     input.js            keyboard/mouse bindings
     debug.js            window.__game console API for testing
     components/         Hud, AbilityBar, AbilityIcon, AchievementToast, StatRow, CreatureCanvas
-    overlays/           StartScreen, PauseOverlay, GameOverScreen, EvolveModal, AtlasModal
+    overlays/           StartScreen (main menu), MultiplayerScreen (lobby), MpHud (FFA scoreboard + kill feed),
+                        ProfileModal (name/colour), PauseOverlay, GameOverScreen, EvolveModal, AtlasModal, TalentModal
     tree/               TreeModal (Sea/Land toggle), TreeNode, TreeDetail (the T-key wiki)
 ```
 

@@ -265,6 +265,42 @@ function drawEntity(E, e) {
   ctx.restore();
 }
 
+/* Other players (multiplayer): the creature plus a dashed presence ring in the
+   player's chosen colour. Their bite arc shows when they lunge. */
+function drawRemotePlayers(E) {
+  const ctx = E.ctx;
+  for (const rp of E.remotePlayers) {
+    if (rp.deadT > 0) continue;   // dead & respawning — not drawn
+    const sx = rp.x - E.cam.x, sy = rp.y - E.cam.y;
+    if (sx < -90 || sx > E.vw + 90 || sy < -90 || sy > E.vh + 90) continue;
+    const r = rp.radius || 16;
+    ctx.strokeStyle = withA(rp.color || '#8affd0', 0.55); ctx.lineWidth = 2;
+    ctx.setLineDash([4, 6]); ctx.lineDashOffset = -E.time * 12;
+    ctx.beginPath(); ctx.arc(sx, sy, r + 6, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    drawEntity(E, rp);
+    if ((rp.biteAnim || 0) > 0) {
+      ctx.save(); ctx.translate(sx, sy); ctx.rotate(rp.angle);
+      ctx.strokeStyle = withA('#e6ffff', rp.biteAnim * 2.2); ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, 0, r + 10, -0.7, 0.7); ctx.stroke(); ctx.restore();
+    }
+  }
+}
+
+/* Name tags above every player, in their colour (multiplayer only). */
+function drawPlayerTags(E) {
+  const ctx = E.ctx;
+  ctx.textAlign = 'center'; ctx.font = '800 12px "Segoe UI",sans-serif';
+  const tag = (pl, name, color) => {
+    const sx = pl.x - E.cam.x, sy = pl.y - E.cam.y - (pl.radius || 16) - 16;
+    if (sx < -80 || sx > E.vw + 80 || sy < -20 || sy > E.vh + 20) return;
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.strokeText(name, sx, sy);
+    ctx.fillStyle = color || '#eaf4ff'; ctx.fillText(name, sx, sy);
+  };
+  for (const rp of E.remotePlayers) { if (rp.deadT > 0) continue; tag(rp, rp.name || 'Player', rp.color); }
+  if (E.player && !(E.player.deadT > 0)) tag(E.player, (E.mp && E.mp.selfName) || 'You', (E.mp && E.mp.selfColor) || '#8affd0');
+  ctx.textAlign = 'left';
+}
+
 /* Animate the evolve-modal choice canvases (registered by the modal). */
 function drawPreviews(E) {
   for (const id of E.choices) {
@@ -384,8 +420,11 @@ export function renderWorld(E) {
     ctx.textAlign = 'left';
   }
 
-  // player indicator + power visuals
-  {
+  // other players (multiplayer) — drawn beneath the local player's highlight
+  if (E.mp) drawRemotePlayers(E);
+
+  // player indicator + power visuals (hidden while dead/respawning in multiplayer)
+  if (!(E.player.deadT > 0)) {
     const PL = E.player, gx = PL.x - E.cam.x, gy = PL.y - E.cam.y, pr = PL.radius, pc = PL.plan.body, pa = PL.plan.accent, pulse = 0.5 + 0.5 * Math.sin(E.time * 3);
     const gg = ctx.createRadialGradient(gx, gy, pr * 0.7, gx, gy, pr * 2.6);
     gg.addColorStop(0, 'rgba(126,255,224,0)'); gg.addColorStop(0.72, withA('#7affe0', 0.10 + 0.06 * pulse)); gg.addColorStop(1, 'rgba(126,255,224,0)');
@@ -476,6 +515,7 @@ export function renderWorld(E) {
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.strokeText(ft.text, X, Y); ctx.fillStyle = ft.color; ctx.fillText(ft.text, X, Y);
   }
   ctx.globalAlpha = 1; ctx.textAlign = 'left';
+  if (E.mp) drawPlayerTags(E);
   ctx.restore();
 
   drawBubbles(E);

@@ -27,6 +27,7 @@ import { spawnInitial, spawnMaintain, spawnRandomNpc } from './systems/spawning.
 import { activateAbility } from './systems/abilities.js';
 import { burst } from './systems/effects.js';
 import { renderWorld } from '../render/renderWorld.js';
+import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster } from './mp.js';
 import { Sfx } from './audio.js';
 
 const CURRENT_SPEED = 165;   // sea-stage water current — px/s of drift at full strength
@@ -46,6 +47,8 @@ export class Engine {
     // simulation state
     this.time = 0; this.era = 0;
     this.player = null;
+    this.mp = null;                 // multiplayer session (engine/mp.js) — null in single-player
+    this.remotePlayers = [];        // host: RemotePlayer entities; client: interpolated render-objects
     this.creatures = []; this.plants = []; this.food = [];
     this.webs = [];
     this.obstacles = [];   // static land blockers (rocks, logs, stumps…)
@@ -95,6 +98,7 @@ export class Engine {
 
   /* Reset flow/progress state shared by every fresh run (start / startAt). */
   resetRun() {
+    this.mp = null; this.remotePlayers = [];
     this.era = 0; this.kills = 0; this.dead = false; this.paused = false;
     this.pendingEvolve = false; this.choices = []; this.evolveMode = 'normal';
     this.perks = { dmgReduce: 0, dodge: 0, webResist: 0, shockAfterglow: 0, list: [] }; this.bossesDefeated = new Set();
@@ -174,13 +178,56 @@ export class Engine {
     this.pushHud(true);
   }
 
-  togglePause() { if (this.dead || this.pendingEvolve || !this.playing) return; this.paused = !this.paused; this.pushHud(true); }
+  togglePause() { if (this.dead || this.pendingEvolve || !this.playing || this.mp) return; this.paused = !this.paused; this.pushHud(true); }
   returnToMenu() {
     this.playing = false; this.paused = false; this.pendingEvolve = false;
+    this.mp = null; this.remotePlayers = [];
     this.biteHeld = false; this.keys = {}; this.pushHud(true);
   }
+
+  /* ---------------- multiplayer entry (delegates to engine/mp.js) ---------------- */
+  startMpHost(opts) { mpStartHost(this, opts); }
+  startMpClient(opts) { mpStartClient(this, opts); }
+  updateReplica(dt) { mpClientUpdate(this, dt); }
+  onNetPacket(from, data) { mpOnPacket(this, from, data); }
+  /* Keep the host's roster fresh so late joiners / colour edits resolve right. */
+  mpSetRoster(roster) {
+    if (!this.mp) return;
+    this.mp.roster = roster || {};
+    if (this.mp.role === 'host') this.remotePlayers = this.remotePlayers.filter(rp => roster && roster[rp.connId]);   // drop players who left the room
+    for (const rp of this.remotePlayers) { const r = roster && roster[rp.connId]; if (r) { rp.name = r.name; rp.color = r.color; } }
+  }
+
+  /* Every player entity (self + remotes). Used by NPC targeting and PvP bites. */
+  allPlayers() { return this.player ? [this.player, ...this.remotePlayers] : this.remotePlayers.slice(); }
+  /* Nearest LIVING player to a point (NPCs hunt/flee whoever is closest). */
+  nearestPlayer(x, y) {
+    let best = null, bd = Infinity;
+    for (const p of this.allPlayers()) { if (p.deadT > 0) continue; const dx = p.x - x, dy = p.y - y, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = p; } }
+    return best;
+  }
+
+  /* FFA death: put the victim on a respawn timer, credit the killer, post a feed line. */
+  mpPlayerDied(victim, attacker) {
+    if (!this.mp || victim.deadT > 0) return;
+    victim.deadT = 3.5; victim.deaths = (victim.deaths || 0) + 1; victim.shield = 0;
+    const killer = (attacker && attacker !== victim && this.allPlayers().includes(attacker)) ? attacker : null;
+    if (killer) killer.kills = (killer.kills || 0) + 1;
+    const text = killer ? (this.mpNameOf(killer) + ' ate ' + this.mpNameOf(victim)) : (this.mpNameOf(victim) + ' was eaten');
+    this.mpAddFeed(text, killer ? this.mpColorOf(killer) : '#cfd8e0');
+    if (this.mp.lobby) this.mp.lobby.raw({ t: 'relay', data: { k: 'K', text, color: killer ? this.mpColorOf(killer) : '#cfd8e0' } });
+    burst(this, victim.x, victim.y, '#ffd2d2', 26, 220); this.sfx.play('kill'); this.pushHud(true);
+  }
+  mpNameOf(p) { return p === this.player ? this.mp.selfName : (p.name || 'Player'); }
+  mpColorOf(p) { return p === this.player ? this.mp.selfColor : (p.color || '#8affd0'); }
+  mpAddFeed(text, color) {
+    if (!this.mp) return;
+    this.mp.feed.push({ id: ++this.mp.feedId, text, color, t: this.time });
+    while (this.mp.feed.length > 6) this.mp.feed.shift();
+    this.pushHud(true);
+  }
   setPaused(v) { this.paused = v; }
-  canWiki() { return this.playing && !this.dead && !this.pendingEvolve && !this.paused; }
+  canWiki() { return this.playing && !this.dead && !this.pendingEvolve && !this.paused && !this.mp; }
   toggleMute() { this.sfx.muted = !this.sfx.muted; this.pushHud(true); }
   toggleLevels() { this.showLevels = !this.showLevels; this.pushHud(true); }
   toggleInvincible() { if (this.cheatsEnabled) { this.invincible = !this.invincible; this.pushHud(true); } }
@@ -279,7 +326,13 @@ export class Engine {
   setMouse(x, y) { this.mouse.x = x; this.mouse.y = y; }
   setBite(v) { this.biteHeld = v; }
   setKey(k, v) { this.keys[k] = v; }
-  useAbility(idx) { activateAbility(this, idx); }
+  useAbility(idx) {
+    if (this.mp) {
+      if (this.mp.role === 'client') { if (this.mp.lobby) this.mp.lobby.raw({ t: 'relay', to: this.mp.host, data: { k: 'A', i: idx } }); return; }
+      activateAbility(this, idx, this.player); return;   // host activates its own power
+    }
+    activateAbility(this, idx);
+  }
   webSlowAt(x, y) {
     let slow = 0;
     for (const w of this.webs) { const dx = x - w.x, dy = y - w.y, d = Math.sqrt(dx * dx + dy * dy); if (d < w.r) slow = Math.max(slow, 1 - d / w.r * .35); }
@@ -312,6 +365,7 @@ export class Engine {
       c.x = clamp(c.x + cc.x * dt, c.radius, this.W - c.radius);
       c.y = clamp(c.y + cc.y * dt, c.radius, this.H - c.radius);
     }
+    for (const rp of this.remotePlayers) { const cr = this.currentAt(rp.x, rp.y); rp.x = clamp(rp.x + cr.x * dt, rp.radius, this.W - rp.radius); rp.y = clamp(rp.y + cr.y * dt, rp.radius, this.H - rp.radius); }
     for (const f of this.food) { const cf = this.currentAt(f.x, f.y); f.x += cf.x * dt * 0.8; f.y += cf.y * dt * 0.8; }
   }
 
@@ -332,6 +386,7 @@ export class Engine {
     };
     push(this.player);
     for (const c of this.creatures) push(c);
+    for (const rp of this.remotePlayers) push(rp);
   }
 
   /* Advance the drifting flow streaks (a faint screen-space visual of the
@@ -508,8 +563,9 @@ export class Engine {
     this.worldMouse.x = this.cam.x + this.mouse.x; this.worldMouse.y = this.cam.y + this.mouse.y;
 
     p.update(this, dt);
+    if (this.mp && this.mp.role === 'host') for (const rp of this.remotePlayers) rp.update(this, dt);
 
-    if (this.maybeCrossEdge(dt)) return;   // walked off the map edge — new map loaded this frame
+    if (!this.mp && this.maybeCrossEdge(dt)) return;   // walked off the map edge — new map loaded this frame
 
     // creatures (list may shrink mid-loop when something dies)
     this.danger = Math.max(0, this.danger - dt * 0.6);
@@ -563,8 +619,8 @@ export class Engine {
     }
 
     // max level: evolve within the stage, or (sea apex) offer to crawl ashore
-    if (!this.pendingEvolve && !this.dead && !this.advanceAvailable && p.level >= MAX_LEVEL && p.species.evolvesTo.length) this.triggerEvolve();
-    else if (!this.pendingEvolve && !this.dead && !this.ascendOffered && this.isSeaApex()) this.triggerAscend();
+    if (!this.mp && !this.pendingEvolve && !this.dead && !this.advanceAvailable && p.level >= MAX_LEVEL && p.species.evolvesTo.length) this.triggerEvolve();
+    else if (!this.mp && !this.pendingEvolve && !this.dead && !this.ascendOffered && this.isSeaApex()) this.triggerAscend();
 
     // camera follows with a soft lag
     const camtx = clamp(p.x - this.vw / 2, 0, Math.max(0, this.W - this.vw));
@@ -574,6 +630,7 @@ export class Engine {
     this.shake *= Math.exp(-dt * 8);
 
     spawnMaintain(this, dt);
+    if (this.mp) { this.mp.feed = this.mp.feed.filter(f => this.time - f.t < 5); if (this.mp.role === 'host') mpBroadcast(this, dt); }
     this.pushHud();
   }
 
@@ -612,7 +669,10 @@ export class Engine {
       talentUnspent: this.talentUnspent(),
       canAscend: this.isSeaApex(), ascendAvailable: this.ascendAvailable, advanceAvailable: this.advanceAvailable, nearEdge: this.nearEdge,
       landDeadEnd: !!(p && p.level >= MAX_LEVEL && this.isLandDeadEnd()),
-      cheatsEnabled: this.cheatsEnabled, invincible: this.invincible
+      cheatsEnabled: this.cheatsEnabled, invincible: this.invincible,
+      mpRole: this.mp ? this.mp.role : null, mpPlayers: this.mp ? mpRoster(this) : null,
+      mpDead: !!(this.mp && this.player && this.player.deadT > 0), mpRespawnIn: (this.mp && this.player) ? Math.ceil(this.player.deadT || 0) : 0,
+      mpFeed: this.mp ? this.mp.feed.map(f => ({ id: f.id, text: f.text, color: f.color })) : null
     });
   }
 }

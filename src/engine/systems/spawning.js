@@ -118,7 +118,7 @@ export function spawnInitial(game) {
     const bubbleCount = MAPS[game.mapId].bubbleCount ?? 120;
     for (let i = 0; i < bubbleCount; i++) game.bubbles.push({ x: rand(0, game.vw), y: rand(0, game.vh), r: rand(0.6, 2.6), sp: rand(6, 26), ph: rand(0, TAU) });
   }
-  for (const k of (MAPS[game.mapId].bosses || [])) if (!game.bossesDefeated.has(k)) game.creatures.push(new Boss(k, game));
+  if (!game.mp) for (const k of (MAPS[game.mapId].bosses || [])) if (!game.bossesDefeated.has(k)) game.creatures.push(new Boss(k, game));
 }
 
 /* Runs every half second of sim time: top up creatures, easy prey and

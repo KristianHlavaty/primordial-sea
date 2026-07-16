@@ -420,6 +420,18 @@ export const stagePioneers = (stage, fantasy) =>
 /* The stage a species belongs to (sea species omit the field). */
 export const speciesStage = id => (SPECIES[id] && SPECIES[id].stage) || 'sea';
 
+/* Multiplayer arena helpers. A host picks a stage (via a map) and a tier;
+   players then spawn as one of that stage+tier's animals, so everyone starts
+   equally matched. Tier 0 (the protocell) is never an arena option. */
+export const tiersOfStage = (stage, fantasy) =>
+  [...new Set(Object.keys(SPECIES)
+    .filter(id => speciesStage(id) === stage && SPECIES[id].tier > 0 && (fantasy || !SPECIES[id].fantasy))
+    .map(id => SPECIES[id].tier))].sort((a, b) => a - b);
+
+export const speciesOfStageTier = (stage, tier, fantasy) =>
+  Object.keys(SPECIES).filter(id =>
+    speciesStage(id) === stage && SPECIES[id].tier === tier && (fantasy || !SPECIES[id].fantasy));
+
 /* Highest value of each display stat across all species — the UI scales its
    stat bars against these, so new species never overflow the bars. */
 export const STAT_MAX = Object.values(SPECIES).reduce((m, s) => ({
