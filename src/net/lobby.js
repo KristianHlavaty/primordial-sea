@@ -7,6 +7,7 @@
    the same socket via api.raw({t:'relay', ...}) and the onRelay callback. */
 
 export function createLobby(profile, onState, onRelay) {
+  const MAX_TRANSIENT_BUFFER = 256 * 1024;
   const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
   const url = proto + location.host + '/ws';
 
@@ -34,9 +35,13 @@ export function createLobby(profile, onState, onRelay) {
     }
   };
 
-  function send(o) { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); } catch { } }
+  function send(o, transient = false) {
+    try {
+      if (ws && ws.readyState === 1 && (!transient || ws.bufferedAmount < MAX_TRANSIENT_BUFFER)) ws.send(JSON.stringify(o));
+    } catch { }
+  }
 
-  function stub() { return { getState: () => ({ ...state }), createRoom() { }, joinRoom() { }, setSpecies() { }, leaveRoom() { }, start() { }, raw() { }, close() { } }; }
+  function stub() { return { getState: () => ({ ...state }), createRoom() { }, joinRoom() { }, setSpecies() { }, leaveRoom() { }, start() { }, raw() { }, rawTransient() { }, close() { } }; }
 
   queueMicrotask(emit);   // push the initial 'connecting' state to the UI
 
@@ -48,6 +53,9 @@ export function createLobby(profile, onState, onRelay) {
     start: () => send({ t: 'start' }),
     leaveRoom: () => send({ t: 'leaveRoom' }),
     raw: send,
+    // Snapshots/input supersede older copies, so dropping one is better than
+    // growing an unbounded WebSocket queue on a slow connection.
+    rawTransient: o => send(o, true),
     close: () => { try { ws && ws.close(); } catch { } },
   };
 }

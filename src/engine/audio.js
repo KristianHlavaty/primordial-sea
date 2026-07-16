@@ -2,7 +2,9 @@
    The AudioContext is created lazily and resumed on the first user gesture
    (Engine.start calls unlock()). */
 export class Sfx {
-  constructor() { this.ac = null; this.muted = false; }
+  constructor() { this.ac = null; this.muted = false; this.backgrounded = false; }
+
+  setBackgrounded(value) { this.backgrounded = !!value; }
 
   unlock() {
     try {
@@ -12,7 +14,7 @@ export class Sfx {
   }
 
   play(type) {
-    if (this.muted) return;
+    if (this.muted || this.backgrounded) return;
     try {
       if (!this.ac) this.ac = new (window.AudioContext || window.webkitAudioContext)();
       const now = this.ac.currentTime;

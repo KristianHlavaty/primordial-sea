@@ -20,6 +20,13 @@ import { MAPS } from '../data/maps.js';
 import { angLerp, clamp, lerp, hyp } from '../core/math.js';
 
 const HOST_HZ = 20, CLIENT_HZ = 30;
+const INPUT_KEEPALIVE = 0.25;
+
+const sendTransient = (lobby, packet) => {
+  if (!lobby) return;
+  if (lobby.rawTransient) lobby.rawTransient(packet); else lobby.raw(packet);
+};
+const roundTo = (n, places) => { const scale = 10 ** places; return Math.round(n * scale) / scale; };
 
 const defaultSpecies = (stage, tier) => speciesOfStageTier(stage, tier, true)[0] || 'protocell';
 const resolveSpecies = (id, stage, tier) => (id && SPECIES[id]) ? id : defaultSpecies(stage, tier);
@@ -57,7 +64,9 @@ export function mpStartClient(engine, { room, profile, lobby, selfConn, hostConn
   engine.mp = {
     role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier,
     selfName: profile ? profile.name : 'You', selfColor: profile ? profile.color : '#8affd0',
-    sendAcc: 0, reAsk: 0, gotInit: false, npcById: new Map(), rpById: new Map(), feed: [], feedId: 0,
+    sendAcc: 0, inputKeepalive: INPUT_KEEPALIVE, lastInput: null, reAsk: 0, gotInit: false,
+    npcById: new Map(), rpById: new Map(), foodById: new Map(),
+    seenNpcs: new Set(), seenPlayers: new Set(), seenFood: new Set(), feed: [], feedId: 0,
   };
   engine.mapId = room.map; engine.stage = stage; engine.theme = map.theme; engine.W = map.W; engine.H = map.H;
   const mine = resolveSpecies(roster[selfConn] && roster[selfConn].species, stage, tier);
@@ -67,6 +76,7 @@ export function mpStartClient(engine, { room, profile, lobby, selfConn, hostConn
   seedBubbles(engine);
   engine.cam.x = clamp(engine.player.x - engine.vw / 2, 0, Math.max(0, engine.W - engine.vw));
   engine.cam.y = clamp(engine.player.y - engine.vh / 2, 0, Math.max(0, engine.H - engine.vh));
+  engine.captureRenderState();
   engine.playing = true; engine.paused = false; engine.dead = false;
   engine.sfx.unlock();
   if (lobby) lobby.raw({ t: 'relay', to: hostConn, data: { k: 'ready' } });
@@ -103,32 +113,39 @@ function ensureRemote(engine, connId) {
   const mp = engine.mp, r = mp.roster[connId] || {};
   const rp = new RemotePlayer(resolveSpecies(r.species, mp.stage, mp.tier), engine, { connId, name: r.name, color: r.color });
   engine.remotePlayers.push(rp);
+  if (engine.onScheduleChange) engine.onScheduleChange();
   return rp;
 }
 
 /* ---------------- host: broadcast ---------------- */
 
 export function mpBroadcast(engine, dt) {
-  const mp = engine.mp; mp.sendAcc += dt;
+  const mp = engine.mp;
+  if (!engine.remotePlayers.length) { mp.sendAcc = 0; return; }
+  mp.sendAcc += dt;
   if (mp.sendAcc < 1 / HOST_HZ) return;
-  mp.sendAcc = 0;
-  if (mp.lobby) mp.lobby.raw({ t: 'relay', data: buildSnapshot(engine) });
+  mp.sendAcc %= 1 / HOST_HZ;
+  sendTransient(mp.lobby, { t: 'relay', data: buildSnapshot(engine) });
 }
 
 function buildSnapshot(engine) {
   const mp = engine.mp, players = [];
-  const pushP = (pl, c) => players.push({ c, s: pl.speciesId, x: Math.round(pl.x), y: Math.round(pl.y), a: +pl.angle.toFixed(2), hp: Math.round(pl.hp), mhp: Math.round(pl.maxHp), lv: pl.level, b: +(pl.biteAnim || 0).toFixed(2), sh: Math.round(pl.shield || 0), k: pl.kills || 0, d: Math.ceil(pl.deadT || 0) });
+  const pushP = (pl, c) => players.push({ c, s: pl.speciesId, x: Math.round(pl.x), y: Math.round(pl.y), a: roundTo(pl.angle, 2), hp: Math.round(pl.hp), mhp: Math.round(pl.maxHp), lv: pl.level, b: roundTo(pl.biteAnim || 0, 2), sh: Math.round(pl.shield || 0), k: pl.kills || 0, d: Math.ceil(pl.deadT || 0) });
   pushP(engine.player, mp.self);
   for (const rp of engine.remotePlayers) pushP(rp, rp.connId);
   const npcs = [];
   for (const c of engine.creatures) {
     if (c.boss) continue;
     if (c.netId == null) c.netId = mp.nextNet++;
-    npcs.push({ n: c.netId, k: c.key, x: Math.round(c.x), y: Math.round(c.y), a: +c.angle.toFixed(2), hp: Math.round(c.hp), mhp: Math.round(c.maxHp), r: Math.round(c.radius), lv: c.level || 1, st: c.stunT > 0 ? 1 : 0 });
+    npcs.push({ n: c.netId, k: c.key, x: Math.round(c.x), y: Math.round(c.y), a: roundTo(c.angle, 2), hp: Math.round(c.hp), mhp: Math.round(c.maxHp), r: Math.round(c.radius), lv: c.level || 1, st: c.stunT > 0 ? 1 : 0 });
     if (npcs.length >= 80) break;
   }
   const food = [];
-  for (const f of engine.food) { food.push({ x: Math.round(f.x), y: Math.round(f.y), m: f.kind === 'meat' ? 1 : 0 }); if (food.length >= 60) break; }
+  for (const f of engine.food) {
+    if (f.netId == null) f.netId = mp.nextNet++;
+    food.push({ n: f.netId, x: Math.round(f.x), y: Math.round(f.y), m: f.kind === 'meat' ? 1 : 0 });
+    if (food.length >= 60) break;
+  }
   return { k: 'S', q: mp.seq++, players, npcs, food };
 }
 
@@ -163,7 +180,7 @@ function makeRenderNpc(nd) {
 
 function applySnapshot(engine, s) {
   const mp = engine.mp;
-  const seen = new Set();
+  const seen = mp.seenPlayers; seen.clear();
   for (const pd of s.players) {
     if (pd.c === mp.self) {
       const pl = engine.player;
@@ -182,7 +199,7 @@ function applySnapshot(engine, s) {
   }
   for (const [cid, rp] of mp.rpById) if (!seen.has(cid)) { mp.rpById.delete(cid); const i = engine.remotePlayers.indexOf(rp); if (i >= 0) engine.remotePlayers.splice(i, 1); }
 
-  const seenN = new Set();
+  const seenN = mp.seenNpcs; seenN.clear();
   for (const nd of s.npcs) {
     seenN.add(nd.n);
     let c = mp.npcById.get(nd.n);
@@ -191,9 +208,21 @@ function applySnapshot(engine, s) {
     c.stunT = nd.st ? 0.4 : 0; c.hpBarT = nd.hp < nd.mhp ? 1.2 : c.hpBarT;
   }
   for (const [nid] of mp.npcById) if (!seenN.has(nid)) mp.npcById.delete(nid);
-  engine.creatures = [...mp.npcById.values()];
+  engine.creatures.length = 0;
+  for (const c of mp.npcById.values()) engine.creatures.push(c);
 
-  engine.food = s.food.map(f => ({ x: f.x, y: f.y, kind: f.m ? 'meat' : 'plant', r: 4, life: 1, vx: 0, vy: 0 }));
+  const seenF = mp.seenFood; seenF.clear();
+  for (const fd of s.food) {
+    seenF.add(fd.n);
+    let f = mp.foodById.get(fd.n);
+    if (!f) {
+      f = { netId: fd.n, x: fd.x, y: fd.y, kind: fd.m ? 'meat' : 'plant', r: 4, life: 1, vx: 0, vy: 0 };
+      mp.foodById.set(fd.n, f);
+    } else { f.x = fd.x; f.y = fd.y; f.kind = fd.m ? 'meat' : 'plant'; }
+  }
+  for (const [fid] of mp.foodById) if (!seenF.has(fid)) mp.foodById.delete(fid);
+  engine.food.length = 0;
+  for (const f of mp.foodById.values()) engine.food.push(f);
 }
 
 function applyWorldInit(engine, w) {
@@ -227,15 +256,21 @@ export function mpClientUpdate(engine, dt) {
   for (let i = engine.fx.length - 1; i >= 0; i--) { engine.fx[i].t += dt; if (engine.fx[i].t >= engine.fx[i].max) engine.fx.splice(i, 1); }
 
   const mp = engine.mp;
-  mp.sendAcc += dt;
+  mp.sendAcc += dt; mp.inputKeepalive += dt;
   if (mp.sendAcc >= 1 / CLIENT_HZ && mp.lobby && p) {
-    mp.sendAcc = 0;
+    mp.sendAcc %= 1 / CLIENT_HZ;
     const mv = p.steer(engine);
-    mp.lobby.raw({ t: 'relay', to: mp.host, data: { k: 'I', tx: +mv.tx.toFixed(3), ty: +mv.ty.toFixed(3), m: mv.moving ? 1 : 0, b: engine.biteHeld ? 1 : 0 } });
+    const input = { k: 'I', tx: roundTo(mv.tx, 3), ty: roundTo(mv.ty, 3), m: mv.moving ? 1 : 0, b: engine.biteHeld ? 1 : 0 };
+    const prev = mp.lastInput;
+    const changed = !prev || input.tx !== prev.tx || input.ty !== prev.ty || input.m !== prev.m || input.b !== prev.b;
+    if (changed || mp.inputKeepalive >= INPUT_KEEPALIVE) {
+      sendTransient(mp.lobby, { t: 'relay', to: mp.host, data: input });
+      mp.lastInput = input; mp.inputKeepalive = 0;
+    }
     if (engine.biteHeld) p.biteAnim = 1;
   }
   if (!mp.gotInit) { mp.reAsk -= dt; if (mp.reAsk <= 0) { mp.reAsk = 0.6; if (mp.lobby) mp.lobby.raw({ t: 'relay', to: mp.host, data: { k: 'ready' } }); } }
-  mp.feed = mp.feed.filter(f => engine.time - f.t < 5);
+  if (mp.feed.length) mp.feed = mp.feed.filter(f => engine.time - f.t < 5);
   engine.pushHud();
 }
 

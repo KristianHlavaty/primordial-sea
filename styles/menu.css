@@ -22,6 +22,8 @@
 .menuChoice.sp:hover{border-color:var(--acc)}
 .menuChoice.mp{border-left-color:var(--cnid)}
 .menuChoice.mp:hover{border-color:var(--cnid)}
+.menuChoice.settings{border-left-color:var(--acc2)}
+.menuChoice.settings:hover{border-color:var(--acc2)}
 .mcTitle{font-size:17px; font-weight:900; letter-spacing:1.5px}
 .mcTitle em{font-style:normal; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--cnid);
   border:1px solid var(--cnid); border-radius:8px; padding:1px 6px; margin-left:8px; vertical-align:middle}
@@ -51,6 +53,24 @@
 .pfActions{display:flex; gap:12px; justify-content:center; align-items:center; margin-top:18px}
 .pfActions .bigbtn{padding:12px 34px; font-size:15px}
 .pfActions .bigbtn:disabled{opacity:.4; cursor:not-allowed; transform:none; box-shadow:none}
+
+/* ---------- settings modal ---------- */
+.settingsScrim{z-index:34}
+.settingsCard{width:min(92vw,560px)}
+.settingsGroup{margin:22px 0 20px; padding:17px; text-align:left; background:#07131d; border:1px solid var(--line); border-radius:13px}
+.settingsLabel{display:flex; justify-content:space-between; align-items:flex-start; gap:18px; margin-bottom:14px}
+.settingsLabel>div{display:flex; flex-direction:column; gap:3px}
+.settingsLabel b{font-size:15px; letter-spacing:.4px}.settingsLabel small{color:var(--dim); font-size:11.5px; line-height:1.4}
+.settingsLabel>span{flex:none; color:var(--acc2); font-size:12px; font-weight:800; background:#211a0d; border:1px solid #5c4922; border-radius:8px; padding:4px 8px}
+.frameRateOptions{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+.frameRateOption{pointer-events:auto; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; padding:11px 8px;
+  color:#dcecf7; background:#0a1c2b; border:1px solid var(--line); border-radius:10px; font-family:inherit; transition:border-color .12s,background .12s,transform .08s}
+.frameRateOption:hover{border-color:var(--acc); transform:translateY(-1px)}
+.frameRateOption.selected{border-color:var(--acc2); background:#25301e; box-shadow:0 0 0 1px #f2c15e33 inset}
+.frameRateOption b{font-size:13px}.frameRateOption small{font-size:10px; color:var(--dim)}
+.settingsHint{margin-top:12px; color:var(--dim); font-size:11.5px; line-height:1.5}
+.settingsDone{min-width:170px}.settingsEscape{margin-top:10px; color:var(--dim); font-size:10.5px}
+@media(max-width:560px){.frameRateOptions{grid-template-columns:1fr 1fr}.settingsLabel{flex-direction:column}.settingsLabel>span{align-self:flex-start}}
 
 /* ---------- multiplayer lobby ---------- */
 .mpCard{width:min(94vw,640px); text-align:left}

@@ -32,11 +32,40 @@ import { Sfx } from './audio.js';
 
 const CURRENT_SPEED = 165;   // sea-stage water current — px/s of drift at full strength
 
+const RENDER_FIELDS = [
+  ['x', '_renderPrevX', '_renderLiveX'], ['y', '_renderPrevY', '_renderLiveY'],
+  ['angle', '_renderPrevAngle', '_renderLiveAngle'], ['t', '_renderPrevT', '_renderLiveT'],
+  ['px', '_renderPrevPx', '_renderLivePx'], ['py', '_renderPrevPy', '_renderLivePy'],
+];
+
+function captureRenderObject(object) {
+  if (!object) return;
+  for (const [field, previous] of RENDER_FIELDS) if (Number.isFinite(object[field])) object[previous] = object[field];
+}
+
+function interpolateRenderObject(object, alpha) {
+  if (!object) return;
+  for (const [field, previous, live] of RENDER_FIELDS) {
+    const current = object[field]; if (!Number.isFinite(current)) continue;
+    object[live] = current;
+    const from = Number.isFinite(object[previous]) ? object[previous] : current;
+    object[field] = field === 'angle'
+      ? from + Math.atan2(Math.sin(current - from), Math.cos(current - from)) * alpha
+      : from + (current - from) * alpha;
+  }
+}
+
+function restoreRenderObject(object) {
+  if (!object) return;
+  for (const [field, , live] of RENDER_FIELDS) if (Number.isFinite(object[live])) object[field] = object[live];
+}
+
 export class Engine {
   constructor(canvas, { onHud }) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onHud = onHud;
+    this.onScheduleChange = null;
     this.sfx = new Sfx();
 
     // current map / viewport
@@ -58,10 +87,10 @@ export class Engine {
 
     // input state (written by ui/input.js)
     this.mouse = { x: 0, y: 0 }; this.worldMouse = { x: 0, y: 0 };
-    this.keys = {}; this.biteHeld = false;
+    this.keys = {}; this.biteHeld = false; this.inputSuppressed = false;
 
     // flow state
-    this.playing = false; this.paused = false; this.dead = false;
+    this.playing = false; this.paused = false; this.dead = false; this.backgrounded = false;
     this.pendingEvolve = false; this.choices = []; this.evolveMode = 'normal';   // 'normal' | 'ascend' | 'advance'
     this.kills = 0; this.lastHurt = -99; this.spawnT = 0; this.hudT = 0;
 
@@ -106,6 +135,8 @@ export class Engine {
     this.ascendOffered = false; this.ascendAvailable = false; this.advanceAvailable = false;
     this.transitionCd = 0; this.edgeDwell = 0; this.nearEdge = null; this.visitedMaps = new Set();
     this.time = 0; this.lastHurt = -99;
+    this._renderPrevTime = NaN;
+    this.inputSuppressed = false;
     this.mouse.x = this.vw / 2; this.mouse.y = this.vh / 2;
     this.talent = freshTalentState();
     this.talentBonus = computeTalentBonus(this.talent.trees);
@@ -175,19 +206,30 @@ export class Engine {
     this.cam.y = clamp(p.y - this.vh / 2, 0, Math.max(0, this.H - this.vh));
     this.transitionCd = 1.2; this.edgeDwell = 0; this.nearEdge = null;
     this.visitedMaps.add(mapId);
+    this.captureRenderState();
     this.pushHud(true);
   }
 
   togglePause() { if (this.dead || this.pendingEvolve || !this.playing || this.mp) return; this.paused = !this.paused; this.pushHud(true); }
+  /* A hidden multiplayer host still simulates gameplay. Visual effects, sound
+     and React snapshots can wait until the tab has a consumer again. */
+  setBackgrounded(value) {
+    const backgrounded = !!value; if (backgrounded === this.backgrounded) return;
+    this.backgrounded = backgrounded; this.sfx.setBackgrounded(backgrounded);
+    if (backgrounded) {
+      this.particles.length = 0; this.fx.length = 0; this.floaters.length = 0; this.flow.length = 0;
+    } else this.pushHud(true);
+  }
   returnToMenu() {
     this.playing = false; this.paused = false; this.pendingEvolve = false;
     this.mp = null; this.remotePlayers = [];
     this.biteHeld = false; this.keys = {}; this.pushHud(true);
+    if (this.onScheduleChange) this.onScheduleChange();
   }
 
   /* ---------------- multiplayer entry (delegates to engine/mp.js) ---------------- */
-  startMpHost(opts) { mpStartHost(this, opts); }
-  startMpClient(opts) { mpStartClient(this, opts); }
+  startMpHost(opts) { mpStartHost(this, opts); if (this.onScheduleChange) this.onScheduleChange(); }
+  startMpClient(opts) { mpStartClient(this, opts); if (this.onScheduleChange) this.onScheduleChange(); }
   updateReplica(dt) { mpClientUpdate(this, dt); }
   onNetPacket(from, data) { mpOnPacket(this, from, data); }
   /* Keep the host's roster fresh so late joiners / colour edits resolve right. */
@@ -196,6 +238,7 @@ export class Engine {
     this.mp.roster = roster || {};
     if (this.mp.role === 'host') this.remotePlayers = this.remotePlayers.filter(rp => roster && roster[rp.connId]);   // drop players who left the room
     for (const rp of this.remotePlayers) { const r = roster && roster[rp.connId]; if (r) { rp.name = r.name; rp.color = r.color; } }
+    if (this.onScheduleChange) this.onScheduleChange();
   }
 
   /* Every player entity (self + remotes). Used by NPC targeting and PvP bites. */
@@ -203,7 +246,13 @@ export class Engine {
   /* Nearest LIVING player to a point (NPCs hunt/flee whoever is closest). */
   nearestPlayer(x, y) {
     let best = null, bd = Infinity;
-    for (const p of this.allPlayers()) { if (p.deadT > 0) continue; const dx = p.x - x, dy = p.y - y, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = p; } }
+    const local = this.player;
+    if (local && local.deadT <= 0) { const dx = local.x - x, dy = local.y - y; bd = dx * dx + dy * dy; best = local; }
+    for (const p of this.remotePlayers) {
+      if (p.deadT > 0) continue;
+      const dx = p.x - x, dy = p.y - y, d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = p; }
+    }
     return best;
   }
 
@@ -326,6 +375,8 @@ export class Engine {
   setMouse(x, y) { this.mouse.x = x; this.mouse.y = y; }
   setBite(v) { this.biteHeld = v; }
   setKey(k, v) { this.keys[k] = v; }
+  releaseInput() { this.keys = {}; this.biteHeld = false; }
+  setInputSuppressed(value) { this.inputSuppressed = !!value; if (this.inputSuppressed) this.releaseInput(); }
   useAbility(idx) {
     if (this.mp) {
       if (this.mp.role === 'client') { if (this.mp.lobby) this.mp.lobby.raw({ t: 'relay', to: this.mp.host, data: { k: 'A', i: idx } }); return; }
@@ -597,25 +648,29 @@ export class Engine {
       if (pl.amount < pl.max) { pl.regen -= dt; if (pl.regen <= 0) { pl.amount = Math.min(pl.max, pl.amount + 1); pl.regen = 14; } }
     }
 
-    // cosmetic bits
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const q = this.particles[i]; q.life -= dt; q.vx *= Math.exp(-dt * 3); q.vy *= Math.exp(-dt * 3);
-      q.x += q.vx * dt; q.y += q.vy * dt; if (q.life <= 0) this.particles.splice(i, 1);
-    }
-    for (let i = this.fx.length - 1; i >= 0; i--) { this.fx[i].t += dt; if (this.fx[i].t >= this.fx[i].max) this.fx.splice(i, 1); }
-    for (let i = this.floaters.length - 1; i >= 0; i--) {
-      const ft = this.floaters[i]; ft.x += ft.vx * dt; ft.y += ft.vy * dt;
-      ft.vy *= Math.exp(-dt * 2.4); ft.vx *= Math.exp(-dt * 3); ft.life -= dt;
-      if (ft.life <= 0) this.floaters.splice(i, 1);
-    }
+    // Cosmetic collections do not need advancing while a host tab is hidden.
+    if (!this.backgrounded) {
+      for (let i = this.particles.length - 1; i >= 0; i--) {
+        const q = this.particles[i]; q.life -= dt; q.vx *= Math.exp(-dt * 3); q.vy *= Math.exp(-dt * 3);
+        q.x += q.vx * dt; q.y += q.vy * dt; if (q.life <= 0) this.particles.splice(i, 1);
+      }
+      for (let i = this.fx.length - 1; i >= 0; i--) { this.fx[i].t += dt; if (this.fx[i].t >= this.fx[i].max) this.fx.splice(i, 1); }
+      for (let i = this.floaters.length - 1; i >= 0; i--) {
+        const ft = this.floaters[i]; ft.x += ft.vx * dt; ft.y += ft.vy * dt;
+        ft.vy *= Math.exp(-dt * 2.4); ft.vx *= Math.exp(-dt * 3); ft.life -= dt;
+        if (ft.life <= 0) this.floaters.splice(i, 1);
+      }
+    } else { this.particles.length = 0; this.fx.length = 0; this.floaters.length = 0; }
     for (const e of this.eggs) e.t += dt;
     for (let i = this.webs.length - 1; i >= 0; i--) { const w = this.webs[i]; if (w.life == null) continue; w.life -= dt; if (w.life <= 0) this.webs.splice(i, 1); }
-    this.updateFlow(dt);
-    for (const b of this.bubbles) {
-      b.y -= b.sp * dt; b.x += Math.sin(this.time + b.ph) * 6 * dt;
-      if (this.stage === 'sea') { const c = this.currentAt(this.cam.x + b.x, this.cam.y + b.y); b.x += c.x * dt * 0.5; }
-      if (b.y < -4) { b.y = this.vh + 4; b.x = Math.random() * this.vw; }
-      if (b.x < -12) b.x = this.vw + 12; else if (b.x > this.vw + 12) b.x = -12;
+    if (!this.backgrounded) {
+      this.updateFlow(dt);
+      for (const b of this.bubbles) {
+        b.y -= b.sp * dt; b.x += Math.sin(this.time + b.ph) * 6 * dt;
+        if (this.stage === 'sea') { const c = this.currentAt(this.cam.x + b.x, this.cam.y + b.y); b.x += c.x * dt * 0.5; }
+        if (b.y < -4) { b.y = this.vh + 4; b.x = Math.random() * this.vw; }
+        if (b.x < -12) b.x = this.vw + 12; else if (b.x > this.vw + 12) b.x = -12;
+      }
     }
 
     // max level: evolve within the stage, or (sea apex) offer to crawl ashore
@@ -630,18 +685,58 @@ export class Engine {
     this.shake *= Math.exp(-dt * 8);
 
     spawnMaintain(this, dt);
-    if (this.mp) { this.mp.feed = this.mp.feed.filter(f => this.time - f.t < 5); if (this.mp.role === 'host') mpBroadcast(this, dt); }
+    if (this.mp) {
+      if (this.mp.feed.length) this.mp.feed = this.mp.feed.filter(f => this.time - f.t < 5);
+      if (this.mp.role === 'host') mpBroadcast(this, dt);
+    }
     this.pushHud();
   }
 
-  render() { renderWorld(this); }
+  visitRenderObjects(visitor) {
+    visitor(this.player);
+    for (const object of this.remotePlayers) visitor(object);
+    for (const object of this.creatures) visitor(object);
+    for (const object of this.food) visitor(object);
+    for (const object of this.particles) visitor(object);
+    for (const object of this.bubbles) visitor(object);
+    for (const object of this.eggs) visitor(object);
+    for (const object of this.fx) visitor(object);
+    for (const object of this.floaters) visitor(object);
+    for (const object of this.webs) visitor(object);
+    for (const object of this.flow) visitor(object);
+  }
+
+  /* Save the last authoritative positions so rendering above 60 FPS can blend
+     between simulation ticks without running AI/physics more often. */
+  captureRenderState() {
+    this._renderPrevTime = this.time;
+    this._renderPrevCamX = this.cam.x; this._renderPrevCamY = this.cam.y;
+    this.visitRenderObjects(captureRenderObject);
+  }
+
+  render(alpha = 1) {
+    alpha = clamp(alpha, 0, 1);
+    if (alpha >= 1 || !Number.isFinite(this._renderPrevTime)) { renderWorld(this); return; }
+
+    const liveTime = this.time, liveCamX = this.cam.x, liveCamY = this.cam.y;
+    this.time = lerp(this._renderPrevTime, liveTime, alpha);
+    this.cam.x = lerp(this._renderPrevCamX, liveCamX, alpha);
+    this.cam.y = lerp(this._renderPrevCamY, liveCamY, alpha);
+    this.visitRenderObjects(object => interpolateRenderObject(object, alpha));
+    try { renderWorld(this); }
+    finally {
+      this.visitRenderObjects(restoreRenderObject);
+      this.time = liveTime; this.cam.x = liveCamX; this.cam.y = liveCamY;
+    }
+  }
 
   /* ---------------- HUD snapshots ---------------- */
 
-  /* Publish a plain-data snapshot for React. Rate-limited to every 0.05s of
-     sim time unless forced (state transitions force it). */
+  /* Publish a plain-data snapshot for React. Multiplayer uses 10 Hz because
+     networking and canvas animation do not need a full React render each tick. */
   pushHud(force) {
-    if (!force) { if (this.time - this.hudT < 0.05) return; }
+    if (this.backgrounded) return;
+    if (!force) { if (this.time - this.hudT < (this.mp ? 0.1 : 0.05)) return; }
     this.hudT = this.time;
     const p = this.player;
     const abils = p ? p.abilities.map((id, i) => {

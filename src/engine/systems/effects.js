@@ -3,6 +3,7 @@ import { rand, TAU } from '../../core/math.js';
 
 /* Radial particle burst at (x,y). Oldest particles are recycled past the cap. */
 export function burst(game, x, y, color, n, spd) {
+  if (game.backgrounded) return;
   for (let i = 0; i < n; i++) {
     const a = rand(0, TAU), s = rand(spd * 0.3, spd);
     if (game.particles.length > 320) game.particles.shift();
@@ -12,5 +13,5 @@ export function burst(game, x, y, color, n, spd) {
 
 /* Floating damage/heal text; silently dropped when too many are alive. */
 export function addFloater(game, f) {
-  if (game.floaters.length < 70) game.floaters.push(f);
+  if (!game.backgrounded && game.floaters.length < 70) game.floaters.push(f);
 }

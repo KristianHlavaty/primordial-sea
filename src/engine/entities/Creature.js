@@ -85,17 +85,19 @@ export class Creature extends Entity {
   act(game, dt) {
     const p = game.nearestPlayer(this.x, this.y);   // nearest living player (or null if all are respawning)
     let ax = this.wx, ay = this.wy, sc = 0.4;
-    const pdx = p ? p.x - this.x : 0, pdy = p ? p.y - this.y : 0, pd = p ? hyp(pdx, pdy) : Infinity;
+    const pdx = p ? p.x - this.x : 0, pdy = p ? p.y - this.y : 0, pd2 = p ? pdx * pdx + pdy * pdy : Infinity;
     // Chromatophores halve how far others notice the player; Ink hides them completely
     const senseVsPlayer = (p && p.hasAbility('camo')) ? this.sense * 0.5 : this.sense;
+    const sense2 = this.sense * this.sense, senseVsPlayer2 = senseVsPlayer * senseVsPlayer;
     const playerHidden = !p || p.stealthT > 0;
     if (this.role === 'predator' && this.aggro) {
       // hunt nearest edible (player or smaller creature)
-      let tgt = null, td = this.sense;
-      if (p && pd < senseVsPlayer && p.radius <= this.radius * 1.3 && !playerHidden) { tgt = 'player'; td = pd; }
+      let tgt = null, td2 = sense2;
+      if (p && pd2 < senseVsPlayer2 && p.radius <= this.radius * 1.3 && !playerHidden) { tgt = 'player'; td2 = pd2; }
       for (const o of game.creatures) {
         if (o === this) continue; if (o.radius > this.radius * 1.05) continue;
-        const d = hyp(o.x - this.x, o.y - this.y); if (d < td) { td = d; tgt = o; }
+        const dx = o.x - this.x, dy = o.y - this.y, d2 = dx * dx + dy * dy;
+        if (d2 < td2) { td2 = d2; tgt = o; }
       }
       if (tgt) {
         const t = tgt === 'player' ? p : tgt; const dx = t.x - this.x, dy = t.y - this.y, d = hyp(dx, dy) || 1; ax = dx / d; ay = dy / d; sc = 1;
@@ -109,17 +111,17 @@ export class Creature extends Entity {
     } else if (this.role === 'prey') {
       // flee threats
       let fx = 0, fy = 0, threat = false;
-      if (p && pd < senseVsPlayer && p.radius >= this.radius * 0.85 && !playerHidden) { fx -= pdx / (pd || 1); fy -= pdy / (pd || 1); threat = true; }
+      if (p && pd2 < senseVsPlayer2 && p.radius >= this.radius * 0.85 && !playerHidden) { const pd = Math.sqrt(pd2) || 1; fx -= pdx / pd; fy -= pdy / pd; threat = true; }
       for (const o of game.creatures) {
         if (o === this || o.radius < this.radius * 1.05) continue;
-        const dx = o.x - this.x, dy = o.y - this.y, d = hyp(dx, dy);
-        if (d < this.sense) { fx -= dx / (d || 1); fy -= dy / (d || 1); threat = true; }
+        const dx = o.x - this.x, dy = o.y - this.y, d2 = dx * dx + dy * dy;
+        if (d2 < sense2) { const d = Math.sqrt(d2) || 1; fx -= dx / d; fy -= dy / d; threat = true; }
       }
       if (threat) { const l = hyp(fx, fy) || 1; ax = fx / l; ay = fy / l; sc = 1; this.faceTarget = Math.atan2(ay, ax); }
       else this.faceTarget = Math.atan2(this.wy, this.wx);
     } else { // drifter
       ay -= this.floaty; this.faceTarget = Math.atan2(this.vy, this.vx || 0.001);
-      if (p && pd < this.radius + p.radius + 4 && this.biteCd <= 0) { this.biteCd = 0.6; p.takeHit(game, this.dmg, this.x, this.y, this); }
+      if (p && pd2 < (this.radius + p.radius + 4) ** 2 && this.biteCd <= 0) { this.biteCd = 0.6; p.takeHit(game, this.dmg, this.x, this.y, this); }
     }
     const webM = 1 - game.webSlowAt(this.x, this.y) * .55;
     this.vx += ax * this.accel * sc * webM * dt; this.vy += ay * this.accel * sc * webM * dt;

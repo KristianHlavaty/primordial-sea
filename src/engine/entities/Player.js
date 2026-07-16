@@ -40,6 +40,7 @@ export class Player extends Entity {
      steers toward the world-space mouse (24px dead zone). RemotePlayer overrides
      this to use input arriving over the network. */
   steer(game) {
+    if (game.inputSuppressed) return { tx: 0, ty: 0, moving: false };
     let ix = 0, iy = 0;
     if (game.keys.left) ix -= 1; if (game.keys.right) ix += 1; if (game.keys.up) iy -= 1; if (game.keys.down) iy += 1;
     if (ix || iy) { const l = hyp(ix, iy); return { tx: ix / l, ty: iy / l, moving: true }; }

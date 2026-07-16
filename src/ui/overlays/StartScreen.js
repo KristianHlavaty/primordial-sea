@@ -4,8 +4,9 @@
 import { html, useState } from '../react.js';
 import { SPECIES, stagePioneers } from '../../data/species.js';
 import { BRANCH_WORD } from '../../data/branches.js';
+import { frameRateLabel } from '../settings.js';
 
-export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onEditProfile }) {
+export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onEditProfile, settings, onOpenSettings }) {
   const [view, setView] = useState('home');   // 'home' | 'single'
   const [showLand, setShowLand] = useState(false);
   const [fantasyEvolution, setFantasyEvolution] = useState(false);
@@ -41,6 +42,10 @@ export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onE
         <button className="menuChoice mp" onClick=${onMultiplayer}>
           <span className="mcTitle">MULTIPLAYER <em>local</em></span>
           <span className="mcSub">shared arena on your network · free-for-all</span>
+        </button>
+        <button className="menuChoice settings" onClick=${onOpenSettings}>
+          <span className="mcTitle">SETTINGS</span>
+          <span className="mcSub">frame rate: ${frameRateLabel(settings.frameRate)}</span>
         </button>
       </div>
     <//>`;

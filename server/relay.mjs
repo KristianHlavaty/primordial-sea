@@ -70,6 +70,9 @@ function encode(opcode, payload) {
   return Buffer.concat([header, payload]);
 }
 
+const MAX_TRANSIENT_BUFFER = 512 * 1024;
+const encodeJson = obj => encode(0x1, Buffer.from(JSON.stringify(obj), 'utf8'));
+
 /* Pull one complete frame off the front of buf, unmasking the payload.
    Returns { fin, opcode, payload, rest } or null if buf is still incomplete. */
 function parseFrame(buf) {
@@ -121,7 +124,12 @@ const rooms = new Map();   // id -> room
 function makeConn(socket) {
   const conn = {
     id: nextConn++, socket, profile: null, roomId: null, _frag: null, _fop: 0,
-    send(obj) { try { if (!socket.destroyed) socket.write(encode(0x1, Buffer.from(JSON.stringify(obj), 'utf8'))); } catch { } },
+    send(obj, transient = false) { this.sendFrame(encodeJson(obj), transient); },
+    sendFrame(frame, transient = false) {
+      try {
+        if (!socket.destroyed && (!transient || (socket.writableLength || 0) < MAX_TRANSIENT_BUFFER)) socket.write(frame);
+      } catch { }
+    },
     sendRaw(op, payload) { try { if (!socket.destroyed) socket.write(encode(op, payload)); } catch { } },
   };
   conns.set(conn.id, conn);
@@ -242,8 +250,10 @@ function onMessage(conn, m) {
       const r = conn.roomId != null ? rooms.get(conn.roomId) : null;
       if (!r) break;
       const out = { t: 'relay', from: conn.id, data: m.data };
-      if (m.to != null) { const c = conns.get(m.to); if (c && c.roomId === r.id) c.send(out); }
-      else for (const cid of r.members) if (cid !== conn.id) { const c = conns.get(cid); if (c) c.send(out); }
+      const transient = m.data && (m.data.k === 'S' || m.data.k === 'I');
+      const frame = encodeJson(out);   // serialize once, even for a room broadcast
+      if (m.to != null) { const c = conns.get(m.to); if (c && c.roomId === r.id) c.sendFrame(frame, transient); }
+      else for (const cid of r.members) if (cid !== conn.id) { const c = conns.get(cid); if (c) c.sendFrame(frame, transient); }
       break;
     }
     default:
