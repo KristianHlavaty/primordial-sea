@@ -5,7 +5,7 @@ import { clamp } from '../../core/math.js';
 import { AbilityBar } from './AbilityBar.js';
 import { AbilityIcon } from './AbilityIcon.js';
 
-export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects, onOpenTalents }) {
+export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects, onOpenTalents, onToggleMenu }) {
   return html`
     <div className="hud">
       <div className="topleft">
@@ -39,12 +39,13 @@ export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects, o
       </div>
       <div className="topright">
         <div className="kills">${hud.kills} <span>kills</span></div>
-        <button className=${'iconbtn talentBtn' + (hud.talentUnspent > 0 ? ' glow' : '')} onClick=${onOpenTalents} title=${'Talents (K)' + (hud.talentUnspent > 0 ? ' — ' + hud.talentUnspent + ' unspent' : '')}>✦${hud.talentUnspent > 0 ? html`<em>${hud.talentUnspent}</em>` : ''}</button>
+        ${!hud.mpRole && html`<button className=${'iconbtn talentBtn' + (hud.talentUnspent > 0 ? ' glow' : '')} onClick=${onOpenTalents} title=${'Talents (K)' + (hud.talentUnspent > 0 ? ' — ' + hud.talentUnspent + ' unspent' : '')}>✦${hud.talentUnspent > 0 ? html`<em>${hud.talentUnspent}</em>` : ''}</button>`}
         <button className="iconbtn" onClick=${onOpenTree} title="Evolution tree (T)">🧬</button>
         <button className="iconbtn" onClick=${onOpenAtlas} title="World atlas (B)">🗺</button>
         <button className=${'iconbtn' + (hud.showLevels ? ' on' : '')} onClick=${() => engine.toggleLevels()} title="Toggle level labels (L)">Lv</button>
         <button className="iconbtn" onClick=${() => engine.toggleMute()} title="Mute (M)">${hud.muted ? '🔇' : '🔊'}</button>
-        <button className="iconbtn" onClick=${() => engine.togglePause()} title="Pause (P)">⏸</button>
+        <button className="iconbtn" onClick=${() => hud.mpRole ? onToggleMenu && onToggleMenu() : engine.togglePause()}
+          title=${hud.mpRole ? 'Game menu (Esc / P)' : 'Pause (P)'}>${hud.mpRole ? '☰' : '⏸'}</button>
       </div>
       ${hud.ascendAvailable && html`
         <button className="ashoreBtn" onClick=${() => engine.openAscend()} title="Crawl ashore — evolve onto the land">🏝 Ashore</button>`}

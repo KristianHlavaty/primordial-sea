@@ -26,7 +26,9 @@ export function attachInput(engine, canvas, ui) {
     if (k === 'b') { if (u.atlasOpen) u.closeAtlas && u.closeAtlas(); else if (!anyModal) u.openAtlas && u.openAtlas(); return; }
     if (k === 'k') { if (u.talentsOpen) u.closeTalents && u.closeTalents(); else if (!anyModal) u.openTalents && u.openTalents(); return; }
     if (k === ' ') engine.setBite(true);
-    else if (k === 'p') { if (!anyModal) engine.togglePause(); }   // ignore P while an overlay is open — it manages pause itself
+    else if (k === 'p') {
+      if (!anyModal) { if (engine.mp) u.handleEscape && u.handleEscape(); else engine.togglePause(); }
+    }   // ignore P while an overlay is open — it manages pause itself
     else if (k === 'm') engine.toggleMute();
     else if (k === 'l') engine.toggleLevels();
     else if (KEYMAP[k]) engine.setKey(KEYMAP[k], true);

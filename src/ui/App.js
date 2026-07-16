@@ -43,14 +43,21 @@ export function App() {
   const skipToLand = (id, options) => { engineRef.current.startAt(id, options); setMpMenuOpen(false); setPhase('play'); };
   // "Evolve again" from the death screen — keep the run's Fantasy/Cheats settings
   const restartRun = () => { const e = engineRef.current; e.start({ fantasyEvolution: e.fantasyEvolution, cheats: e.cheatsEnabled }); setPhase('play'); };
-  const openTree = () => { if (engineRef.current && engineRef.current.canWiki()) { engineRef.current.setPaused(true); setTreeOpen(true); } };
-  const closeTree = () => { setTreeOpen(false); if (engineRef.current) engineRef.current.setPaused(false); };
-  const openAtlas = () => { if (engineRef.current && engineRef.current.canWiki()) { engineRef.current.setPaused(true); setAtlasOpen(true); } };
-  const closeAtlas = () => { setAtlasOpen(false); if (engineRef.current) engineRef.current.setPaused(false); };
-  const openBossEffects = () => { if (engineRef.current && engineRef.current.canWiki()) { engineRef.current.setPaused(true); setBossEffectsOpen(true); } };
-  const closeBossEffects = () => { setBossEffectsOpen(false); if (engineRef.current) engineRef.current.setPaused(false); };
-  const openTalents = () => { if (engineRef.current && engineRef.current.canWiki()) { engineRef.current.setPaused(true); setTalentsOpen(true); } };
-  const closeTalents = () => { setTalentsOpen(false); if (engineRef.current) engineRef.current.setPaused(false); };
+  const blockForContent = blocked => {
+    const e = engineRef.current; if (!e) return;
+    if (e.mp) e.setInputSuppressed(blocked); else e.setPaused(blocked);
+  };
+  const openTree = () => { if (engineRef.current && engineRef.current.canWiki()) { blockForContent(true); setTreeOpen(true); } };
+  const closeTree = () => { setTreeOpen(false); blockForContent(false); };
+  const openAtlas = () => { if (engineRef.current && engineRef.current.canWiki()) { blockForContent(true); setAtlasOpen(true); } };
+  const closeAtlas = () => { setAtlasOpen(false); blockForContent(false); };
+  const openBossEffects = () => { if (engineRef.current && engineRef.current.canWiki()) { blockForContent(true); setBossEffectsOpen(true); } };
+  const closeBossEffects = () => { setBossEffectsOpen(false); blockForContent(false); };
+  const openTalents = () => {
+    const e = engineRef.current;
+    if (e && !e.mp && e.canWiki()) { blockForContent(true); setTalentsOpen(true); }
+  };
+  const closeTalents = () => { setTalentsOpen(false); blockForContent(false); };
   const closeAchievement = () => { if (engineRef.current) engineRef.current.dismissAchievement(); };
   const openSettings = () => setSettingsOpen(true);
   const closeSettings = () => setSettingsOpen(false);
@@ -125,7 +132,7 @@ export function App() {
     <${Fragment}>
       <canvas id="game" ref=${canvasRef}/>
 
-      ${phase === 'play' && hud && !hud.dead && html`<${Hud} hud=${hud} engine=${engine} onOpenTree=${openTree} onOpenAtlas=${openAtlas} onOpenBossEffects=${openBossEffects} onOpenTalents=${openTalents}/>`}
+      ${phase === 'play' && hud && !hud.dead && html`<${Hud} hud=${hud} engine=${engine} onOpenTree=${openTree} onOpenAtlas=${openAtlas} onOpenBossEffects=${openBossEffects} onOpenTalents=${openTalents} onToggleMenu=${toggleMpMenu}/>`}
 
       ${phase === 'play' && hud && hud.mpRole && html`<button className="mpLeaveBtn" onClick=${mainMenu} title="Leave the shared game">‹ Leave game</button>`}
 

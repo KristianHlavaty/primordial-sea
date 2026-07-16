@@ -276,7 +276,7 @@ export class Engine {
     this.pushHud(true);
   }
   setPaused(v) { this.paused = v; }
-  canWiki() { return this.playing && !this.dead && !this.pendingEvolve && !this.paused && !this.mp; }
+  canWiki() { return this.playing && !this.dead && !this.pendingEvolve && !this.paused; }
   toggleMute() { this.sfx.muted = !this.sfx.muted; this.pushHud(true); }
   toggleLevels() { this.showLevels = !this.showLevels; this.pushHud(true); }
   toggleInvincible() { if (this.cheatsEnabled) { this.invincible = !this.invincible; this.pushHud(true); } }
