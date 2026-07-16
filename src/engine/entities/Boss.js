@@ -59,7 +59,9 @@ class Spiderling extends Creature {
   }
 
   act(game, dt) {
-    const p = game.player, dx = p.x - this.x, dy = p.y - this.y, d = hyp(dx, dy) || 1;
+    const p = (game.mp && game.nearestPlayer(this.x, this.y)) || game.player;
+    if (!p) return;
+    const dx = p.x - this.x, dy = p.y - this.y, d = hyp(dx, dy) || 1;
     this.faceTarget = Math.atan2(dy, dx); this.vx += dx / d * this.accel * dt; this.vy += dy / d * this.accel * dt;
     this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * 10));
     if (d < this.radius + p.radius + 7 && this.biteCd <= 0) { this.biteCd = 1; this.mouth = 1; p.takeHit(game, this.dmg, this.x, this.y, this); game.danger = 1; }
@@ -87,7 +89,9 @@ class LumenOrb extends Creature {
 
   update(game, dt) {
     this.lifeT -= dt; this.hurt = Math.max(0, this.hurt - dt * 3);
-    const p = game.player, dx = p.x - this.x, dy = p.y - this.y, d = hyp(dx, dy) || 1;
+    const p = (game.mp && game.nearestPlayer(this.x, this.y)) || game.player;
+    if (!p) { this.expire(game, false); return; }
+    const dx = p.x - this.x, dy = p.y - this.y, d = hyp(dx, dy) || 1;
     this.vx += dx / d * this.speed * this.turn * dt; this.vy += dy / d * this.speed * this.turn * dt;
     this.angle = Math.atan2(this.vy, this.vx); this.integrate(game, dt, .7, this.speed);
     if (d < this.radius + p.radius + 3) {
@@ -121,7 +125,8 @@ export class Boss extends Creature {
   }
 
   act(game, dt) {
-    const p = game.player;
+    const p = (game.mp && game.nearestPlayer(this.x, this.y)) || game.player;
+    if (!p) return;
     this.abilT -= dt;
     if (this.hardenT > 0) this.hardenT -= dt;
     if (this.dashT > 0) this.dashT -= dt;
@@ -134,7 +139,7 @@ export class Boss extends Creature {
       if (this.telegraph) {
         this.telegraph.t -= dt; this.faceTarget = this.telegraph.angle; bs = 0.12; // the wind-up is a deliberate opening for the player
         if (this.telegraph.t <= 0) this.resolveSpecial(game);
-      } else if (this.abilT <= 0) this.beginSpecial(game);
+      } else if (this.abilT <= 0) this.beginSpecial(game, p);
       const biteRate = this.bossKind === 'bulwark' ? 1.2 : this.bossKind === 'lumenara' ? 1.1 : this.bossKind === 'gilboa_matriarch' ? .85 : .7;
       if (!this.telegraph && bd < this.radius + p.radius + 16 && this.biteCd <= 0) {
         this.biteCd = biteRate; this.mouth = 1; p.takeHit(game, this.dmg, this.x, this.y, this); game.danger = 1;
@@ -150,8 +155,8 @@ export class Boss extends Creature {
     this.integrate(game, dt, 2.0, (this.dashT > 0 ? this.maxSpeed * 3 : this.maxSpeed) * slowM);
   }
 
-  beginSpecial(game) {
-    const p = game.player, a = Math.atan2(p.y - this.y, p.x - this.x);
+  beginSpecial(game, target) {
+    const p = target || game.player, a = Math.atan2(p.y - this.y, p.x - this.x);
     const common = { t: 1.25, max: 1.25, x: p.x, y: p.y, ox: this.x, oy: this.y, angle: a, color: this.plan.accent };
     const alt = this.specialCount % 2 === 1;
     if (this.bossKind === 'lumenara') {
@@ -183,21 +188,23 @@ export class Boss extends Creature {
   }
 
   resolveSpecial(game) {
-    const q = this.telegraph, p = game.player; if (!q) return;
-    let hit = false;
-    if (q.shape === 'circle') hit = hyp(p.x - q.x, p.y - q.y) < q.r + p.radius;
-    else if (q.shape === 'ring') { const d = hyp(p.x - q.x, p.y - q.y); hit = d > q.inner - p.radius && d < q.outer + p.radius; }
-    else if (q.shape === 'lane') {
-      const dx = p.x - q.ox, dy = p.y - q.oy, along = dx * Math.cos(q.angle) + dy * Math.sin(q.angle), side = Math.abs(-dx * Math.sin(q.angle) + dy * Math.cos(q.angle));
-      hit = along > 0 && along < q.length && side < q.width / 2 + p.radius;
-    } else {
-      const dx = p.x - q.ox, dy = p.y - q.oy, d = hyp(dx, dy), da = Math.atan2(Math.sin(Math.atan2(dy, dx) - q.angle), Math.cos(Math.atan2(dy, dx) - q.angle));
-      hit = d < q.length + p.radius && Math.abs(da) < q.spread;
-    }
-    if (q.special === 'cocoon' || q.special === 'starMotes') hit = false;
+    const q = this.telegraph; if (!q) return;
+    const targets = game.mp ? game.allPlayers().filter(p => p && p.deadT <= 0) : [game.player];
     const heavy = q.special === 'charge' || q.special === 'shellRush' || q.special === 'abyssBeam';
     const damage = this.dmg * (heavy ? 1.5 : 1.2);
-    if (hit) {
+    for (const p of targets) {
+      let hit = false;
+      if (q.shape === 'circle') hit = hyp(p.x - q.x, p.y - q.y) < q.r + p.radius;
+      else if (q.shape === 'ring') { const d = hyp(p.x - q.x, p.y - q.y); hit = d > q.inner - p.radius && d < q.outer + p.radius; }
+      else if (q.shape === 'lane') {
+        const dx = p.x - q.ox, dy = p.y - q.oy, along = dx * Math.cos(q.angle) + dy * Math.sin(q.angle), side = Math.abs(-dx * Math.sin(q.angle) + dy * Math.cos(q.angle));
+        hit = along > 0 && along < q.length && side < q.width / 2 + p.radius;
+      } else {
+        const dx = p.x - q.ox, dy = p.y - q.oy, d = hyp(dx, dy), da = Math.atan2(Math.sin(Math.atan2(dy, dx) - q.angle), Math.cos(Math.atan2(dy, dx) - q.angle));
+        hit = d < q.length + p.radius && Math.abs(da) < q.spread;
+      }
+      if (q.special === 'cocoon' || q.special === 'starMotes') hit = false;
+      if (!hit) continue;
       p.takeHit(game, damage, q.ox, q.oy, this); game.danger = 1;
       if (q.special === 'undertow') { const dx = q.x - p.x, dy = q.y - p.y, d = hyp(dx, dy) || 1; p.vx += dx / d * 440; p.vy += dy / d * 440; }
       if (q.special === 'tailFan') { p.vx += Math.cos(q.angle) * 420; p.vy += Math.sin(q.angle) * 420; }

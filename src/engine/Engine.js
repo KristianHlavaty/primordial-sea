@@ -27,7 +27,7 @@ import { spawnInitial, spawnMaintain, spawnRandomNpc } from './systems/spawning.
 import { activateAbility } from './systems/abilities.js';
 import { burst } from './systems/effects.js';
 import { renderWorld } from '../render/renderWorld.js';
-import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpQueueEvolution, mpChooseEvolution, mpUseCheat } from './mp.js';
+import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpMinimap, mpMaybeCrossMap, mpQueueEvolution, mpChooseEvolution, mpUseCheat } from './mp.js';
 import { Sfx } from './audio.js';
 
 const CURRENT_SPEED = 165;   // sea-stage water current — px/s of drift at full strength
@@ -190,7 +190,22 @@ export class Engine {
     if (this.talent.trees[this.stage]) this.talent.trees[this.stage].unlocked = true;   // entering a stage unlocks its tree
     const p = this.player;
     if (!via) { p.x = this.W / 2; p.y = this.H * 0.5; }
-    else {
+    else if (this.mp && this.mp.role === 'host') {
+      const arrive = OPPOSITE_EDGE[via], horizontal = arrive === 'top' || arrive === 'bottom';
+      const gate = m.passages && m.passages[arrive];
+      const center = (horizontal ? this.W : this.H) * (gate ? gate.center : 0.5);
+      const players = this.allPlayers(), spacing = 76;
+      players.forEach((player, i) => {
+        const offset = (i - (players.length - 1) / 2) * spacing;
+        if (arrive === 'right') { player.x = this.W - player.radius - 90; player.y = center + offset; }
+        else if (arrive === 'left') { player.x = player.radius + 90; player.y = center + offset; }
+        else if (arrive === 'top') { player.x = center + offset; player.y = player.radius + 90; }
+        else if (arrive === 'bottom') { player.x = center + offset; player.y = this.H - player.radius - 90; }
+        player.x = clamp(player.x, player.radius, this.W - player.radius);
+        player.y = clamp(player.y, player.radius, this.H - player.radius);
+        player.vx = 0; player.vy = 0;
+      });
+    } else {
       const arrive = OPPOSITE_EDGE[via];
       if (arrive === 'right') p.x = this.W - p.radius - 90;
       else if (arrive === 'left') p.x = p.radius + 90;
@@ -205,6 +220,7 @@ export class Engine {
     this.cam.x = clamp(p.x - this.vw / 2, 0, Math.max(0, this.W - this.vw));
     this.cam.y = clamp(p.y - this.vh / 2, 0, Math.max(0, this.H - this.vh));
     this.transitionCd = 1.2; this.edgeDwell = 0; this.nearEdge = null;
+    if (this.mp && this.mp.role === 'host') this.mp.worldDirty = true;
     this.visitedMaps.add(mapId);
     this.captureRenderState();
     this.pushHud(true);
@@ -572,6 +588,13 @@ export class Engine {
     if (perk.webResist) this.perks.webResist = Math.min(.85, this.perks.webResist + perk.webResist);
     if (perk.shockAfterglow) this.perks.shockAfterglow = 1;
     if (!this.perks.list.some(x => x.id === id)) this.perks.list.push({ id, name: perk.name, icon: perk.icon, color: perk.color, blurb: perk.blurb });
+    if (this.mp) {
+      const text = bossTitle + ' defeated — ' + perk.name + ' gained';
+      this.mpAddFeed(text, perk.color);
+      if (this.mp.lobby) this.mp.lobby.raw({ t: 'relay', data: { k: 'K', text, color: perk.color } });
+      this.pushHud(true);
+      return;
+    }
     this.achId++;
     this.achievement = { id: this.achId, boss: bossTitle, perk: perk.name, blurb: perk.blurb, icon: perk.icon, color: perk.color };
     this.achT = 0; this.paused = true;
@@ -628,7 +651,7 @@ export class Engine {
     p.update(this, dt);
     if (this.mp && this.mp.role === 'host') for (const rp of this.remotePlayers) rp.update(this, dt);
 
-    if (!this.mp && this.maybeCrossEdge(dt)) return;   // walked off the map edge — new map loaded this frame
+    if ((!this.mp && this.maybeCrossEdge(dt)) || (this.mp && this.mp.role === 'host' && mpMaybeCrossMap(this, dt))) return;
 
     // creatures (list may shrink mid-loop when something dies)
     this.danger = Math.max(0, this.danger - dt * 0.6);
@@ -794,6 +817,7 @@ export class Engine {
       landDeadEnd: !!(p && p.level >= MAX_LEVEL && this.isLandDeadEnd()),
       cheatsEnabled: this.cheatsEnabled, invincible: this.mp && p ? !!p.mpInvincible : this.invincible,
       mpRole: this.mp ? this.mp.role : null, mpPlayers: this.mp ? mpRoster(this) : null,
+      mpMap: this.mp ? mpMinimap(this) : null,
       mpDead: !!(this.mp && this.player && this.player.deadT > 0), mpRespawnIn: (this.mp && this.player) ? Math.ceil(this.player.deadT || 0) : 0,
       mpFeed: this.mp ? this.mp.feed.map(f => ({ id: f.id, text: f.text, color: f.color })) : null
     });

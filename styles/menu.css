@@ -73,7 +73,7 @@
 @media(max-width:560px){.frameRateOptions{grid-template-columns:1fr 1fr}.settingsLabel{flex-direction:column}.settingsLabel>span{align-self:flex-start}}
 
 /* ---------- multiplayer lobby ---------- */
-.mpCard{width:min(94vw,640px); text-align:left}
+.mpCard{width:min(94vw,640px); max-height:calc(100vh - 24px); overflow-y:auto; text-align:left}
 .mpHead{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; margin-bottom:8px}
 .mpHead .title{grid-column:2; text-align:center}
 .mpBack{pointer-events:auto; cursor:pointer; justify-self:start; background:#0a1c2b; border:1px solid var(--line);
@@ -137,6 +137,10 @@
 .roomToggle>span{display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:0}
 .roomToggle b{color:#aebfd0; font-size:12.5px; font-weight:500; line-height:1.35}
 .roomToggle small{color:var(--dim); font-size:10.5px; line-height:1.35; opacity:.8}
+.bossRoomToggle input{accent-color:#ffbd59}
+.bossRoomToggle b{color:#d9b975}
+.mapRoomToggle input{accent-color:#60d8ff}
+.mapRoomToggle b{color:#80cbe4}
 .cheatRoomToggle input{accent-color:#ff5363}
 .cheatRoomToggle b{color:#d78b96}
 
@@ -145,8 +149,15 @@
 .roomInfo b{font-size:16px}
 .roomMeta{font-size:12px; color:var(--dim); margin-top:2px}
 .ffa{color:#ff9a6a; font-weight:700}
-.fantasyRoom{color:#c5a6ff; font-size:11px; font-weight:700; margin-top:2px}
-.cheatsRoom{color:#ff7b88; font-size:11px; font-weight:700; margin-top:2px}
+.roomOptions{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px}
+.roomOptionsLabel{font-size:10px; color:var(--dim); font-weight:800; letter-spacing:.8px; text-transform:uppercase}
+.roomOptionChips{display:flex; gap:5px; flex-wrap:wrap}
+.roomOptionChip,.roomOptionNone{font-size:10px; font-weight:700; color:#b9c8d6; background:#091a28; border:1px solid var(--line); border-radius:999px; padding:3px 7px}
+.roomOptionChip.fantasy{color:#c5a6ff; border-color:#705a9588}
+.roomOptionChip.evolution{color:#86e0b2; border-color:#4d987588}
+.roomOptionChip.bosses{color:#ffcf76; border-color:#98733b88}
+.roomOptionChip.maps{color:#7ddfff; border-color:#407f9588}
+.roomOptionChip.cheats{color:#ff8c98; border-color:#98495288}
 .roomRoster{display:flex; flex-direction:column; gap:6px; background:#07131d; border:1px solid var(--line); border-radius:10px; padding:10px 12px}
 .rosterRow{display:flex; align-items:center; gap:9px; font-size:13px}
 .rosterRow .rName{font-weight:700; color:#eaf4ff}
@@ -168,9 +179,24 @@
   font-size:13px; font-weight:800; letter-spacing:.5px}
 .mpLeaveBtn:hover{border-color:#ff6676; color:#ff8a96; background:#241018e6}
 
-/* ---------- in-game multiplayer overlay: scoreboard / kill feed / respawn ---------- */
-.mpScore{position:fixed; top:92px; right:12px; z-index:14; min-width:184px; background:#07131dcc; border:1px solid var(--line);
-  border-radius:11px; padding:8px 10px; pointer-events:none}
+/* ---------- in-game multiplayer overlay: minimap / scoreboard / kill feed / respawn ---------- */
+.mpRightHud{position:fixed; top:92px; right:12px; z-index:14; width:210px; display:flex; flex-direction:column; gap:8px; pointer-events:none}
+.mpMinimap,.mpScore{background:#07131dcc; border:1px solid var(--line); border-radius:11px; padding:8px 10px; backdrop-filter:blur(3px)}
+.mpMinimapHead{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:6px}
+.mpMinimapHead b{font-size:9px; letter-spacing:1.4px; color:#70d9f6}
+.mpMinimapHead span{font-size:10px; color:#c4d3df; font-weight:700; overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+.mpMinimapField{position:relative; width:100%; max-height:128px; min-height:92px; overflow:hidden; background:linear-gradient(145deg,#0d2638,#07151f); border:1px solid #31556c; border-radius:7px; box-shadow:inset 0 0 18px #0008}
+.mpMinimapField::after{content:""; position:absolute; inset:0; background:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px); background-size:25% 25%; pointer-events:none}
+.mpMapPlayer,.mpMapBoss{position:absolute; z-index:2; transform:translate(-50%,-50%); display:block}
+.mpMapPlayer{width:8px; height:8px; border:1.5px solid #07131d; border-radius:50%; box-shadow:0 0 5px currentColor}
+.mpMapPlayer.me{width:10px; height:10px; border-color:#fff; box-shadow:0 0 0 2px #ffffff55,0 0 7px #fff}
+.mpMapPlayer.dead{opacity:.28}
+.mpMapBoss{font-size:12px; line-height:1; text-shadow:0 0 6px currentColor,0 1px 2px #000}
+.mpMinimapLegend{display:flex; justify-content:flex-end; gap:10px; margin-top:5px; color:var(--dim); font-size:8.5px}
+.mpMinimapLegend span{display:flex; align-items:center; gap:4px}
+.miniPlayerDot{width:6px; height:6px; border-radius:50%; background:#8affd0; display:inline-block}
+.miniBossDot{font-style:normal; color:#ffcf76; font-size:8px}
+.mpScore{min-width:184px; pointer-events:none}
 .mpScoreHead{font-size:10px; font-weight:800; letter-spacing:1.5px; color:#ff9a6a; text-align:center; margin-bottom:6px}
 .mpScoreRow{display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:8px; padding:3px 5px; border-radius:6px; font-size:12.5px}
 .mpScoreRow.me{background:#12283c88}

@@ -25,6 +25,8 @@ function HostPanel({ profile, onCreate, onCancel }) {
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [fantasy, setFantasy] = useState(true);
   const [evolution, setEvolution] = useState(true);
+  const [bosses, setBosses] = useState(false);
+  const [mapTransitions, setMapTransitions] = useState(false);
   const [cheats, setCheats] = useState(false);
   const stage = MAPS[mapId].stage;
   const tiers = tiersOfStage(stage, fantasy);
@@ -33,7 +35,10 @@ function HostPanel({ profile, onCreate, onCancel }) {
 
   const picks = speciesOfStageTier(stage, tier, fantasy).map(id => SPECIES[id].name);
   const era = eraFor(stage, tier);
-  const create = () => onCreate({ name: name.trim() || (profile.name + "'s game"), map: mapId, mapName: MAPS[mapId].name, stage, tier, era, maxPlayers, fantasy, evolution, cheats });
+  const create = () => onCreate({
+    name: name.trim() || (profile.name + "'s game"), map: mapId, mapName: MAPS[mapId].name,
+    stage, tier, era, maxPlayers, fantasy, evolution, bosses, mapTransitions, cheats,
+  });
 
   return html`
     <div className="hostPanel">
@@ -61,6 +66,14 @@ function HostPanel({ profile, onCreate, onCancel }) {
           <input type="checkbox" checked=${evolution} onChange=${e => setEvolution(e.target.checked)}/>
           <span><b>Allow evolution within this stage</b><small>Players can progress through the remaining tiers, but cannot enter another stage</small></span>
         </label>
+        <label className="roomToggle bossRoomToggle">
+          <input type="checkbox" checked=${bosses} onChange=${e => setBosses(e.target.checked)}/>
+          <span><b>Enable bosses</b><small>Adds each map's boss encounters and shared permanent rewards</small></span>
+        </label>
+        <label className="roomToggle mapRoomToggle">
+          <input type="checkbox" checked=${mapTransitions} onChange=${e => setMapTransitions(e.target.checked)}/>
+          <span><b>Allow travel to adjacent maps</b><small>When a player crosses an edge, the whole room travels to that neighboring map</small></span>
+        </label>
         <label className="roomToggle cheatRoomToggle">
           <input type="checkbox" checked=${cheats} onChange=${e => setCheats(e.target.checked)}/>
           <span><b>Enable cheats for testing purposes</b><small>Adds invincibility and level-up controls for every player</small></span>
@@ -72,7 +85,7 @@ function HostPanel({ profile, onCreate, onCancel }) {
         ${[2, 3, 4, 5, 6, 8].map(n => html`<button key=${n} className=${'hpTier' + (n === maxPlayers ? ' sel' : '')} onClick=${() => setMaxPlayers(n)}>${n}</button>`)}
       </div>
 
-      <div className="mpNote" style=${{ marginTop: '12px' }}>Combat is <b>free-for-all</b>. The map and stage stay fixed for the whole match.</div>
+      <div className="mpNote" style=${{ marginTop: '12px' }}>Combat is <b>free-for-all</b>. ${mapTransitions ? 'Adjacent-map travel moves the whole room together.' : 'The map and stage stay fixed for the whole match.'}</div>
 
       <div className="pfActions">
         <button className="stayBtn" onClick=${onCancel}>Cancel</button>
@@ -86,15 +99,27 @@ function RoomView({ room, connId, onSetSpecies, onLeave, onStart }) {
   const me = room.players.find(p => p.connId === connId);
   const isHost = !!(me && me.isHost);
   const picks = speciesOfStageTier(room.stage, room.tier, !!room.fantasy);
+  const enabledOptions = [
+    room.fantasy && ['Fantasy animals', 'fantasy'],
+    room.evolution && ['Same-stage evolution', 'evolution'],
+    room.bosses && ['Bosses', 'bosses'],
+    room.mapTransitions && ['Adjacent-map travel', 'maps'],
+    room.cheats && ['Testing cheats', 'cheats'],
+  ].filter(Boolean);
 
   return html`
     <div className="roomView">
       <div className="roomInfo">
         <div><b>${room.name}</b></div>
-        ${room.fantasy && html`<div className="fantasyRoom">Fantasy animals enabled</div>`}
-        ${room.evolution && html`<div className="fantasyRoom">Evolution within this stage enabled</div>`}
-        ${room.cheats && html`<div className="cheatsRoom">Testing cheats enabled</div>`}
         <div className="roomMeta">${room.mapName} · ${STAGES[room.stage] ? STAGES[room.stage].name : room.stage} · Tier ${room.tier} · ${room.players.length}/${room.maxPlayers} · <span className="ffa">free-for-all</span></div>
+        <div className="roomOptions">
+          <span className="roomOptionsLabel">Enabled options</span>
+          <div className="roomOptionChips">
+            ${enabledOptions.length
+              ? enabledOptions.map(([label, kind]) => html`<span key=${kind} className=${'roomOptionChip ' + kind}>${label}</span>`)
+              : html`<span className="roomOptionNone">Standard fixed-map rules</span>`}
+          </div>
+        </div>
       </div>
 
       <div className="roomRoster">
@@ -155,7 +180,7 @@ export function MultiplayerScreen({ profile, lobby, ls, onBack }) {
             ? html`<div className="mpEmpty">${connected ? 'No games yet. Host one below and share your address, or wait for a friend to host.' : 'Connecting…'}</div>`
             : ls.rooms.map(r => html`<div key=${r.id} className="roomRow">
                 ${dot(r.hostColor)}
-                <div className="rrMain"><b>${r.name}</b><small>${r.hostName} · ${r.mapName} · Tier ${r.tier}${r.fantasy ? ' · Fantasy animals' : ''}${r.evolution ? ' · Evolution' : ''}${r.cheats ? ' · Cheats' : ''}</small></div>
+                <div className="rrMain"><b>${r.name}</b><small>${r.hostName} · ${r.mapName} · Tier ${r.tier}${r.fantasy ? ' · Fantasy animals' : ''}${r.evolution ? ' · Evolution' : ''}${r.bosses ? ' · Bosses' : ''}${r.mapTransitions ? ' · Map travel' : ''}${r.cheats ? ' · Cheats' : ''}</small></div>
                 <span className="rrCount">${r.count}/${r.maxPlayers}</span>
                 <button className="rrJoin" disabled=${r.count >= r.maxPlayers} onClick=${() => L && L.joinRoom(r.id)}>${r.count >= r.maxPlayers ? 'Full' : 'Join'}</button>
               </div>`)}

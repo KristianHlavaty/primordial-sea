@@ -18,6 +18,7 @@ import { SPECIES, speciesOfStageTier, speciesStage } from '../data/species.js';
 import { ABILITY_SETS, ACTIVE_TIMER } from '../data/abilities.js';
 import { NPCS } from '../data/npcs.js';
 import { MAPS } from '../data/maps.js';
+import { BOSSES } from '../data/bosses.js';
 import { MAX_LEVEL, xpNeed } from '../data/progression.js';
 import { angLerp, clamp, lerp, hyp } from '../core/math.js';
 
@@ -41,19 +42,22 @@ export function mpStartHost(engine, { room, profile, lobby, selfConn, roster }) 
   engine.resetRun();
   const fantasy = !!room.fantasy;
   const evolution = room.evolution !== false;
+  const bosses = room.bosses === true;
+  const mapTransitions = room.mapTransitions === true;
   const cheats = room.cheats === true;
   engine.fantasyEvolution = fantasy; engine.cheatsEnabled = cheats; engine.invincible = false;
   const map = MAPS[room.map], stage = map.stage, tier = room.tier;
   engine.era = room.era || 0;
   engine.mp = {
-    role: 'host', lobby, self: selfConn, roster: roster || {}, stage, tier, fantasy, evolution, cheats,
+    role: 'host', lobby, self: selfConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, cheats,
     selfName: profile ? profile.name : 'Host', selfColor: profile ? profile.color : '#8affd0',
     inputs: {}, seq: 0, sendAcc: 0, nextNet: 1, feed: [], feedId: 0,
+    worldDirty: false, edgeKey: null, edgeDwell: 0, edgeConn: null, edgeName: null,
   };
   const mine = resolveSpecies(roster[selfConn] && roster[selfConn].species, stage, tier, fantasy);
   engine.player = null; engine.makePlayer(mine);
   engine.remotePlayers = [];
-  engine.loadMap(room.map);                       // builds the arena (bosses skipped in MP)
+  engine.loadMap(room.map);
   for (const cid in roster) {
     if (String(cid) === String(selfConn)) continue;
     engine.remotePlayers.push(new RemotePlayer(resolveSpecies(roster[cid].species, stage, tier, fantasy), engine,
@@ -67,12 +71,14 @@ export function mpStartClient(engine, { room, profile, lobby, selfConn, hostConn
   engine.resetRun();
   const fantasy = !!room.fantasy;
   const evolution = room.evolution !== false;
+  const bosses = room.bosses === true;
+  const mapTransitions = room.mapTransitions === true;
   const cheats = room.cheats === true;
   engine.fantasyEvolution = fantasy; engine.cheatsEnabled = cheats; engine.invincible = false;
   const map = MAPS[room.map], stage = map.stage, tier = room.tier;
   engine.era = room.era || 0;
   engine.mp = {
-    role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier, fantasy, evolution, cheats,
+    role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, cheats,
     selfName: profile ? profile.name : 'You', selfColor: profile ? profile.color : '#8affd0',
     sendAcc: 0, inputKeepalive: INPUT_KEEPALIVE, lastInput: null, reAsk: 0, gotInit: false,
     npcById: new Map(), rpById: new Map(), foodById: new Map(),
@@ -219,11 +225,65 @@ function applyCheat(engine, player, action) {
   engine.pushHud(true);
 }
 
+/* A multiplayer room shares one authoritative map. When map travel is
+   enabled, any living player can hold against a connected edge to move the
+   entire room to that neighboring map. */
+export function mpMaybeCrossMap(engine, dt) {
+  const mp = engine.mp;
+  if (!mp || mp.role !== 'host' || !mp.mapTransitions) {
+    engine.nearEdge = null;
+    return false;
+  }
+  if (engine.transitionCd > 0) engine.transitionCd -= dt;
+  const map = MAPS[engine.mapId], neighbors = (map && map.neighbors) || {};
+  const passageAllows = (player, edge) => {
+    const gate = map.passages && map.passages[edge]; if (!gate) return true;
+    const horizontal = edge === 'top' || edge === 'bottom';
+    const pos = horizontal ? player.x : player.y, span = horizontal ? engine.W : engine.H;
+    return Math.abs(pos - span * gate.center) <= gate.width * 0.5;
+  };
+  const edgeOf = player => {
+    if (neighbors.left && passageAllows(player, 'left') && player.x <= player.radius + 6) return 'left';
+    if (neighbors.right && passageAllows(player, 'right') && player.x >= engine.W - player.radius - 6) return 'right';
+    if (neighbors.top && passageAllows(player, 'top') && player.y <= player.radius + 6) return 'top';
+    if (neighbors.bottom && passageAllows(player, 'bottom') && player.y >= engine.H - player.radius - 6) return 'bottom';
+    return null;
+  };
+
+  let candidate = null;
+  for (const player of engine.allPlayers()) {
+    if (!player || player.deadT > 0) continue;
+    const edge = edgeOf(player);
+    if (edge) {
+      candidate = { player, edge, conn: player === engine.player ? mp.self : player.connId, name: MAPS[neighbors[edge]].name };
+      break;
+    }
+  }
+  mp.edgeConn = candidate ? candidate.conn : null;
+  mp.edgeName = candidate ? candidate.name : null;
+  engine.nearEdge = candidate && candidate.player === engine.player ? candidate.name : null;
+  const edgeKey = candidate ? (String(candidate.conn) + ':' + candidate.edge) : null;
+  if (edgeKey !== mp.edgeKey) { mp.edgeKey = edgeKey; mp.edgeDwell = 0; }
+  if (candidate && engine.transitionCd <= 0) {
+    mp.edgeDwell += dt;
+    if (mp.edgeDwell > 0.3) {
+      engine.loadMap(neighbors[candidate.edge], candidate.edge);
+      mp.edgeKey = null; mp.edgeDwell = 0; mp.edgeConn = null; mp.edgeName = null;
+      return true;
+    }
+  } else if (!candidate) mp.edgeDwell = 0;
+  return false;
+}
+
 /* ---------------- host: broadcast ---------------- */
 
 export function mpBroadcast(engine, dt) {
   const mp = engine.mp;
   if (!engine.remotePlayers.length) { mp.sendAcc = 0; return; }
+  if (mp.worldDirty) {
+    if (mp.lobby) mp.lobby.raw({ t: 'relay', data: buildWorldInit(engine) });
+    mp.worldDirty = false;
+  }
   mp.sendAcc += dt;
   if (mp.sendAcc < 1 / HOST_HZ) return;
   mp.sendAcc %= 1 / HOST_HZ;
@@ -252,9 +312,16 @@ function buildSnapshot(engine) {
   for (const rp of engine.remotePlayers) pushP(rp, rp.connId);
   const npcs = [];
   for (const c of engine.creatures) {
-    if (c.boss) continue;
     if (c.netId == null) c.netId = mp.nextNet++;
-    npcs.push({ n: c.netId, k: c.key, x: Math.round(c.x), y: Math.round(c.y), a: roundTo(c.angle, 2), hp: Math.round(c.hp), mhp: Math.round(c.maxHp), r: Math.round(c.radius), lv: c.level || 1, st: c.stunT > 0 ? 1 : 0 });
+    const npc = { n: c.netId, k: c.key, x: Math.round(c.x), y: Math.round(c.y), a: roundTo(c.angle, 2), hp: Math.round(c.hp), mhp: Math.round(c.maxHp), r: Math.round(c.radius), lv: c.level || 1, st: c.stunT > 0 ? 1 : 0 };
+    if (c.boss) {
+      npc.bk = c.bossKind; npc.h = Math.ceil((c.hardenT || 0) * 10); npc.e = c.engaged ? 1 : 0;
+      npc.tg = c.telegraph ? { ...c.telegraph, t: roundTo(c.telegraph.t, 2), max: roundTo(c.telegraph.max, 2) } : undefined;
+    } else if (!NPCS[c.key]) {
+      npc.pl = c.plan; npc.co = c.cocoon ? 1 : 0; npc.lo = c.lumenOrb ? 1 : 0;
+      if (c.hatchT != null) npc.ht = roundTo(c.hatchT, 1);
+    }
+    npcs.push(npc);
     if (npcs.length >= 80) break;
   }
   const food = [];
@@ -263,7 +330,14 @@ function buildSnapshot(engine) {
     food.push({ n: f.netId, x: Math.round(f.x), y: Math.round(f.y), m: f.kind === 'meat' ? 1 : 0 });
     if (food.length >= 60) break;
   }
-  return { k: 'S', q: mp.seq++, players, npcs, food };
+  const dynamicWebs = engine.webs.filter(w => w.life != null).map(w => ({
+    x: Math.round(w.x), y: Math.round(w.y), r: Math.round(w.r), angle: roundTo(w.angle || 0, 2), life: roundTo(w.life, 1),
+  }));
+  return {
+    k: 'S', q: mp.seq++, players, npcs, food, dynamicWebs,
+    edgeC: mp.edgeConn, edgeName: mp.edgeName,
+    perks: engine.perks, bossesDefeated: [...engine.bossesDefeated],
+  };
 }
 
 function buildWorldInit(engine) {
@@ -291,11 +365,20 @@ function makeRenderPlayer(engine, pd) {
   return player;
 }
 function makeRenderNpc(nd) {
-  const s = NPCS[nd.k], plan = s ? s.plan : { kind: 'microbe', body: '#88a', accent: '#ccd' };
+  const boss = nd.bk && BOSSES[nd.bk];
+  if (boss) return {
+    netId: nd.n, key: nd.bk, bossKind: nd.bk, kind: boss.kind, title: boss.title, short: boss.short,
+    plan: { ...boss.plan }, boss: true, role: 'predator', scale: boss.scale || 1, animOff: (nd.n * 7) % 100,
+    vx: 0, vy: 0, mouth: 0, hurt: 0, hpBarT: 0, stunT: 0, slowT: 0, hardenT: (nd.h || 0) / 10,
+    engaged: !!nd.e, telegraph: nd.tg || null,
+    x: nd.x, y: nd.y, angle: nd.a, gx: nd.x, gy: nd.y, ga: nd.a,
+    hp: nd.hp, maxHp: nd.mhp, radius: nd.r, level: nd.lv,
+  };
+  const s = NPCS[nd.k], plan = nd.pl || (s ? s.plan : { kind: 'microbe', body: '#88a', accent: '#ccd' });
   return {
     netId: nd.n, key: nd.k, plan, boss: false, role: s ? s.role : 'prey', scale: 1, animOff: (nd.n * 7) % 100,
     vx: 0, vy: 0, mouth: 0, hurt: 0, hpBarT: 0, stunT: 0, x: nd.x, y: nd.y, angle: nd.a, gx: nd.x, gy: nd.y, ga: nd.a,
-    hp: nd.hp, maxHp: nd.mhp, radius: nd.r, level: nd.lv,
+    hp: nd.hp, maxHp: nd.mhp, radius: nd.r, level: nd.lv, cocoon: !!nd.co, lumenOrb: !!nd.lo, hatchT: nd.ht,
   };
 }
 
@@ -312,6 +395,12 @@ function applyAbilityState(player, state) {
 
 function applySnapshot(engine, s) {
   const mp = engine.mp;
+  engine.nearEdge = s.edgeC === mp.self ? (s.edgeName || null) : null;
+  if (s.perks) engine.perks = {
+    dmgReduce: s.perks.dmgReduce || 0, dodge: s.perks.dodge || 0, webResist: s.perks.webResist || 0,
+    shockAfterglow: s.perks.shockAfterglow || 0, list: Array.isArray(s.perks.list) ? s.perks.list.map(x => ({ ...x })) : [],
+  };
+  if (Array.isArray(s.bossesDefeated)) engine.bossesDefeated = new Set(s.bossesDefeated);
   const seen = mp.seenPlayers; seen.clear();
   for (const pd of s.players) {
     if (pd.c === mp.self) {
@@ -349,6 +438,8 @@ function applySnapshot(engine, s) {
     if (!c) { c = makeRenderNpc(nd); mp.npcById.set(nd.n, c); }
     c.gx = nd.x; c.gy = nd.y; c.ga = nd.a; c.hp = nd.hp; c.maxHp = nd.mhp; c.radius = nd.r; c.level = nd.lv;
     c.stunT = nd.st ? 0.4 : 0; c.hpBarT = nd.hp < nd.mhp ? 1.2 : c.hpBarT;
+    if (c.boss) { c.hardenT = (nd.h || 0) / 10; c.engaged = !!nd.e; c.telegraph = nd.tg || null; }
+    if (c.cocoon && nd.ht != null) c.hatchT = nd.ht;
   }
   for (const [nid] of mp.npcById) if (!seenN.has(nid)) mp.npcById.delete(nid);
   engine.creatures.length = 0;
@@ -366,11 +457,26 @@ function applySnapshot(engine, s) {
   for (const [fid] of mp.foodById) if (!seenF.has(fid)) mp.foodById.delete(fid);
   engine.food.length = 0;
   for (const f of mp.foodById.values()) engine.food.push(f);
+  const staticWebs = engine.webs.filter(w => w.life == null);
+  engine.webs = staticWebs.concat((s.dynamicWebs || []).map(w => ({ ...w })));
 }
 
 function applyWorldInit(engine, w) {
-  engine.mp.gotInit = true;
-  engine.W = w.W; engine.H = w.H; engine.theme = w.theme; if (w.map) engine.mapId = w.map;
+  const mp = engine.mp, mapChanged = !!(w.map && w.map !== engine.mapId);
+  mp.gotInit = true;
+  engine.W = w.W; engine.H = w.H; engine.theme = w.theme; engine.era = w.era || 0;
+  if (w.map) {
+    engine.mapId = w.map;
+    if (MAPS[w.map]) { engine.stage = MAPS[w.map].stage; mp.stage = engine.stage; }
+  }
+  if (mapChanged) {
+    mp.npcById.clear(); mp.rpById.clear(); mp.foodById.clear();
+    mp.seenNpcs.clear(); mp.seenPlayers.clear(); mp.seenFood.clear();
+    engine.creatures.length = 0; engine.remotePlayers.length = 0; engine.food.length = 0;
+    engine.bubbles.length = 0; seedBubbles(engine);
+    if (engine.player) engine.player._netInit = false;
+    engine.transitionCd = 1.2; engine.nearEdge = null;
+  }
   engine.obstacles = (w.obstacles || []).map(o => ({ ...o }));
   engine.plants = (w.plants || []).map(p => ({ ...p, value: 1, eatCd: 0, regen: 0 }));
   engine.webs = (w.webs || []).map(x => ({ ...x }));
@@ -389,7 +495,13 @@ export function mpClientUpdate(engine, dt) {
   };
   if (engine.player) { smooth(engine.player); decay(engine.player); }
   for (const rp of engine.remotePlayers) { smooth(rp); decay(rp); }
-  for (const c of engine.creatures) { smooth(c); c.mouth = Math.max(0, (c.mouth || 0) - dt * 3); c.hurt = Math.max(0, (c.hurt || 0) - dt * 3); if (c.hpBarT > 0) c.hpBarT -= dt; }
+  for (const c of engine.creatures) {
+    smooth(c); c.mouth = Math.max(0, (c.mouth || 0) - dt * 3); c.hurt = Math.max(0, (c.hurt || 0) - dt * 3);
+    if (c.hpBarT > 0) c.hpBarT -= dt;
+    if (c.hardenT > 0) c.hardenT = Math.max(0, c.hardenT - dt);
+    if (c.telegraph && c.telegraph.t > 0) c.telegraph.t = Math.max(0, c.telegraph.t - dt);
+    if (c.cocoon && c.hatchT > 0) c.hatchT = Math.max(0, c.hatchT - dt);
+  }
 
   const p = engine.player;
   if (p) {
@@ -429,4 +541,25 @@ export function mpRoster(engine) {
   const out = [{ connId: mp.self, name: mp.selfName, color: mp.selfColor, level: engine.player ? engine.player.level : 1, kills: engine.player ? (engine.player.kills || 0) : 0, dead: !!(engine.player && engine.player.deadT > 0), self: true }];
   for (const rp of engine.remotePlayers) out.push({ connId: rp.connId, name: rp.name, color: rp.color, level: rp.level || 1, kills: rp.kills || 0, dead: rp.deadT > 0, self: false });
   return out.sort((a, b) => b.kills - a.kills);
+}
+
+/* Plain, already-normalized marker data for the React minimap. */
+export function mpMinimap(engine) {
+  const mp = engine.mp; if (!mp || !engine.W || !engine.H) return null;
+  const marker = (player, self) => ({
+    connId: self ? mp.self : player.connId,
+    name: self ? mp.selfName : player.name,
+    color: self ? mp.selfColor : player.color,
+    x: clamp(player.x / engine.W * 100, 0, 100), y: clamp(player.y / engine.H * 100, 0, 100),
+    dead: player.deadT > 0, self,
+  });
+  const players = [];
+  if (engine.player) players.push(marker(engine.player, true));
+  for (const player of engine.remotePlayers) players.push(marker(player, false));
+  const bosses = mp.bosses ? engine.creatures.filter(c => c.boss).map(c => ({
+    id: c.bossKind, name: c.short || c.title || 'Boss', color: (c.plan && c.plan.accent) || '#ff697a',
+    x: clamp(c.x / engine.W * 100, 0, 100), y: clamp(c.y / engine.H * 100, 0, 100),
+    hp: c.maxHp ? clamp(c.hp / c.maxHp, 0, 1) : 1,
+  })) : [];
+  return { mapId: engine.mapId, name: MAPS[engine.mapId] ? MAPS[engine.mapId].name : '', W: engine.W, H: engine.H, players, bosses };
 }
