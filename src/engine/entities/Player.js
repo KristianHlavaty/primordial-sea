@@ -29,6 +29,7 @@ export class Player extends Entity {
     this.burrowT = 0; this.sprintT = 0;   // land: Burrow (invuln dig), Sprint (haste)
     this.rebirthUsed = false;   // Colony Rebirth fires once per life
     this.kills = 0; this.deaths = 0; this.deadT = 0; this.spawnProtT = 0;   // multiplayer FFA state
+    this.mpEvolveChoices = [];  // host-authoritative same-stage choices, empty during normal play
     this.applyLevelStats(world); this.hp = this.maxHp;
     const tb = world && world.talentBonus;                 // Carapace talent: each new form starts shielded
     if (tb && tb.startShieldPct > 0) { this.shield = Math.round(this.maxHp * tb.startShieldPct); this.shieldMax = this.shield; this.shieldT = 30; }
@@ -75,7 +76,11 @@ export class Player extends Entity {
     if (game.pendingEvolve || game.dead || this.level >= MAX_LEVEL) return;
     this.xp += v * XP_MULT * (game.talentBonus ? game.talentBonus.xpMul : 1);
     while (this.level < MAX_LEVEL && this.xp >= xpNeed(this.level)) { this.xp -= xpNeed(this.level); this.level++; this.levelUp(game); }
-    if (this.level >= MAX_LEVEL) { this.xp = 0; if (this.species.evolvesTo.length && !game.mp) game.triggerEvolve(); }
+    if (this.level >= MAX_LEVEL) {
+      this.xp = 0;
+      if (game.mp && game.mp.role === 'host') game.queueMpEvolution(this);
+      else if (this.species.evolvesTo.length && !game.mp) game.triggerEvolve();
+    }
   }
 
   levelUp(game) {
@@ -161,7 +166,7 @@ export class Player extends Entity {
      Barbs/Nettle punish the attacker, Ironhide and the shield soak damage. */
   takeHit(game, dmg, fromx, fromy, attacker) {
     if (this.hp <= 0 || this.deadT > 0) return;
-    if (this.spawnProtT > 0) { burst(game, this.x, this.y, '#a0ffd8', 3, 45); return; }   // just respawned — briefly immune
+    if (this.spawnProtT > 0 || (this.mpEvolveChoices && this.mpEvolveChoices.length)) { burst(game, this.x, this.y, '#a0ffd8', 3, 45); return; }   // respawning or choosing an evolution
     if (game.invincible) { burst(game, this.x, this.y, '#ff5d68', 3, 45); return; }
     if (this.enrollT > 0) { burst(game, this.x, this.y, '#ffe6b0', 4, 60); return; }
     if (this.burrowT > 0) { burst(game, this.x, this.y, '#c79a5e', 4, 60); return; }   // underground — untouchable

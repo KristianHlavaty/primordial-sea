@@ -24,6 +24,7 @@ function HostPanel({ profile, onCreate, onCancel }) {
   const [mapId, setMapId] = useState('sea_shallows');
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [fantasy, setFantasy] = useState(true);
+  const [evolution, setEvolution] = useState(true);
   const stage = MAPS[mapId].stage;
   const tiers = tiersOfStage(stage, fantasy);
   const [tier, setTier] = useState(tiers[0] || 1);
@@ -31,7 +32,7 @@ function HostPanel({ profile, onCreate, onCancel }) {
 
   const picks = speciesOfStageTier(stage, tier, fantasy).map(id => SPECIES[id].name);
   const era = eraFor(stage, tier);
-  const create = () => onCreate({ name: name.trim() || (profile.name + "'s game"), map: mapId, mapName: MAPS[mapId].name, stage, tier, era, maxPlayers, fantasy });
+  const create = () => onCreate({ name: name.trim() || (profile.name + "'s game"), map: mapId, mapName: MAPS[mapId].name, stage, tier, era, maxPlayers, fantasy, evolution });
 
   return html`
     <div className="hostPanel">
@@ -50,16 +51,23 @@ function HostPanel({ profile, onCreate, onCancel }) {
       </div>
       <div className="hpPicks">Animals: ${picks.join(' · ')}</div>
 
-      <label className="fantasyToggle"><input type="checkbox" checked=${fantasy} onChange=${e => setFantasy(e.target.checked)}/>
-        Allow fantasy animals <small>(adds speculative animals to the room's map and tier)</small>
-      </label>
+      <div className="roomToggles">
+        <label className="roomToggle">
+          <input type="checkbox" checked=${fantasy} onChange=${e => setFantasy(e.target.checked)}/>
+          <span><b>Allow fantasy animals</b><small>Adds speculative animals to the room's map and tier</small></span>
+        </label>
+        <label className="roomToggle">
+          <input type="checkbox" checked=${evolution} onChange=${e => setEvolution(e.target.checked)}/>
+          <span><b>Allow evolution within this stage</b><small>Players can progress through the remaining tiers, but cannot enter another stage</small></span>
+        </label>
+      </div>
 
       <label className="pfLabel">Max players</label>
       <div className="hpTiers">
         ${[2, 3, 4, 5, 6, 8].map(n => html`<button key=${n} className=${'hpTier' + (n === maxPlayers ? ' sel' : '')} onClick=${() => setMaxPlayers(n)}>${n}</button>`)}
       </div>
 
-      <div className="mpNote" style=${{ marginTop: '12px' }}>Combat is <b>free-for-all</b>. The world stays at this map & tier (a fixed arena).</div>
+      <div className="mpNote" style=${{ marginTop: '12px' }}>Combat is <b>free-for-all</b>. The map and stage stay fixed for the whole match.</div>
 
       <div className="pfActions">
         <button className="stayBtn" onClick=${onCancel}>Cancel</button>
@@ -79,6 +87,7 @@ function RoomView({ room, connId, onSetSpecies, onLeave, onStart }) {
       <div className="roomInfo">
         <div><b>${room.name}</b></div>
         ${room.fantasy && html`<div className="fantasyRoom">Fantasy animals enabled</div>`}
+        ${room.evolution && html`<div className="fantasyRoom">Evolution within this stage enabled</div>`}
         <div className="roomMeta">${room.mapName} · ${STAGES[room.stage] ? STAGES[room.stage].name : room.stage} · Tier ${room.tier} · ${room.players.length}/${room.maxPlayers} · <span className="ffa">free-for-all</span></div>
       </div>
 
@@ -140,7 +149,7 @@ export function MultiplayerScreen({ profile, lobby, ls, onBack }) {
             ? html`<div className="mpEmpty">${connected ? 'No games yet. Host one below and share your address, or wait for a friend to host.' : 'Connecting…'}</div>`
             : ls.rooms.map(r => html`<div key=${r.id} className="roomRow">
                 ${dot(r.hostColor)}
-                <div className="rrMain"><b>${r.name}</b><small>${r.hostName} · ${r.mapName} · Tier ${r.tier}${r.fantasy ? ' · Fantasy animals' : ''}</small></div>
+                <div className="rrMain"><b>${r.name}</b><small>${r.hostName} · ${r.mapName} · Tier ${r.tier}${r.fantasy ? ' · Fantasy animals' : ''}${r.evolution ? ' · Evolution' : ''}</small></div>
                 <span className="rrCount">${r.count}/${r.maxPlayers}</span>
                 <button className="rrJoin" disabled=${r.count >= r.maxPlayers} onClick=${() => L && L.joinRoom(r.id)}>${r.count >= r.maxPlayers ? 'Full' : 'Join'}</button>
               </div>`)}

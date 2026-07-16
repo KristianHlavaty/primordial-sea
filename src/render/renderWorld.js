@@ -303,7 +303,10 @@ function drawPlayerTags(E) {
 
 /* Animate the evolve-modal choice canvases (registered by the modal). */
 function drawPreviews(E) {
-  for (const id of E.choices) {
+  const choices = E.mp && E.player && E.player.mpEvolveChoices
+    ? E.player.mpEvolveChoices
+    : E.choices;
+  for (const id of choices) {
     const cv = E.previewCanvas[id]; if (!cv) continue;
     const c2 = cv.getContext('2d'); const w = cv.width, h = cv.height;
     c2.clearRect(0, 0, w, h); const sp = SPECIES[id];
@@ -545,5 +548,5 @@ export function renderWorld(E) {
     ctx.fillText('☠ ' + c.short.toUpperCase(), clamp(mx, 50, E.vw - 50), clamp(my - 15, 12, E.vh - 6)); ctx.textAlign = 'left';
   }
 
-  if (E.pendingEvolve) drawPreviews(E);
+  if (E.pendingEvolve || (E.mp && E.player && E.player.mpEvolveChoices && E.player.mpEvolveChoices.length)) drawPreviews(E);
 }

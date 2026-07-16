@@ -9,17 +9,22 @@ import { Player } from './Player.js';
 import { rand } from '../../core/math.js';
 
 export class RemotePlayer extends Player {
-  constructor(speciesId, world, meta) {
-    super(speciesId, null, world);
+  constructor(speciesId, world, meta, previous = null) {
+    super(speciesId, previous, world);
     this.connId = meta.connId;
     this.name = meta.name || 'Player';
     this.color = meta.color || '#8affd0';
-    this.input = { tx: 0, ty: 0, moving: false, bite: false };
+    this.input = previous ? previous.input : { tx: 0, ty: 0, moving: false, bite: false };
     // spread arrivals out so players don't stack on the exact centre
-    this.x = world.W * (0.35 + rand(0, 0.3));
-    this.y = world.H * (0.35 + rand(0, 0.3));
+    if (!previous) {
+      this.x = world.W * (0.35 + rand(0, 0.3));
+      this.y = world.H * (0.35 + rand(0, 0.3));
+    }
   }
 
-  steer() { const i = this.input; return { tx: i.tx || 0, ty: i.ty || 0, moving: !!i.moving }; }
-  wantsBite() { return !!this.input.bite; }
+  steer() {
+    if (this.mpEvolveChoices && this.mpEvolveChoices.length) return { tx: 0, ty: 0, moving: false };
+    const i = this.input; return { tx: i.tx || 0, ty: i.ty || 0, moving: !!i.moving };
+  }
+  wantsBite() { return !(this.mpEvolveChoices && this.mpEvolveChoices.length) && !!this.input.bite; }
 }

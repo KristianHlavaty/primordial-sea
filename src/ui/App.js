@@ -75,6 +75,7 @@ export function App() {
     else if (talentsOpen) closeTalents();
     else if (treeOpen) closeTree();
     else if (atlasOpen) closeAtlas();
+    else if (hud && hud.pendingEvolve) return;   // evolution is a required choice, not a dismissible menu
     else if (engineRef.current && engineRef.current.mp) toggleMpMenu();
     else if (engineRef.current) engineRef.current.togglePause();
   };
@@ -120,7 +121,7 @@ export function App() {
   }, [mpState.room]);
   const curId = (engine && engine.player) ? engine.player.speciesId : 'protocell';
   const contentModalOpen = treeOpen || atlasOpen || bossEffectsOpen || talentsOpen;
-  const inputBlocked = contentModalOpen || settingsOpen || profileOpen || mpMenuOpen || !!(hud && hud.paused);
+  const inputBlocked = contentModalOpen || settingsOpen || profileOpen || mpMenuOpen || !!(hud && (hud.paused || hud.pendingEvolve));
   uiRef.current = {
     phase, frameRate: settings.frameRate, inputBlocked, handleEscape,
     treeOpen, openTree, closeTree, atlasOpen, openAtlas, closeAtlas,

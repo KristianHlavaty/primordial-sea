@@ -27,7 +27,7 @@ import { spawnInitial, spawnMaintain, spawnRandomNpc } from './systems/spawning.
 import { activateAbility } from './systems/abilities.js';
 import { burst } from './systems/effects.js';
 import { renderWorld } from '../render/renderWorld.js';
-import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster } from './mp.js';
+import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpQueueEvolution, mpChooseEvolution } from './mp.js';
 import { Sfx } from './audio.js';
 
 const CURRENT_SPEED = 165;   // sea-stage water current — px/s of drift at full strength
@@ -232,6 +232,7 @@ export class Engine {
   startMpClient(opts) { mpStartClient(this, opts); if (this.onScheduleChange) this.onScheduleChange(); }
   updateReplica(dt) { mpClientUpdate(this, dt); }
   onNetPacket(from, data) { mpOnPacket(this, from, data); }
+  queueMpEvolution(player) { mpQueueEvolution(this, player); }
   /* Keep the host's roster fresh so late joiners / colour edits resolve right. */
   mpSetRoster(roster) {
     if (!this.mp) return;
@@ -276,7 +277,10 @@ export class Engine {
     this.pushHud(true);
   }
   setPaused(v) { this.paused = v; }
-  canWiki() { return this.playing && !this.dead && !this.pendingEvolve && !this.paused; }
+  canWiki() {
+    const mpEvolving = !!(this.mp && this.player && this.player.mpEvolveChoices && this.player.mpEvolveChoices.length);
+    return this.playing && !this.dead && !this.pendingEvolve && !mpEvolving && !this.paused;
+  }
   toggleMute() { this.sfx.muted = !this.sfx.muted; this.pushHud(true); }
   toggleLevels() { this.showLevels = !this.showLevels; this.pushHud(true); }
   toggleInvincible() { if (this.cheatsEnabled) { this.invincible = !this.invincible; this.pushHud(true); } }
@@ -379,6 +383,7 @@ export class Engine {
   setInputSuppressed(value) { this.inputSuppressed = !!value; if (this.inputSuppressed) this.releaseInput(); }
   useAbility(idx) {
     if (this.mp) {
+      if (this.player && this.player.mpEvolveChoices && this.player.mpEvolveChoices.length) return;
       if (this.mp.role === 'client') { if (this.mp.lobby) this.mp.lobby.raw({ t: 'relay', to: this.mp.host, data: { k: 'A', i: idx } }); return; }
       activateAbility(this, idx, this.player); return;   // host activates its own power
     }
@@ -534,6 +539,7 @@ export class Engine {
   }
 
   chooseEvolution(id) {
+    if (this.mp) { mpChooseEvolution(this, id); return; }
     if (!this.pendingEvolve) return;
     const fromStage = this.stage, toStage = speciesStage(id);
     this.makePlayer(id); this.era++;
@@ -753,6 +759,8 @@ export class Engine {
     if (!force) { if (this.time - this.hudT < (this.mp ? 0.1 : 0.05)) return; }
     this.hudT = this.time;
     const p = this.player;
+    const mpChoices = this.mp && p && Array.isArray(p.mpEvolveChoices) ? p.mpEvolveChoices : [];
+    const pendingEvolution = this.mp ? mpChoices.length > 0 : this.pendingEvolve;
     const abils = p ? p.abilities.map((id, i) => {
       const ab = ABILITIES[id]; const cd = p.acd[id] || 0; const tf = ACTIVE_TIMER[id];
       let active = ab.passive, activeFrac = 0;
@@ -765,10 +773,10 @@ export class Engine {
     this.onHud({
       hp: p ? p.hp : 0, maxHp: p ? p.maxHp : 1,
       level: p ? p.level : 1, xp: p ? Math.round(p.xp) : 0, xpNeed: p ? xpNeed(p.level) : 1,
-      canEvolve: p ? !this.mp && p.species.evolvesTo.length > 0 : false, showLevels: this.showLevels,
+      canEvolve: p ? (this.mp ? mpChoices.length > 0 : p.species.evolvesTo.length > 0) : false, showLevels: this.showLevels,
       name: p ? p.species.name : '', branch: p ? p.species.branch : '-', tier: p ? p.species.tier : 0, era: this.era,
-      kills: this.kills, dead: this.dead, paused: this.paused, pendingEvolve: this.pendingEvolve, evolveMode: this.evolveMode,
-      choices: this.choices.slice(), muted: this.sfx.muted,
+      kills: this.kills, dead: this.dead, paused: this.paused, pendingEvolve: pendingEvolution, evolveMode: this.mp ? 'normal' : this.evolveMode,
+      choices: this.mp ? mpChoices.slice() : this.choices.slice(), muted: this.sfx.muted,
       abilities: abils, shield: p ? Math.round(p.shield) : 0, shieldMax: p ? p.shieldMax : 0,
       perks: this.perks.list.map(x => ({ id: x.id, name: x.name, icon: x.icon, color: x.color, blurb: x.blurb })),
       achievement: this.achievement,
