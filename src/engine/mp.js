@@ -29,28 +29,31 @@ const sendTransient = (lobby, packet) => {
 };
 const roundTo = (n, places) => { const scale = 10 ** places; return Math.round(n * scale) / scale; };
 
-const defaultSpecies = (stage, tier) => speciesOfStageTier(stage, tier, true)[0] || 'protocell';
-const resolveSpecies = (id, stage, tier) => (id && SPECIES[id]) ? id : defaultSpecies(stage, tier);
+const resolveSpecies = (id, stage, tier, fantasy) => {
+  const eligible = speciesOfStageTier(stage, tier, fantasy);
+  return id && eligible.includes(id) ? id : (eligible[0] || 'protocell');
+};
 
 /* ---------------- start ---------------- */
 
 export function mpStartHost(engine, { room, profile, lobby, selfConn, roster }) {
   engine.resetRun();
-  engine.fantasyEvolution = false; engine.cheatsEnabled = false; engine.invincible = false;
+  const fantasy = !!room.fantasy;
+  engine.fantasyEvolution = fantasy; engine.cheatsEnabled = false; engine.invincible = false;
   const map = MAPS[room.map], stage = map.stage, tier = room.tier;
   engine.era = room.era || 0;
   engine.mp = {
-    role: 'host', lobby, self: selfConn, roster: roster || {}, stage, tier,
+    role: 'host', lobby, self: selfConn, roster: roster || {}, stage, tier, fantasy,
     selfName: profile ? profile.name : 'Host', selfColor: profile ? profile.color : '#8affd0',
     inputs: {}, seq: 0, sendAcc: 0, nextNet: 1, feed: [], feedId: 0,
   };
-  const mine = resolveSpecies(roster[selfConn] && roster[selfConn].species, stage, tier);
+  const mine = resolveSpecies(roster[selfConn] && roster[selfConn].species, stage, tier, fantasy);
   engine.player = null; engine.makePlayer(mine);
   engine.remotePlayers = [];
   engine.loadMap(room.map);                       // builds the arena (bosses skipped in MP)
   for (const cid in roster) {
     if (String(cid) === String(selfConn)) continue;
-    engine.remotePlayers.push(new RemotePlayer(resolveSpecies(roster[cid].species, stage, tier), engine,
+    engine.remotePlayers.push(new RemotePlayer(resolveSpecies(roster[cid].species, stage, tier, fantasy), engine,
       { connId: Number(cid), name: roster[cid].name, color: roster[cid].color }));
   }
   engine.playing = true; engine.paused = false; engine.dead = false;
@@ -59,18 +62,19 @@ export function mpStartHost(engine, { room, profile, lobby, selfConn, roster }) 
 
 export function mpStartClient(engine, { room, profile, lobby, selfConn, hostConn, roster }) {
   engine.resetRun();
-  engine.fantasyEvolution = false;
+  const fantasy = !!room.fantasy;
+  engine.fantasyEvolution = fantasy;
   const map = MAPS[room.map], stage = map.stage, tier = room.tier;
   engine.era = room.era || 0;
   engine.mp = {
-    role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier,
+    role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier, fantasy,
     selfName: profile ? profile.name : 'You', selfColor: profile ? profile.color : '#8affd0',
     sendAcc: 0, inputKeepalive: INPUT_KEEPALIVE, lastInput: null, reAsk: 0, gotInit: false,
     npcById: new Map(), rpById: new Map(), foodById: new Map(),
     seenNpcs: new Set(), seenPlayers: new Set(), seenFood: new Set(), feed: [], feedId: 0,
   };
   engine.mapId = room.map; engine.stage = stage; engine.theme = map.theme; engine.W = map.W; engine.H = map.H;
-  const mine = resolveSpecies(roster[selfConn] && roster[selfConn].species, stage, tier);
+  const mine = resolveSpecies(roster[selfConn] && roster[selfConn].species, stage, tier, fantasy);
   engine.player = null; engine.makePlayer(mine);
   engine.player.x = engine.W / 2; engine.player.y = engine.H / 2; engine.player._netInit = false;
   engine.remotePlayers = []; engine.creatures = []; engine.plants = []; engine.food = []; engine.obstacles = []; engine.webs = []; engine.bubbles = [];
@@ -112,7 +116,7 @@ export function mpOnPacket(engine, from, data) {
 
 function ensureRemote(engine, connId) {
   const mp = engine.mp, r = mp.roster[connId] || {};
-  const rp = new RemotePlayer(resolveSpecies(r.species, mp.stage, mp.tier), engine, { connId, name: r.name, color: r.color });
+  const rp = new RemotePlayer(resolveSpecies(r.species, mp.stage, mp.tier, mp.fantasy), engine, { connId, name: r.name, color: r.color });
   engine.remotePlayers.push(rp);
   if (engine.onScheduleChange) engine.onScheduleChange();
   return rp;

@@ -476,7 +476,7 @@ export class Engine {
      tell the player they've hit a dead end rather than leaving them puzzled. */
   isLandDeadEnd() {
     const p = this.player;
-    if (!p || this.stage !== 'sea' || p.species.evolvesTo.length !== 0) return false;
+    if (this.mp || !p || this.stage !== 'sea' || p.species.evolvesTo.length !== 0) return false;
     return this.availablePioneers().length === 0 && this.availablePioneers(true).length > 0;
   }
 
@@ -485,7 +485,7 @@ export class Engine {
      from `id` has a land pioneer available to it (but Fantasy on would). Used
      by the evolve modal to warn before you commit to a cnidarian/mollusc road. */
   leadsToLandDeadEnd(id) {
-    if (this.fantasyEvolution || speciesStage(id) !== 'sea') return false;
+    if (this.mp || this.fantasyEvolution || speciesStage(id) !== 'sea') return false;
     // collect reachable sea apexes from this choice
     const apexes = [], seen = new Set(), q = [id];
     while (q.length) {
@@ -765,7 +765,7 @@ export class Engine {
     this.onHud({
       hp: p ? p.hp : 0, maxHp: p ? p.maxHp : 1,
       level: p ? p.level : 1, xp: p ? Math.round(p.xp) : 0, xpNeed: p ? xpNeed(p.level) : 1,
-      canEvolve: p ? p.species.evolvesTo.length > 0 : false, showLevels: this.showLevels,
+      canEvolve: p ? !this.mp && p.species.evolvesTo.length > 0 : false, showLevels: this.showLevels,
       name: p ? p.species.name : '', branch: p ? p.species.branch : '-', tier: p ? p.species.tier : 0, era: this.era,
       kills: this.kills, dead: this.dead, paused: this.paused, pendingEvolve: this.pendingEvolve, evolveMode: this.evolveMode,
       choices: this.choices.slice(), muted: this.sfx.muted,

@@ -9,7 +9,7 @@ import { frameRateLabel } from '../settings.js';
 export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onEditProfile, settings, onOpenSettings }) {
   const [view, setView] = useState('home');   // 'home' | 'single'
   const [showLand, setShowLand] = useState(false);
-  const [fantasyEvolution, setFantasyEvolution] = useState(false);
+  const [fantasyEvolution, setFantasyEvolution] = useState(true);
   const [cheats, setCheats] = useState(false);
 
   const pioneerBtn = id => {
