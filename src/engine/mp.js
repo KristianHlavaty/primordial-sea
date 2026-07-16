@@ -11,14 +11,14 @@
 
    Packet kinds (inside the relay's {t:'relay', data}):
      host -> clients:  {k:'S', ...snapshot}   {k:'W', ...worldInit}
-     client -> host:   {k:'I', tx,ty,m,b}     {k:'E', id}     {k:'ready'}       */
+     client -> host:   {k:'I', tx,ty,m,b}  {k:'E', id}  {k:'C', action}  {k:'ready'} */
 import { RemotePlayer } from './entities/RemotePlayer.js';
 import { activateAbility } from './systems/abilities.js';
 import { SPECIES, speciesOfStageTier, speciesStage } from '../data/species.js';
 import { ABILITY_SETS, ACTIVE_TIMER } from '../data/abilities.js';
 import { NPCS } from '../data/npcs.js';
 import { MAPS } from '../data/maps.js';
-import { MAX_LEVEL } from '../data/progression.js';
+import { MAX_LEVEL, xpNeed } from '../data/progression.js';
 import { angLerp, clamp, lerp, hyp } from '../core/math.js';
 
 const HOST_HZ = 20, CLIENT_HZ = 30;
@@ -41,11 +41,12 @@ export function mpStartHost(engine, { room, profile, lobby, selfConn, roster }) 
   engine.resetRun();
   const fantasy = !!room.fantasy;
   const evolution = room.evolution !== false;
-  engine.fantasyEvolution = fantasy; engine.cheatsEnabled = false; engine.invincible = false;
+  const cheats = room.cheats === true;
+  engine.fantasyEvolution = fantasy; engine.cheatsEnabled = cheats; engine.invincible = false;
   const map = MAPS[room.map], stage = map.stage, tier = room.tier;
   engine.era = room.era || 0;
   engine.mp = {
-    role: 'host', lobby, self: selfConn, roster: roster || {}, stage, tier, fantasy, evolution,
+    role: 'host', lobby, self: selfConn, roster: roster || {}, stage, tier, fantasy, evolution, cheats,
     selfName: profile ? profile.name : 'Host', selfColor: profile ? profile.color : '#8affd0',
     inputs: {}, seq: 0, sendAcc: 0, nextNet: 1, feed: [], feedId: 0,
   };
@@ -66,11 +67,12 @@ export function mpStartClient(engine, { room, profile, lobby, selfConn, hostConn
   engine.resetRun();
   const fantasy = !!room.fantasy;
   const evolution = room.evolution !== false;
-  engine.fantasyEvolution = fantasy;
+  const cheats = room.cheats === true;
+  engine.fantasyEvolution = fantasy; engine.cheatsEnabled = cheats; engine.invincible = false;
   const map = MAPS[room.map], stage = map.stage, tier = room.tier;
   engine.era = room.era || 0;
   engine.mp = {
-    role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier, fantasy, evolution,
+    role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier, fantasy, evolution, cheats,
     selfName: profile ? profile.name : 'You', selfColor: profile ? profile.color : '#8affd0',
     sendAcc: 0, inputKeepalive: INPUT_KEEPALIVE, lastInput: null, reAsk: 0, gotInit: false,
     npcById: new Map(), rpById: new Map(), foodById: new Map(),
@@ -110,6 +112,9 @@ export function mpOnPacket(engine, from, data) {
     } else if (data.k === 'E') {
       const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
       if (rp) commitEvolution(engine, rp, data.id);
+    } else if (data.k === 'C') {
+      const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
+      if (rp) applyCheat(engine, rp, data.action);
     } else if (data.k === 'ready') {
       if (mp.lobby) mp.lobby.raw({ t: 'relay', to: from, data: buildWorldInit(engine) });
     }
@@ -170,7 +175,7 @@ export function mpChooseEvolution(engine, id) {
 function commitEvolution(engine, player, id) {
   const choices = player.mpEvolveChoices || [];
   if (!choices.includes(id) || !SPECIES[id] || speciesStage(id) !== engine.stage) return;
-  const kills = player.kills || 0, deaths = player.deaths || 0;
+  const kills = player.kills || 0, deaths = player.deaths || 0, invincible = !!player.mpInvincible;
   let evolved;
   if (player === engine.player) {
     engine.makePlayer(id);
@@ -184,10 +189,33 @@ function commitEvolution(engine, player, id) {
     }, player);
     engine.remotePlayers[index] = evolved;
   }
-  evolved.kills = kills; evolved.deaths = deaths; evolved.mpEvolveChoices = [];
+  evolved.kills = kills; evolved.deaths = deaths; evolved.mpInvincible = invincible; evolved.mpEvolveChoices = [];
   evolved.spawnProtT = Math.max(evolved.spawnProtT || 0, 1.5);
   engine.sfx.play('evolve'); engine.shake = Math.min(10, engine.shake + 5);
   engine.mp.sendAcc = 1 / HOST_HZ;
+  engine.pushHud(true);
+}
+
+/* Testing cheats use the same authority model as combat and evolution. A
+   client requests an action, then the host applies it to that client's entity. */
+export function mpUseCheat(engine, action) {
+  const mp = engine.mp;
+  if (!mp || !mp.cheats || !engine.player) return;
+  if (mp.role === 'client') {
+    if (mp.lobby) mp.lobby.raw({ t: 'relay', to: mp.host, data: { k: 'C', action } });
+    return;
+  }
+  applyCheat(engine, engine.player, action);
+}
+
+function applyCheat(engine, player, action) {
+  const mp = engine.mp;
+  if (!mp || mp.role !== 'host' || !mp.cheats || !player) return;
+  if (action === 'invincible') player.mpInvincible = !player.mpInvincible;
+  else if (action === 'level' && player.level < MAX_LEVEL && !(player.mpEvolveChoices && player.mpEvolveChoices.length)) {
+    player.addXp(engine, xpNeed(player.level) / 2);
+  } else return;
+  mp.sendAcc = 1 / HOST_HZ;
   engine.pushHud(true);
 }
 
@@ -217,6 +245,7 @@ function buildSnapshot(engine) {
       b: roundTo(pl.biteAnim || 0, 2), sh: Math.round(pl.shield || 0), sm: Math.round(pl.shieldMax || 0),
       ab: abilityState, k: pl.kills || 0, d: Math.ceil(pl.deadT || 0),
       ev: pl.mpEvolveChoices && pl.mpEvolveChoices.length ? pl.mpEvolveChoices : undefined,
+      iv: pl.mpInvincible ? 1 : 0,
     });
   };
   pushP(engine.player, mp.self);
@@ -256,6 +285,7 @@ function makeRenderPlayer(engine, pd) {
     vx: 0, vy: 0, mouth: 0, hurt: 0, x: pd.x, y: pd.y, angle: pd.a, gx: pd.x, gy: pd.y, ga: pd.a,
     hp: pd.hp, maxHp: pd.mhp, level: pd.lv, xp: pd.xp || 0, shield: pd.sh, shieldMax: pd.sm || 0,
     abilities: (ABILITY_SETS[pd.s] || []).slice(), acd: {}, biteAnim: pd.b, kills: pd.k || 0, deadT: pd.d || 0,
+    mpInvincible: !!pd.iv,
   };
   applyAbilityState(player, pd.ab);
   return player;
@@ -291,6 +321,7 @@ function applySnapshot(engine, s) {
       pl.gx = pd.x; pl.gy = pd.y; pl.ga = pd.a; pl.hp = pd.hp; pl.maxHp = pd.mhp; pl.level = pd.lv; pl.xp = pd.xp || 0;
       pl.shield = pd.sh; pl.shieldMax = pd.sm || 0; applyAbilityState(pl, pd.ab);
       pl.kills = pd.k || 0; pl.deadT = pd.d || 0;
+      pl.mpInvincible = !!pd.iv;
       pl.mpEvolveChoices = Array.isArray(pd.ev) ? pd.ev.slice() : [];
       if (pl.mpEvolveChoices.length) engine.setInputSuppressed(true);
       else if (hadChoices) engine.setInputSuppressed(false);
@@ -306,7 +337,7 @@ function applySnapshot(engine, s) {
     }
     rp.gx = pd.x; rp.gy = pd.y; rp.ga = pd.a; rp.hp = pd.hp; rp.maxHp = pd.mhp; rp.level = pd.lv; rp.xp = pd.xp || 0;
     rp.shield = pd.sh; rp.shieldMax = pd.sm || 0; applyAbilityState(rp, pd.ab);
-    rp.kills = pd.k || 0; rp.deadT = pd.d || 0;
+    rp.kills = pd.k || 0; rp.deadT = pd.d || 0; rp.mpInvincible = !!pd.iv;
     if (pd.b > (rp.biteAnim || 0)) rp.biteAnim = pd.b;
   }
   for (const [cid, rp] of mp.rpById) if (!seen.has(cid)) { mp.rpById.delete(cid); const i = engine.remotePlayers.indexOf(rp); if (i >= 0) engine.remotePlayers.splice(i, 1); }

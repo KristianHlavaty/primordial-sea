@@ -27,7 +27,7 @@ import { spawnInitial, spawnMaintain, spawnRandomNpc } from './systems/spawning.
 import { activateAbility } from './systems/abilities.js';
 import { burst } from './systems/effects.js';
 import { renderWorld } from '../render/renderWorld.js';
-import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpQueueEvolution, mpChooseEvolution } from './mp.js';
+import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpQueueEvolution, mpChooseEvolution, mpUseCheat } from './mp.js';
 import { Sfx } from './audio.js';
 
 const CURRENT_SPEED = 165;   // sea-stage water current — px/s of drift at full strength
@@ -283,9 +283,15 @@ export class Engine {
   }
   toggleMute() { this.sfx.muted = !this.sfx.muted; this.pushHud(true); }
   toggleLevels() { this.showLevels = !this.showLevels; this.pushHud(true); }
-  toggleInvincible() { if (this.cheatsEnabled) { this.invincible = !this.invincible; this.pushHud(true); } }
+  toggleInvincible() {
+    if (!this.cheatsEnabled) return;
+    if (this.mp) { mpUseCheat(this, 'invincible'); return; }
+    this.invincible = !this.invincible; this.pushHud(true);
+  }
   cheatLevelUp() {
-    if (!this.cheatsEnabled || !this.player || this.pendingEvolve || this.player.level >= MAX_LEVEL) return;
+    if (!this.cheatsEnabled || !this.player) return;
+    if (this.mp) { mpUseCheat(this, 'level'); return; }
+    if (this.pendingEvolve || this.player.level >= MAX_LEVEL) return;
     this.player.addXp(this, xpNeed(this.player.level) / 2); this.pushHud(true);
   }
 
@@ -786,7 +792,7 @@ export class Engine {
       talentUnspent: this.talentUnspent(),
       canAscend: this.isSeaApex(), ascendAvailable: this.ascendAvailable, advanceAvailable: this.advanceAvailable, nearEdge: this.nearEdge,
       landDeadEnd: !!(p && p.level >= MAX_LEVEL && this.isLandDeadEnd()),
-      cheatsEnabled: this.cheatsEnabled, invincible: this.invincible,
+      cheatsEnabled: this.cheatsEnabled, invincible: this.mp && p ? !!p.mpInvincible : this.invincible,
       mpRole: this.mp ? this.mp.role : null, mpPlayers: this.mp ? mpRoster(this) : null,
       mpDead: !!(this.mp && this.player && this.player.deadT > 0), mpRespawnIn: (this.mp && this.player) ? Math.ceil(this.player.deadT || 0) : 0,
       mpFeed: this.mp ? this.mp.feed.map(f => ({ id: f.id, text: f.text, color: f.color })) : null
