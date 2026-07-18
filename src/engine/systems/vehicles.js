@@ -12,7 +12,11 @@ const funEnabled = game => game.mp
   : game.itemsEnabled !== false && !!game.funItems;
 const actorConn = (game, actor) => !game.mp ? 'solo' : actor === game.player ? game.mp.self : actor.connId;
 
-const desiredCount = game => Math.max(2, Math.min(6, (game.mp ? game.allPlayers().length : 1) + 1));
+const desiredCount = game => {
+  const players = game.mp ? game.allPlayers().length : 1;
+  return Math.max(1, Math.min(4, Math.ceil(players * .65)));
+};
+const respawnDelay = game => VEHICLES[vehicleForStage(game.stage)].respawn;
 
 function vehiclePoint(game) {
   for (let attempt = 0; attempt < 40; attempt++) {
@@ -36,7 +40,7 @@ function addVehicle(game) {
 
 export function spawnMapVehicles(game) {
   for (const vehicle of game.vehicles) if (vehicle.occupant) detachPilot(game, vehicle.occupant, true);
-  game.vehicles.length = 0; game.vehicleSpawnT = 12;
+  game.vehicles.length = 0; game.vehicleSpawnT = respawnDelay(game);
   if (!isAuthority(game) || !funEnabled(game)) return;
   game.vehicleTarget = desiredCount(game);
   for (let i = 0; i < game.vehicleTarget; i++) addVehicle(game);
@@ -153,7 +157,7 @@ function destroyVehicle(game, vehicle) {
   });
   game.shake = Math.min(22, game.shake + 18); game.sfx.play('vehicle_destroy');
   const index = game.vehicles.indexOf(vehicle); if (index >= 0) game.vehicles.splice(index, 1);
-  game.vehicleSpawnT = Math.min(game.vehicleSpawnT, 16);
+  game.vehicleSpawnT = respawnDelay(game);
   if (actor) game.pushHud(true);
 }
 
@@ -164,7 +168,7 @@ function expireVehicle(game, vehicle) {
   addFloater(game, { x: vehicle.x, y: vehicle.y - vehicle.radius - 12, vx: 0, vy: -34, text: 'TIME UP', life: 1.3, max: 1.3, color: VEHICLES[vehicle.type].accent, size: 15 });
   game.sfx.play('vehicle_exit');
   const index = game.vehicles.indexOf(vehicle); if (index >= 0) game.vehicles.splice(index, 1);
-  game.vehicleSpawnT = 12;
+  game.vehicleSpawnT = respawnDelay(game);
   if (game.mp) game.mp.sendAcc = 1;
   if (actor) game.pushHud(true);
 }
@@ -201,5 +205,5 @@ export function updateVehicles(game, dt) {
   game.vehicleTarget = desiredCount(game);
   if (game.vehicles.length >= game.vehicleTarget) return;
   game.vehicleSpawnT -= dt;
-  if (game.vehicleSpawnT <= 0) { addVehicle(game); game.vehicleSpawnT = 16; }
+  if (game.vehicleSpawnT <= 0) { addVehicle(game); game.vehicleSpawnT = respawnDelay(game); }
 }
