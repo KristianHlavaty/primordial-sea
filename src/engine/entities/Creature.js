@@ -14,6 +14,7 @@ export class Creature extends Entity {
     super(x, y);
     this.boss = false;
     this.stunT = 0; this.slowT = 0; this.hardenT = 0;   // status timers (Shock/Engulf stun, boss slow/harden)
+    this.armorBreakT = 0; this.vulnerableT = 0; this.conductiveT = 0; this.venomStacks = 0; this.venomMarkT = 0;
     this.mouth = 0; this.hurt = 0; this.hpBarT = 0;
   }
 
@@ -38,6 +39,9 @@ export class Creature extends Entity {
 
   takeDamage(game, dmg, fromx, fromy, byPlayer) {
     if (this.hardenT > 0) dmg *= 0.3;                    // hardened boss shell soaks most of it
+    if (this.armorBreakT > 0) dmg *= 1.22;
+    if (this.vulnerableT > 0) dmg *= 1.15;
+    if (this.conductiveT > 0) dmg *= 1.08;
     this.hp -= dmg; this.hurt = 1; this.hpBarT = 3;
     if (byPlayer) {
       const big = dmg >= 24;
@@ -69,6 +73,9 @@ export class Creature extends Entity {
     if (this.hpBarT > 0) this.hpBarT -= dt;
     if (this.stunT > 0) this.stunT -= dt;
     if (this.slowT > 0) this.slowT -= dt;
+    this.armorBreakT = Math.max(0, this.armorBreakT - dt); this.vulnerableT = Math.max(0, this.vulnerableT - dt);
+    this.conductiveT = Math.max(0, this.conductiveT - dt); this.venomMarkT = Math.max(0, this.venomMarkT - dt);
+    if (this.venomMarkT <= 0) this.venomStacks = 0;
     // player Venom — burns on after the bite
     if ((this.poisonT || 0) > 0) {
       this.poisonT -= dt; this.hp -= (this.poisonDps || 0) * dt; this.hpBarT = Math.max(this.hpBarT, 1.2);
@@ -87,24 +94,29 @@ export class Creature extends Entity {
     let ax = this.wx, ay = this.wy, sc = 0.4;
     const pdx = p ? p.x - this.x : 0, pdy = p ? p.y - this.y : 0, pd2 = p ? pdx * pdx + pdy * pdy : Infinity;
     // Chromatophores halve how far others notice the player; Ink hides them completely
-    const senseVsPlayer = (p && p.hasAbility('camo')) ? this.sense * 0.5 : this.sense;
+    const senseVsPlayer = (p && p.hasAbility('camo')) ? this.sense * (1 - .65 * (p.camoCharge || 0)) : this.sense;
     const sense2 = this.sense * this.sense, senseVsPlayer2 = senseVsPlayer * senseVsPlayer;
     const playerHidden = !p || p.stealthT > 0;
     if (this.role === 'predator' && this.aggro) {
       // hunt nearest edible (player or smaller creature)
       let tgt = null, td2 = sense2;
       if (p && pd2 < senseVsPlayer2 && p.radius <= this.radius * 1.3 && !playerHidden) { tgt = 'player'; td2 = pd2; }
+      if (p && p.inkCloudT > 0) {
+        const ddx = p.decoyX - this.x, ddy = p.decoyY - this.y, dd2 = ddx * ddx + ddy * ddy;
+        if (dd2 < td2) { tgt = 'decoy'; td2 = dd2; }
+      }
       for (const o of game.creatures) {
         if (o === this) continue; if (o.radius > this.radius * 1.05) continue;
         const dx = o.x - this.x, dy = o.y - this.y, d2 = dx * dx + dy * dy;
         if (d2 < td2) { td2 = d2; tgt = o; }
       }
       if (tgt) {
-        const t = tgt === 'player' ? p : tgt; const dx = t.x - this.x, dy = t.y - this.y, d = hyp(dx, dy) || 1; ax = dx / d; ay = dy / d; sc = 1;
+        const t = tgt === 'player' ? p : tgt === 'decoy' ? { x: p.decoyX, y: p.decoyY, radius: 8 } : tgt; const dx = t.x - this.x, dy = t.y - this.y, d = hyp(dx, dy) || 1; ax = dx / d; ay = dy / d; sc = 1;
         this.faceTarget = Math.atan2(ay, ax);
         if (d < this.radius + t.radius + 8 && this.biteCd <= 0) {
           this.biteCd = 0.8; this.mouth = 1;
           if (tgt === 'player') { p.takeHit(game, this.dmg, this.x, this.y, this); if (p === game.player) game.danger = 1; }
+          else if (tgt === 'decoy') { p.inkCloudT = 0; this.stunT = Math.max(this.stunT, .35); burst(game, t.x, t.y, '#29324d', 14, 90); }
           else t.takeDamage(game, this.dmg, this.x, this.y, false);
         }
       }

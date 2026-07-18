@@ -509,7 +509,10 @@ export class Engine {
           const nx = d > 0.001 ? dx / d : 1, ny = d > 0.001 ? dy / d : 0, overlap = min - d;
           e.x += nx * overlap; e.y += ny * overlap;
           const vn = e.vx * nx + e.vy * ny;
-          if (vn < 0) { e.vx -= vn * nx; e.vy -= vn * ny; }
+          if (vn < 0) {
+            const response = e.enrollT > 0 ? 1.78 : 1;
+            e.vx -= vn * nx * response; e.vy -= vn * ny * response;
+          }
         }
       }
     };
@@ -749,7 +752,9 @@ export class Engine {
       f.x += f.vx * dt; f.y += f.vy * dt;
       if (eater) {
         const filterFeed = eater.hasAbility('filter');
-        eater.addXp(this, f.value); eater.hp = Math.min(eater.maxHp, eater.hp + (filterFeed ? 6 : 3));
+        if (filterFeed) { eater.filterCombo = Math.min(5, (eater.filterCombo || 0) + 1); eater.filterComboT = 2; }
+        const combo = filterFeed ? eater.filterCombo : 0;
+        eater.addXp(this, f.value * (1 + combo * .06)); eater.hp = Math.min(eater.maxHp, eater.hp + (filterFeed ? 4 + combo : 3));
         burst(this, f.x, f.y, f.kind === 'meat' ? '#ff9a8a' : '#8fe89a', 5, 80);
         this.sfx.play('eat'); this.food.splice(i, 1); continue;
       }
@@ -861,9 +866,24 @@ export class Engine {
       const ab = ABILITIES[id]; const cd = p.acd[id] || 0; const tf = ACTIVE_TIMER[id];
       let active = ab.passive, activeFrac = 0;
       if (tf) { active = p[tf] > 0; activeFrac = ab.dur ? clamp(p[tf] / ab.dur, 0, 1) : 0; }
+      let meter = 0, meterLabel = '';
+      if (id === 'filter') { meter = (p.filterCombo || 0) / 5; meterLabel = `${p.filterCombo || 0}x`; }
+      else if (id === 'camo') { meter = p.camoCharge || 0; meterLabel = meter >= .9 ? 'AMBUSH' : ''; }
+      else if (id === 'thickhide') { meter = (p.armorPlates || 0) / 3; meterLabel = `${p.armorPlates || 0}`; }
+      else if (id === 'bastion') { meter = p.fortify || 0; meterLabel = meter >= .9 ? 'FORTIFIED' : ''; }
+      else if (id === 'sail') { meter = p.sailHeat || 0; meterLabel = meter >= .8 ? 'HOT' : ''; }
+      else if (id === 'airbreath') { meter = (p.airStride || 0) / 3; }
+      else if (id === 'barbs') { meter = (p.barbCharge || 0) / 3; meterLabel = p.barbCharge ? `${p.barbCharge}` : ''; }
+      else if (id === 'ampullae' || id === 'silksense') { meter = 1 - (p.senseCd || 0) / (id === 'silksense' ? 4.5 : 5); meterLabel = meter >= .99 ? 'READY' : ''; }
+      else if (id === 'regen') { meter = 1 - (p.regenDelay || 0) / 2.5; meterLabel = meter >= .99 ? 'MENDING' : ''; }
+      else if (id === 'rebirth') { meter = p.rebirthUsed ? 0 : 1; meterLabel = p.rebirthUsed ? 'SPENT' : 'READY'; }
+      else if (id === 'harden' && active) { meter = clamp((p.hardenStored || 0) / p.maxHp, 0, 1); meterLabel = meter > .08 ? 'CHARGED' : ''; }
+      else if (id === 'withdraw' && active) { meter = clamp((p.withdrawStored || 0) / p.maxHp, 0, 1); meterLabel = meter > .08 ? 'RELEASE' : ''; }
+      else if (id === 'sprint' && active) { meter = p.sprintMomentum || 0; meterLabel = meter > .72 ? 'TRAMPLE' : ''; }
       return {
         id, name: ab.name, key: i + 1, passive: ab.passive, color: ab.color, desc: ab.desc,
-        cd: Math.ceil(cd), cdFrac: ab.cd ? clamp(cd / ab.cd, 0, 1) : 0, ready: cd <= 0, active, activeFrac
+        cd: Math.ceil(cd), cdFrac: ab.cd ? clamp(cd / ab.cd, 0, 1) : 0, ready: cd <= 0, active, activeFrac,
+        meter: clamp(meter, 0, 1), meterLabel,
       };
     }) : [];
     const itemsEnabled = this.mp ? this.mp.items !== false : this.itemsEnabled;

@@ -256,6 +256,20 @@ function drawTopSeaPassage(E) {
   ctx.fillText('▲  ASCEND TO THE PRIMORDIAL SEA  ▲', center, 28); ctx.textAlign = 'left';
 }
 
+function drawEnrolled(E, player, sx, sy, radius) {
+  const ctx = E.ctx, body = player.plan.body, accent = player.plan.accent, speed = hyp(player.vx || 0, player.vy || 0);
+  ctx.save(); ctx.translate(sx, sy); ctx.rotate(E.time * (5.2 + Math.min(4, speed / 170))); const r = radius * 1.12;
+  const glow = ctx.createRadialGradient(0, 0, r * .55, 0, 0, r * 1.65); glow.addColorStop(0, withA(accent, .16)); glow.addColorStop(1, withA(accent, 0));
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, r * 1.65, 0, TAU); ctx.fill();
+  const bg = ctx.createRadialGradient(-r * .3, -r * .3, 1, 0, 0, r * 1.2); bg.addColorStop(0, shade(body, .35)); bg.addColorStop(1, shade(body, -.32));
+  ctx.fillStyle = bg; ctx.strokeStyle = shade(body, -.5); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = withA(shade(body, -.45), .75); ctx.lineWidth = 1.6;
+  for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.arc(0, 0, r * i / 4, .3, Math.PI - .3); ctx.stroke(); }
+  ctx.fillStyle = shade(accent, -.05);
+  for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); ctx.lineTo(Math.cos(a) * (r + 6), Math.sin(a) * (r + 6)); ctx.lineTo(Math.cos(a + .22) * r, Math.sin(a + .22) * r); ctx.closePath(); ctx.fill(); }
+  ctx.restore();
+}
+
 /* Draw a creature/player at its world position (screen-space transform,
    flip vertically when facing left so it never renders upside-down). */
 function drawEntity(E, e) {
@@ -263,9 +277,12 @@ function drawEntity(E, e) {
   ctx.save(); ctx.translate(e.x - E.cam.x, e.y - E.cam.y); ctx.rotate(e.angle);
   if (Math.cos(e.angle) < 0) ctx.scale(1, -1);
   const frenzy = e.frenzyT > 0, ramming = e.ramT > 0;
-  const sc = (e.scale || 1) * (frenzy ? 1.28 : 1);
+  const leapProgress = e.leapT > 0 && e.leapMax ? 1 - e.leapT / e.leapMax : 0;
+  const airborneScale = e.leapT > 0 ? 1 + Math.sin(leapProgress * Math.PI) * .34 : 1;
+  const sc = (e.scale || 1) * (frenzy ? 1.28 : 1) * airborneScale;
   ctx.scale(sc * (ramming ? 1.16 : 1), sc * (ramming ? .84 : 1));
   if (e.stealthT > 0) ctx.globalAlpha *= .45;
+  if (e.camoCharge > 0) ctx.globalAlpha *= 1 - e.camoCharge * .38;
   const speed = hyp(e.vx, e.vy);
   const plan = frenzy ? { ...e.plan, body: '#b32238', accent: '#ff665c', glow: '#ff3048' } : e.plan;
   drawCreature(ctx, Object.assign({ t: E.time * (2 + speed / 120) + e.animOff, mouth: e.mouth, hurt: e.hurt }, plan));
@@ -275,6 +292,113 @@ function drawEntity(E, e) {
 function drawPlayerPowerState(E, player, sx, sy, radius) {
   const ctx = E.ctx, pulse = .5 + .5 * Math.sin(E.time * 12);
   ctx.save();
+  if (player.inkCloudT > 0) {
+    const x = player.inkX - E.cam.x, y = player.inkY - E.cam.y, fade = clamp(player.inkCloudT / 1.2, 0, 1);
+    const cloud = ctx.createRadialGradient(x, y, 12, x, y, 180); cloud.addColorStop(0, `rgba(15,18,35,${.5 * fade})`); cloud.addColorStop(.58, `rgba(25,31,58,${.32 * fade})`); cloud.addColorStop(1, 'rgba(18,22,43,0)');
+    ctx.fillStyle = cloud; ctx.beginPath(); ctx.arc(x, y, 180, 0, TAU); ctx.fill();
+    const dx = player.decoyX - E.cam.x, dy = player.decoyY - E.cam.y;
+    ctx.save(); ctx.globalAlpha = .28 + pulse * .18; ctx.translate(dx, dy); ctx.rotate(player.decoyAngle || 0); ctx.scale(.82, .82);
+    drawCreature(ctx, Object.assign({ t: E.time * 3 + (player.animOff || 0), mouth: 0, hurt: 0 }, player.plan)); ctx.restore();
+  }
+  if (player.vortexT > 0) {
+    const x = (player.vortexX || player.x) - E.cam.x, y = (player.vortexY || player.y) - E.cam.y;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(-E.time * 3.2);
+    const vortex = ctx.createRadialGradient(0, 0, 4, 0, 0, 260); vortex.addColorStop(0, withA('#d9fbff', .34)); vortex.addColorStop(.42, withA('#3ca6ca', .13)); vortex.addColorStop(1, withA('#166b91', 0));
+    ctx.fillStyle = vortex; ctx.beginPath(); ctx.arc(0, 0, 260, 0, TAU); ctx.fill(); ctx.strokeStyle = withA('#8deaff', .35 + pulse * .22); ctx.lineWidth = 3;
+    for (let i = 0; i < 5; i++) { const rr = 34 + i * 43; ctx.beginPath(); ctx.arc(0, 0, rr, i * 1.15, i * 1.15 + TAU * .67); ctx.stroke(); }
+    ctx.restore();
+  }
+  if (player.stompT > 0) {
+    const progress = clamp(1 - player.stompT / 1.05, 0, 1), x = player.stompX - E.cam.x, y = player.stompY - E.cam.y;
+    ctx.strokeStyle = withA('#f2c080', .8 - progress * .45); ctx.lineWidth = 5 - progress * 2;
+    ctx.beginPath(); ctx.arc(x, y, 35 + progress * 210, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = withA('#9c6739', .6 - progress * .35); ctx.beginPath(); ctx.arc(x, y, 20 + ((progress + .45) % 1) * 180, 0, TAU); ctx.stroke();
+  }
+  if (player.leapT > 0 && Number.isFinite(player.leapX)) {
+    const x = player.leapX - E.cam.x, y = player.leapY - E.cam.y, progress = clamp(1 - player.leapT / (player.leapMax || 1), 0, 1);
+    ctx.fillStyle = `rgba(15,18,16,${.14 + progress * .28})`; ctx.beginPath(); ctx.ellipse(x, y, radius * (1.25 - progress * .2), radius * .55, 0, 0, TAU); ctx.fill();
+    ctx.setLineDash([7, 7]); ctx.strokeStyle = withA(player.leapKind === 'dive' ? '#ffd27a' : '#ffb04e', .45); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(x, y); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (player.engulfT > 0) {
+    const life = clamp(player.engulfT / .78, 0, 1), a = player.engulfAngle || player.angle;
+    ctx.fillStyle = withA('#8fe6c8', .08 + life * .12); ctx.beginPath(); ctx.moveTo(sx, sy); ctx.arc(sx, sy, 285, a - .72, a + .72); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = withA('#b5ffe8', .35 + life * .45); ctx.lineWidth = 2.5;
+    for (let i = -2; i <= 2; i++) { const aa = a + i * .23, inner = radius + 25 + (1 - life) * 90; ctx.beginPath(); ctx.moveTo(sx + Math.cos(aa) * 260, sy + Math.sin(aa) * 260); ctx.lineTo(sx + Math.cos(aa) * inner, sy + Math.sin(aa) * inner); ctx.stroke(); }
+  }
+  if (player.shockVisualT > 0 && player.shockLinks && player.shockLinks.length > 1) {
+    ctx.lineCap = 'round';
+    for (let pass = 0; pass < 2; pass++) {
+      ctx.strokeStyle = pass ? withA('#efffff', .85) : withA('#62cfff', .55); ctx.lineWidth = pass ? 1.5 : 6; ctx.beginPath();
+      for (let i = 0; i < player.shockLinks.length; i++) {
+        const link = player.shockLinks[i], x = link.x - E.cam.x, y = link.y - E.cam.y;
+        if (!i) ctx.moveTo(x, y); else { const prev = player.shockLinks[i - 1], mx = (prev.x + link.x) * .5 - E.cam.x, my = (prev.y + link.y) * .5 - E.cam.y; ctx.lineTo(mx + Math.sin(E.time * 35 + i) * 12, my + Math.cos(E.time * 31 + i) * 12); ctx.lineTo(x, y); }
+      }
+      ctx.stroke();
+    }
+  }
+  if (player.bloomT > 0) {
+    const points = player.bloomPoints && player.bloomPoints.length ? player.bloomPoints : Array.from({ length: 7 }, (_, i) => ({ x: player.x + Math.cos(i / 7 * TAU + E.time) * (radius + 70), y: player.y + Math.sin(i / 7 * TAU + E.time) * (radius + 70) }));
+    ctx.strokeStyle = withA('#d7b5ff', .58 + pulse * .22); ctx.lineWidth = Math.max(2.5, radius * .1); ctx.lineCap = 'round';
+    for (let i = 0; i < points.length; i++) { const x = points[i].x - E.cam.x, y = points[i].y - E.cam.y, mx = (sx + x) * .5 + Math.sin(E.time * 7 + i) * 18, my = (sy + y) * .5 + Math.cos(E.time * 6 + i) * 18; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(mx, my, x, y); ctx.stroke(); ctx.fillStyle = withA('#f1ddff', .8); ctx.beginPath(); ctx.arc(x, y, 3.5, 0, TAU); ctx.fill(); }
+  }
+  if (player.crushT > 0) {
+    const a = player.crushAngle || player.angle, close = 1 - player.crushT / .44, x = sx + Math.cos(a) * (radius + 25), y = sy + Math.sin(a) * (radius + 25);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.strokeStyle = withA('#ff8a5e', .55 + pulse * .35); ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.arc(0, 0, radius + 35, -1.15 + close * .55, -.08); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, radius + 35, .08, 1.15 - close * .55); ctx.stroke(); ctx.restore();
+  }
+  if (player.impaleT > 0) {
+    const life = clamp(player.impaleT / .72, 0, 1), progress = 1 - life;
+    const extend = 1 - (1 - clamp(progress / .24, 0, 1)) ** 3, retract = clamp((progress - .62) / .38, 0, 1) ** 2;
+    const reachP = extend * (1 - retract), maxReach = Math.max(radius * 2.7, player.impaleReach || 0), length = radius * .55 + maxReach * reachP;
+    const body = player.plan.body || '#9b6c45', accent = player.plan.accent || '#ffd27a', bend = Math.sin(progress * Math.PI) * radius * .16;
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(Number.isFinite(player.impaleAngle) ? player.impaleAngle : player.angle); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // Faint snapshots make the thrust read as a fast, living sting rather than a static spear.
+    for (let trail = 2; trail >= 1; trail--) {
+      const trailLength = Math.max(radius * .7, length - trail * radius * .34);
+      ctx.strokeStyle = withA(accent, .1 + life * .07); ctx.lineWidth = Math.max(2, radius * .09);
+      ctx.beginPath(); ctx.moveTo(radius * .45, trail * radius * .08); ctx.quadraticCurveTo(trailLength * .52, bend + trail * radius * .1, trailLength, trail * radius * .04); ctx.stroke();
+    }
+    ctx.shadowColor = withA(accent, .8); ctx.shadowBlur = 9;
+    ctx.strokeStyle = withA(shade(body, -.2), .92); ctx.lineWidth = Math.max(6, radius * .25);
+    ctx.beginPath(); ctx.moveTo(radius * .45, 0); ctx.quadraticCurveTo(length * .5, bend, length, 0); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.strokeStyle = withA(accent, .9); ctx.lineWidth = Math.max(2, radius * .075);
+    ctx.beginPath(); ctx.moveTo(radius * .48, -radius * .04); ctx.quadraticCurveTo(length * .52, bend - radius * .04, length, 0); ctx.stroke();
+    // Point and backward-facing barbs at the end of the extending appendage.
+    const tip = Math.max(7, radius * .32); ctx.fillStyle = withA(shade(accent, .18), .96);
+    ctx.beginPath(); ctx.moveTo(length + tip, 0); ctx.lineTo(length - tip * .42, -tip * .46); ctx.lineTo(length - tip * .12, 0); ctx.lineTo(length - tip * .42, tip * .46); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = withA('#fff4cf', .55 + pulse * .3); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(length - tip * .2, -tip * .12); ctx.lineTo(length + tip * .78, 0); ctx.lineTo(length - tip * .2, tip * .12); ctx.stroke();
+    ctx.restore();
+  }
+  if (player.tailSweepT > 0) {
+    const progress = 1 - player.tailSweepT / .72, start = (player.tailSweepAngle || player.angle) + progress * TAU;
+    ctx.strokeStyle = withA('#bce8ba', .45 + pulse * .4); ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(sx, sy, radius + 78, start - 1.3, start + .35); ctx.stroke();
+  }
+  if (player.evasionFlashT > 0) {
+    ctx.globalAlpha = player.evasionFlashT * .7; for (let i = 1; i <= 3; i++) { ctx.save(); ctx.translate(-Math.cos(player.angle) * i * 14, -Math.sin(player.angle) * i * 14); ctx.strokeStyle = withA('#8affd0', .55 / i); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, radius + i * 2, 0, TAU); ctx.stroke(); ctx.restore(); } ctx.globalAlpha = 1;
+  }
+  if (player.armorPlates > 0) {
+    ctx.strokeStyle = withA('#e0bd83', .62); ctx.lineWidth = 3;
+    for (let i = 0; i < player.armorPlates; i++) { const a = -Math.PI / 2 + (i - (player.armorPlates - 1) / 2) * .55; ctx.beginPath(); ctx.arc(sx, sy, radius + 11, a - .19, a + .19); ctx.stroke(); }
+  }
+  if (player.barbCharge > 0) {
+    ctx.fillStyle = withA('#ffb060', .72 + pulse * .2); const count = 4 + player.barbCharge * 2;
+    for (let i = 0; i < count; i++) { const a = i / count * TAU, r0 = radius + 5, r1 = radius + 10 + player.barbCharge * 3; ctx.beginPath(); ctx.moveTo(sx + Math.cos(a - .1) * r0, sy + Math.sin(a - .1) * r0); ctx.lineTo(sx + Math.cos(a) * r1, sy + Math.sin(a) * r1); ctx.lineTo(sx + Math.cos(a + .1) * r0, sy + Math.sin(a + .1) * r0); ctx.closePath(); ctx.fill(); }
+  }
+  if (player.filterCombo > 0) {
+    ctx.fillStyle = withA('#9fe0b0', .5 + pulse * .25);
+    for (let i = 0; i < player.filterCombo; i++) { const a = i / player.filterCombo * TAU - E.time * 1.8, rr = radius + 17; ctx.beginPath(); ctx.arc(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr, 2.4, 0, TAU); ctx.fill(); }
+  }
+  if (player.abilities && player.abilities.includes('regen') && player.regenDelay <= 0 && player.hp < player.maxHp) { ctx.strokeStyle = withA('#8affb0', .18 + pulse * .2); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, radius + 9 + pulse * 4, 0, TAU); ctx.stroke(); }
+  if (player.abilities && player.abilities.includes('airbreath') && player.airStride > 0) { ctx.strokeStyle = withA('#b8f0ca', .35); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, radius + 10 + player.airStride * 2, -Math.PI, 0); ctx.stroke(); }
+  if (player.fortify > .05) { ctx.strokeStyle = withA('#d6ad67', player.fortify * .75); ctx.lineWidth = 2 + player.fortify * 4; ctx.beginPath(); ctx.arc(sx, sy, radius + 13, 0, TAU); ctx.stroke(); }
+  if (player.sailHeat > .1) { const heat = ctx.createRadialGradient(sx, sy, radius, sx, sy, radius * 2.2); heat.addColorStop(0, withA('#ff9f6a', player.sailHeat * .18)); heat.addColorStop(1, withA('#ff5b39', 0)); ctx.fillStyle = heat; ctx.beginPath(); ctx.arc(sx, sy, radius * 2.2, 0, TAU); ctx.fill(); }
+  if (player.rebirthT > 0) { ctx.fillStyle = withA('#a0ffd8', .45 + pulse * .4); for (let i = 0; i < 9; i++) { const a = i / 9 * TAU + E.time * 2.5, rr = radius * (1.2 + .4 * Math.sin(E.time * 4 + i)); ctx.beginPath(); ctx.arc(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr, 3 + i % 3, 0, TAU); ctx.fill(); } }
+  if (player.withdrawT > 0 && player.withdrawStored > 0) { const charge = clamp(player.withdrawStored / (player.maxHp || 1), 0, 1); ctx.strokeStyle = withA('#ffe2a8', .35 + charge * .55); ctx.lineWidth = 2 + charge * 6; ctx.beginPath(); ctx.arc(sx, sy, radius + 18 + pulse * charge * 7, 0, TAU); ctx.stroke(); }
+  if (player.burstT > 0 && player.burstBreach) { const x = sx + Math.cos(player.angle) * (radius + 13), y = sy + Math.sin(player.angle) * (radius + 13); ctx.fillStyle = withA('#d9fdff', .55 + pulse * .4); ctx.beginPath(); ctx.arc(x, y, 4 + pulse * 3, 0, TAU); ctx.fill(); }
+  if (player.stunT > 0 || player.slowT > 0) { ctx.strokeStyle = withA('#bfe6ff', .75); ctx.lineWidth = 2; for (let i = 0; i < 3; i++) { const a = E.time * 9 + i / 3 * TAU; ctx.beginPath(); ctx.arc(sx + Math.cos(a) * (radius + 8), sy + Math.sin(a) * (radius + 8), 2.5, 0, TAU); ctx.stroke(); } }
+  if (player.armorBreakT > 0 || player.vulnerableT > 0) { ctx.strokeStyle = withA(player.armorBreakT > 0 ? '#ff9d6c' : '#cf9dff', .75); ctx.lineWidth = 3; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(sx, sy, radius + 12, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+  if (player.venomStacks > 0 && player.venomMarkT > 0) { ctx.fillStyle = withA('#7bf08a', .82); ctx.font = '900 9px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`${player.venomStacks}/3`, sx, sy + radius + 17); ctx.textAlign = 'left'; }
   if (player.graspT > 0 && Number.isFinite(player.graspX) && Number.isFinite(player.graspY)) {
     // The arm rapidly grows to the captured point, coils around it, then
     // retracts. Body and highlight colours come directly from this species.
@@ -401,7 +525,7 @@ function drawRemotePlayers(E) {
     ctx.strokeStyle = withA(rp.color || '#8affd0', 0.55); ctx.lineWidth = 2;
     ctx.setLineDash([4, 6]); ctx.lineDashOffset = -E.time * 12;
     ctx.beginPath(); ctx.arc(sx, sy, r + 6, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
-    if (!rp.vehicleType) drawEntity(E, rp);
+    if (!rp.vehicleType) { if (rp.enrollT > 0) drawEnrolled(E, rp, sx, sy, r); else drawEntity(E, rp); }
     if (!rp.vehicleType) drawPlayerShield(E, rp, sx, sy, r);
     if ((rp.biteAnim || 0) > 0) {
       ctx.save(); ctx.translate(sx, sy); ctx.rotate(rp.angle);
@@ -506,6 +630,15 @@ export function renderWorld(E) {
       ctx.strokeStyle = withA('#bfe6ff', 0.85); ctx.lineWidth = 2;
       for (let i = 0; i < 3; i++) { const a = E.time * 9 + i / 3 * TAU; ctx.beginPath(); ctx.arc(sx + Math.cos(a) * (c.radius + 7), sy + Math.sin(a) * (c.radius + 7), 2.4, 0, TAU); ctx.stroke(); }
     }
+    if (c.venomStacks > 0 && c.venomMarkT > 0) {
+      ctx.fillStyle = withA('#7bf08a', .72); ctx.font = '900 10px "Segoe UI",sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('VENOM ' + c.venomStacks + '/3', sx, sy + c.radius + 15); ctx.textAlign = 'left';
+      ctx.strokeStyle = withA('#75e784', .42 + .25 * Math.sin(E.time * 8) ** 2); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, c.radius + 6, 0, TAU); ctx.stroke();
+    }
+    if (c.armorBreakT > 0 || c.vulnerableT > 0) {
+      const color = c.armorBreakT > 0 ? '#ff9d6c' : '#cf9dff'; ctx.strokeStyle = withA(color, .72); ctx.lineWidth = 2.5;
+      for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + E.time * .4, inner = c.radius + 5, outer = inner + 8; ctx.beginPath(); ctx.moveTo(sx + Math.cos(a - .12) * inner, sy + Math.sin(a - .12) * inner); ctx.lineTo(sx + Math.cos(a) * outer, sy + Math.sin(a) * outer); ctx.lineTo(sx + Math.cos(a + .12) * inner, sy + Math.sin(a + .12) * inner); ctx.stroke(); }
+    }
     if (!c.boss) {
       let topY = sy - c.radius - 9;
       if (c.hpBarT > 0) {
@@ -582,7 +715,7 @@ export function renderWorld(E) {
       ctx.restore();
     } else if (PL.enrollT > 0) {
       // rolled into an armored ball — replaces the creature entirely
-      ctx.save(); ctx.translate(gx, gy); ctx.rotate(E.time * 1.2); const r = pr * 1.12;
+      ctx.save(); ctx.translate(gx, gy); ctx.rotate(E.time * (5.2 + Math.min(4, hyp(PL.vx, PL.vy) / 170))); const r = pr * 1.12;
       const bg = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 1, 0, 0, r * 1.2); bg.addColorStop(0, shade(pc, 0.35)); bg.addColorStop(1, shade(pc, -0.32));
       ctx.fillStyle = bg; ctx.strokeStyle = shade(pc, -0.5); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill(); ctx.stroke();
       ctx.strokeStyle = withA(shade(pc, -0.45), 0.75); ctx.lineWidth = 1.6;
@@ -597,18 +730,6 @@ export function renderWorld(E) {
       ctx.save(); ctx.translate(gx, gy); ctx.rotate(E.time * 0.8);
       ctx.strokeStyle = withA('#e8c98a', 0.75); ctx.lineWidth = 3;
       for (let i = 0; i < 3; i++) { const rr = pr * (1.15 - 0.22 * i); ctx.beginPath(); ctx.arc(0, 0, rr, i * 0.8, i * 0.8 + TAU * 0.75); ctx.stroke(); }
-      ctx.restore();
-    }
-    if (PL.vortexT > 0) {
-      // whirlpool arms sweeping the water inward
-      ctx.save(); ctx.translate(gx, gy); ctx.rotate(-E.time * 3);
-      ctx.strokeStyle = withA('#6fd0e8', 0.5); ctx.lineWidth = 2.5;
-      for (let i = 0; i < 3; i++) { const rr = 60 + i * 65; ctx.beginPath(); ctx.arc(0, 0, rr, i * 1.4, i * 1.4 + TAU * 0.6); ctx.stroke(); }
-      ctx.restore();
-    }
-    if (PL.bloomT > 0) {
-      ctx.save(); ctx.translate(gx, gy); ctx.rotate(E.time * 2); ctx.strokeStyle = withA('#c79bff', 0.55); ctx.lineWidth = 2.5; const RR = pr + 50, n = 8;
-      for (let i = 0; i < n; i++) { const a = i / n * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * pr, Math.sin(a) * pr); ctx.quadraticCurveTo(Math.cos(a + 0.3) * RR * 0.7, Math.sin(a + 0.3) * RR * 0.7, Math.cos(a) * RR, Math.sin(a) * RR); ctx.stroke(); }
       ctx.restore();
     }
     if (!PL.vehicleType) drawPlayerShield(E, PL, gx, gy, pr);

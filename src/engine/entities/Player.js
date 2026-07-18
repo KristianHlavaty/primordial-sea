@@ -10,6 +10,7 @@ import { TAU, hyp, rand, angLerp } from '../../core/math.js';
 import { withA } from '../../core/color.js';
 import { burst, addFloater, shakeForPlayer } from '../systems/effects.js';
 import { updatePilotedVehicle, damageOccupiedVehicle } from '../systems/vehicles.js';
+import { abilityBody, abilityHit, abilityTargets, afterAbilityBite, biteAbilityMultiplier, notePlayerDamage, releaseShellEnergy, updateAbilityRuntime } from '../systems/abilityRuntime.js';
 
 export class Player extends Entity {
   /* `prev` (the pre-evolution player) carries position and heading over. */
@@ -29,12 +30,25 @@ export class Player extends Entity {
     this.shield = 0; this.shieldMax = 0; this.shieldT = 0; this.forceFieldT = 0;
     this.enrollT = 0; this.burstT = 0; this.frenzyT = 0; this.bloomT = 0; this.bloomTick = 0;
     this.withdrawT = 0; this.stealthT = 0; this.ramT = 0; this.jetT = 0; this.ramHit = null; this.ramAngle = 0;
-    this.vortexT = 0; this.vortexTick = 0;
+    this.vortexT = 0; this.vortexTick = 0; this.vortexX = 0; this.vortexY = 0; this.vortexActive = 0; this.vortexReleased = 1;
     this.graspT = 0; this.graspX = 0; this.graspY = 0;
     this.castAbility = null; this.castT = 0; this.castSeq = 0; this._castSeen = 0;
     this.cameraShakeSeq = 0; this.cameraShakePower = 0; this._cameraShakeSeen = 0;
     this.shockEchoT = 0; this.shockEchoX = 0; this.shockEchoY = 0;
     this.burrowT = 0; this.sprintT = 0;   // land: Burrow (invuln dig), Sprint (haste)
+    this.hardenActive = 0; this.hardenStored = 0; this.withdrawStored = 0; this.burstBreach = 0;
+    this.engulfT = 0; this.engulfSwallowT = 0; this.engulfTarget = null; this.shockVisualT = 0; this.shockLinks = [];
+    this.inkCloudT = 0; this.inkX = 0; this.inkY = 0; this.decoyX = 0; this.decoyY = 0; this.decoyAngle = 0;
+    this.impaleT = 0; this.impaleTarget = null; this.impaleAngle = 0; this.impaleReach = 0; this.crushT = 0; this.crushAngle = 0;
+    this.leapT = 0; this.leapMax = 0; this.leapKind = null; this.burrowActive = 0; this.pinT = 0; this.pinnedTarget = null;
+    this.stompT = 0; this.stompX = 0; this.stompY = 0; this.stompHit = null; this.tailSweepT = 0; this.webT = 0;
+    this.sprintMomentum = 0; this.sprintHit = null; this.hookT = 0; this.hookTarget = null;
+    this.senseCd = 0; this.evasionFlashT = 0; this.evasionBoostT = 0; this.regenDelay = 0;
+    this.filterCombo = 0; this.filterComboT = 0; this.camoCharge = 0; this.camoFlashT = 0;
+    this.armorPlates = this.hasAbility('thickhide') ? 3 : 0; this.plateRegenT = 0; this.fortify = 0;
+    this.sailHeat = 0; this.airStride = 0; this.barbCharge = 0; this.rebirthT = 0; this.lastHurtT = -99;
+    this.poisonT = 0; this.poisonDps = 0; this.poisonTick = 0; this.poisonOwner = null; this.venomStacks = 0; this.venomMarkT = 0;
+    this.stunT = 0; this.slowT = 0; this.armorBreakT = 0; this.vulnerableT = 0;
     this.rebirthUsed = false;   // Colony Rebirth fires once per life
     this.kills = 0; this.deaths = 0; this.deadT = 0; this.spawnProtT = 0;   // multiplayer FFA state
     this.mpInvincible = false;  // per-player testing cheat; authoritative on the multiplayer host
@@ -67,6 +81,13 @@ export class Player extends Entity {
     this.biteT = 0; this.cd = 0; this.hitSet = null;
     this.enrollT = this.burstT = this.frenzyT = this.withdrawT = this.stealthT = 0;
     this.ramT = this.jetT = this.bloomT = this.vortexT = this.burrowT = this.sprintT = this.graspT = 0;
+    this.engulfT = this.engulfSwallowT = this.shockVisualT = this.inkCloudT = this.impaleT = this.crushT = 0;
+    this.leapT = this.stompT = this.tailSweepT = this.webT = this.sprintMomentum = this.rebirthT = 0;
+    this.engulfTarget = this.impaleTarget = this.hookTarget = null; this.burrowActive = this.hardenActive = 0;
+    this.pinnedTarget = null; this.pinT = 0; this.vortexActive = 0; this.vortexReleased = 1;
+    this.hardenStored = this.withdrawStored = this.filterCombo = this.camoCharge = this.fortify = this.sailHeat = this.barbCharge = 0;
+    this.armorPlates = this.hasAbility('thickhide') ? 3 : 0; this.poisonT = this.poisonDps = this.poisonTick = this.venomStacks = this.venomMarkT = 0; this.poisonOwner = null;
+    this.stunT = this.slowT = this.armorBreakT = this.vulnerableT = 0;
     this.castAbility = null; this.castT = 0; this.ramHit = null;
     this.rebirthUsed = false;
     this.vehicle = null; this.vehicleType = null; this.vehicleNetId = null; this.vehicleCreatureRadius = null;
@@ -109,7 +130,7 @@ export class Player extends Entity {
     if (this.cd > 0) return;
     const st = this.species.stats;
     const frenzy = this.frenzyT > 0;
-    this.cd = st.dashCd * (frenzy ? 0.38 : 1) * (game.talentBonus ? game.talentBonus.dashCdMul : 1); this.biteT = 0.28; this.biteAnim = 1; this.hitSet = new Set();
+    this.cd = st.dashCd * (frenzy ? 0.38 : 1) * (this.evasionBoostT > 0 ? .72 : 1) * (game.talentBonus ? game.talentBonus.dashCdMul : 1); this.biteT = 0.28; this.biteAnim = 1; this.hitSet = new Set();
     this.vx += Math.cos(this.angle) * st.dashPow * (frenzy ? 1.18 : 1); this.vy += Math.sin(this.angle) * st.dashPow * (frenzy ? 1.18 : 1);
     const mx = this.x + Math.cos(this.angle) * this.radius, my = this.y + Math.sin(this.angle) * this.radius;
     burst(game, mx, my, '#bfefff', 5, 90);
@@ -124,7 +145,7 @@ export class Player extends Entity {
     const reach = this.radius * (frenzy ? 1.28 : 1) + st.reach * (hooked ? 1.45 : 1) * (frenzy ? 1.15 : 1);
     const dmg = st.dmg * this.atkMul * (frenzy ? 1.9 : 1) * (hooked ? 1.18 : 1);
     const fx = Math.cos(this.angle), fy = Math.sin(this.angle);
-    const hasBloodscent = this.hasAbility('bloodscent'), strongVenom = this.hasAbility('hypervenom'), hasVenom = this.hasAbility('venom') || strongVenom;
+    const hasBloodscent = this.hasAbility('bloodscent');
     for (const c of game.creatures) {
       if (this.hitSet.has(c)) continue;
       const dx = c.x - this.x, dy = c.y - this.y, d = hyp(dx, dy);
@@ -132,13 +153,11 @@ export class Player extends Entity {
         const dot = (dx * fx + dy * fy) / (d || 1);
         if (dot > 0.25) {
           this.hitSet.add(c);
-          let dmgC = dmg;
+          let dmgC = dmg * biteAbilityMultiplier(this, c);
           if (hasBloodscent && c.hp < c.maxHp * 0.5) dmgC *= 1.3;   // Blood Scent: heavier bites on the wounded
+          if (this.burstT > 0 && this.burstBreach) { dmgC *= 1.7; this.burstBreach = 0; c.vx += fx * 480; c.vy += fy * 480; }
           c.takeDamage(game, dmgC, this.x, this.y, true);
-          if (hasVenom && c.hp > 0) {                               // Venom: the sting keeps burning
-            c.poisonT = strongVenom ? 4.5 : 3; c.poisonDps = Math.max(c.poisonDps || 0, dmg * (strongVenom ? .42 : .25));
-            burst(game, c.x, c.y, '#b0e05e', 4, 70);
-          }
+          afterAbilityBite(game, this, c);
           if (hasBloodscent && c.hp <= 0) this.hp = Math.min(this.maxHp, this.hp + 4);   // kill mends you
           if (c.hp <= 0 && game.talentBonus.killHeal) this.hp = Math.min(this.maxHp, this.hp + game.talentBonus.killHeal);   // Bloodfeast talent
           burst(game, c.x, c.y, '#ffdfe4', 6, 120);
@@ -167,7 +186,9 @@ export class Player extends Entity {
           const dot = (dx * fx + dy * fy) / (d || 1);
           if (dot > 0.25) {
             this.hitSet.add(other);
-            other.takeHit(game, dmg, this.x, this.y, this);
+            let hitDamage = dmg * biteAbilityMultiplier(this, other);
+            if (this.burstT > 0 && this.burstBreach) { hitDamage *= 1.7; this.burstBreach = 0; other.vx += fx * 480; other.vy += fy * 480; }
+            other.takeHit(game, hitDamage, this.x, this.y, this); afterAbilityBite(game, this, other);
             if (other.hp <= 0 && this.hasAbility('bloodscent')) this.hp = Math.min(this.maxHp, this.hp + 6);
             burst(game, other.x, other.y, '#ffdfe4', 6, 120);
           }
@@ -185,17 +206,22 @@ export class Player extends Entity {
 
   takeHit(game, dmg, fromx, fromy, attacker) {
     if (this.hp <= 0 || this.deadT > 0) return;
+    if (this.rebirthT > 0) { burst(game, this.x, this.y, '#a0ffd8', 4, 55); return; }
     if (this.spawnProtT > 0 || (this.mpEvolveChoices && this.mpEvolveChoices.length)) { burst(game, this.x, this.y, '#a0ffd8', 3, 45); return; }   // respawning or choosing an evolution
     if (game.mp ? this.mpInvincible : game.invincible) { burst(game, this.x, this.y, '#ff5d68', 3, 45); return; }
     if (this.vehicle && damageOccupiedVehicle(game, this, dmg)) return;
     if (this.enrollT > 0) { burst(game, this.x, this.y, '#ffe6b0', 4, 60); return; }
     if (this.burrowT > 0) { burst(game, this.x, this.y, '#c79a5e', 4, 60); return; }   // underground — untouchable
-    const dodgeCh = (this.hasAbility('evasion') ? 0.25 : 0) + (this.hasAbility('ampullae') ? .15 : 0) + (this.hasAbility('silksense') ? .14 : 0) + game.perks.dodge + (game.talentBonus ? game.talentBonus.dodge : 0);
-    if (dodgeCh > 0 && Math.random() < dodgeCh) {
+    const ampReady = this.hasAbility('ampullae') && this.senseCd <= 0, silkReady = this.hasAbility('silksense') && this.senseCd <= 0;
+    const dodgeCh = (this.hasAbility('evasion') ? 0.25 : 0) + game.perks.dodge + (game.talentBonus ? game.talentBonus.dodge : 0);
+    if (ampReady || silkReady || (dodgeCh > 0 && Math.random() < dodgeCh)) {
+      if (ampReady || silkReady) this.senseCd = silkReady ? 4.5 : 5;
+      this.evasionFlashT = .5; this.evasionBoostT = 1.15;
+      if (silkReady && attacker && !attacker.boss) attacker.slowT = Math.max(attacker.slowT || 0, 1.2);
       for (let i = 0; i < 7; i++) game.particles.push({ x: this.x + rand(-6, 6), y: this.y + rand(-6, 6), vx: rand(-60, 60), vy: rand(-60, 60), life: 0.3, max: 0.3, size: 2.2, color: 'rgba(138,255,208,0.75)' });
       game.sfx.play('dodge'); return;
     }
-    game.lastHurt = game.time;
+    game.lastHurt = game.time; this.lastHurtT = game.time;
     if (this.hasAbility('barbs') && attacker && attacker.hp > 0) {
       attacker.takeDamage(game, dmg * 0.35, this.x, this.y, true);
       burst(game, attacker.x, attacker.y, '#ffb060', 5, 90);
@@ -203,14 +229,18 @@ export class Player extends Entity {
     if (this.hasAbility('nettle') && attacker && attacker.hp > 0) {
       attacker.takeDamage(game, dmg * 0.2, this.x, this.y, true);
       if (!attacker.boss) attacker.stunT = Math.max(attacker.stunT || 0, 0.5);
+      attacker.vulnerableT = Math.max(attacker.vulnerableT || 0, 3.5);
       burst(game, attacker.x, attacker.y, '#c79bff', 4, 70);
     }
     const dr = Math.min(0.8, (game.perks.dmgReduce || 0) + (game.talentBonus ? game.talentBonus.dmgReduce : 0));   // boss trophy + talents
     if (dr) dmg *= (1 - dr);
-    if (this.hasAbility('thickhide')) dmg *= 0.85;                 // cornified armored skin
-    if (this.hasAbility('bastion')) dmg *= 0.82;
+    if (this.hasAbility('thickhide')) dmg *= this.armorPlates > 0 ? 0.72 : 0.92;
+    if (this.hasAbility('bastion')) dmg *= 1 - .28 * (this.fortify || 0);
     if (this.withdrawT > 0) dmg *= 0.3;                            // tucked into the shell
-    this.knockbackFrom(fromx, fromy, 130);
+    if (this.armorBreakT > 0) dmg *= 1.22;
+    if (this.vulnerableT > 0) dmg *= 1.15;
+    notePlayerDamage(this, dmg);
+    this.knockbackFrom(fromx, fromy, 130 * (1 - .72 * (this.fortify || 0)));
     if (this.shield > 0) {
       this.shield -= dmg;
       if (this.shield < 0) { dmg = -this.shield; this.shield = 0; this.forceFieldT = 0; } else dmg = 0;
@@ -222,15 +252,15 @@ export class Player extends Entity {
       game.sfx.play('hurt'); burst(game, this.x, this.y, '#ff6a7a', 8, 120);
       addFloater(game, { x: this.x + rand(-6, 6), y: this.y - this.radius - 4, vx: rand(-16, 16), vy: -48, text: '' + Math.round(dmg), life: 0.9, max: 0.9, color: '#ff6a7a', size: 15 });
       if (this.hp <= 0) {
-        if (game.mp) { this.hp = 0; game.mpPlayerDied(this, attacker); return; }   // FFA: respawn instead of ending the run
+        if (game.mp && !(this.hasAbility('rebirth') && !this.rebirthUsed)) { this.hp = 0; game.mpPlayerDied(this, attacker); return; }   // FFA: respawn instead of ending the run
         if (this.hasAbility('rebirth') && !this.rebirthUsed) {
           // Colony Rebirth: the surviving zooids rebuild you and scatter everything nearby
           this.rebirthUsed = true;
           this.hp = Math.round(this.maxHp * 0.45);
-          game.lastHurt = game.time;
-          for (const c of game.creatures.slice()) {
-            const dx = c.x - this.x, dy = c.y - this.y, d = hyp(dx, dy), rr = this.radius + c.radius + 90;
-            if (d < rr) { const k = 1 - d / rr; c.vx += dx / (d || 1) * 520 * k; c.vy += dy / (d || 1) * 520 * k; }
+          game.lastHurt = game.time; this.lastHurtT = game.time; this.rebirthT = 1.4;
+          for (const target of abilityTargets(game, this)) {
+            const body = abilityBody(target), targetR = body.radius || target.radius || 12, dx = body.x - this.x, dy = body.y - this.y, d = hyp(dx, dy), rr = this.radius + targetR + 90;
+            if (d < rr) { const k = 1 - d / rr; body.vx += dx / (d || 1) * 520 * k; body.vy += dy / (d || 1) * 520 * k; }
           }
           burst(game, this.x, this.y, '#a0ffd8', 30, 260);
           game.fx.push({ x: this.x, y: this.y, t: 0, max: 0.6, R: this.radius + 90, color: '#a0ffd8', dir: 'out', width: 4 });
@@ -249,13 +279,13 @@ export class Player extends Entity {
   releaseShockAfterglow(game) {
     const bonus = game.talentBonus ? game.talentBonus.shockEchoPower : 0;
     const power = 1 + bonus, R = 330 + bonus * 55, x = this.shockEchoX, y = this.shockEchoY;
-    for (const c of game.creatures.slice()) {
-      const dx = c.x - x, dy = c.y - y, d = hyp(dx, dy);
-      if (d >= R + c.radius) continue;
-      if (c.boss) c.slowT = Math.max(c.slowT || 0, 3.2 + bonus * 2);
-      else { c.stunT = Math.max(c.stunT || 0, 1.6 + bonus); c.takeDamage(game, 9 * power, x, y, true); }
-      const force = (220 + bonus * 260) * (c.boss ? .25 : 1), falloff = Math.max(.18, 1 - d / (R + c.radius));
-      c.vx += dx / (d || 1) * force * falloff; c.vy += dy / (d || 1) * force * falloff;
+    for (const target of abilityTargets(game, this)) {
+      const body = abilityBody(target), dx = body.x - x, dy = body.y - y, d = hyp(dx, dy), targetR = body.radius || target.radius || 12;
+      if (d >= R + targetR) continue;
+      if (target.boss) target.slowT = Math.max(target.slowT || 0, 3.2 + bonus * 2);
+      else { target.stunT = Math.max(target.stunT || 0, 1.6 + bonus); abilityHit(game, this, target, 9 * power, x, y); }
+      const force = (220 + bonus * 260) * (target.boss ? .25 : 1), falloff = Math.max(.18, 1 - d / (R + targetR));
+      body.vx += dx / (d || 1) * force * falloff; body.vy += dy / (d || 1) * force * falloff;
     }
     game.fx.push({ x, y, t: 0, max: .62, R, color: '#82f7ff', dir: 'out', width: 7 });
     game.fx.push({ x, y, t: 0, max: .82, R: R * .78, color: '#e5ffff', dir: 'out', width: 3 });
@@ -273,6 +303,7 @@ export class Player extends Entity {
     if (this.spawnProtT > 0) this.spawnProtT = Math.max(0, this.spawnProtT - dt);
     const st = this.species.stats;
     for (const id in this.acd) { if (this.acd[id] > 0) this.acd[id] = Math.max(0, this.acd[id] - dt); }
+    const wasWithdrawn = this.withdrawT > 0;
     if (this.shieldT > 0) {
       this.shieldT -= dt; this.forceFieldT = Math.min(this.forceFieldT, Math.max(0, this.shieldT));
       if (this.shieldT <= 0) { this.shieldT = 0; this.shield = 0; this.forceFieldT = 0; }
@@ -285,7 +316,10 @@ export class Player extends Entity {
     this.graspT = Math.max(0, this.graspT - dt);
     this.castT = Math.max(0, this.castT - dt);
     if (this.shockEchoT > 0) { this.shockEchoT -= dt; if (this.shockEchoT <= 0) { this.shockEchoT = 0; this.releaseShockAfterglow(game); } }
-    this.burrowT = Math.max(0, this.burrowT - dt); this.sprintT = Math.max(0, this.sprintT - dt);
+    this.burrowT = Math.max(0, this.burrowT - dt); this.sprintT = Math.max(0, this.sprintT - dt); this.webT = Math.max(0, this.webT - dt);
+    this.armorBreakT = Math.max(0, (this.armorBreakT || 0) - dt); this.vulnerableT = Math.max(0, (this.vulnerableT || 0) - dt);
+    this.stunT = Math.max(0, (this.stunT || 0) - dt); this.slowT = Math.max(0, (this.slowT || 0) - dt);
+    if (wasWithdrawn && this.withdrawT <= 0) releaseShellEnergy(game, this, 'withdraw');
     if (this.vehicle) {
       updatePilotedVehicle(game, this, dt);
       this.cd = Math.max(0, this.cd - dt); this.biteT = Math.max(0, this.biteT - dt);
@@ -293,9 +327,11 @@ export class Player extends Entity {
     }
     const enrolled = this.enrollT > 0, withdrawn = this.withdrawT > 0, burrowed = this.burrowT > 0, ramming = this.ramT > 0, frenzy = this.frenzyT > 0;
     const hasted = this.burstT > 0 || this.sprintT > 0;   // Burst (aquatic) or Sprint (land)
-    const accMul = enrolled ? 0.25 : withdrawn ? 0.35 : burrowed ? 1.5 : (hasted ? 1.6 : 1);
+    const stunned = this.stunT > 0, slowed = this.slowT > 0;
+    const accMul = stunned ? .08 : enrolled ? .9 : withdrawn ? 0.35 : burrowed ? 1.5 : (hasted ? 1.6 : 1);
     const baseSpd = st.maxSpeed * this.spdMul * (this.hasAbility('sail') ? 1.08 : 1) * (frenzy ? 1.12 : 1);   // sun-warmed muscles drive harder
-    const spdCap = enrolled ? baseSpd * 0.5 : withdrawn ? baseSpd * 0.55 : burrowed ? baseSpd * 1.5 : (hasted ? baseSpd * 1.8 : baseSpd);
+    const enrollSpeedCap = Math.max(680, baseSpd * 3.2);
+    const spdCap = (enrolled ? enrollSpeedCap : withdrawn ? baseSpd * 0.55 : burrowed ? baseSpd * 1.5 : (hasted ? baseSpd * 1.8 : baseSpd)) * (stunned ? .22 : slowed ? .58 : 1);
     const webRes = Math.min(0.95, (game.perks.webResist || 0) + (game.talentBonus ? game.talentBonus.webResist : 0));
     const webM = 1 - game.webSlowAt(this.x, this.y) * .55 * (1 - webRes);
 
@@ -310,26 +346,31 @@ export class Player extends Entity {
       this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * st.turn * (hasted ? 1.3 : 1)));
     }
 
-    if (this.wantsBite(game) && !enrolled && !withdrawn && !burrowed && !ramming) this.bite(game);
+    if (this.wantsBite(game) && !enrolled && !withdrawn && !burrowed && !ramming && !stunned && !(this.leapT > 0)) this.bite(game);
     this.cd = Math.max(0, this.cd - dt); this.biteT = Math.max(0, this.biteT - dt);
     this.biteAnim = Math.max(0, this.biteAnim - dt * 3); this.mouth = this.biteAnim; this.hurt = Math.max(0, this.hurt - dt * 3);
+    if (enrolled && !stunned) {
+      const rollSpeed = hyp(this.vx, this.vy), minimumRoll = Math.min(enrollSpeedCap * .78, Math.max(460, baseSpd * 2.2));
+      const rollAngle = rollSpeed > 35 ? Math.atan2(this.vy, this.vx) : this.angle;
+      if (rollSpeed < minimumRoll) { this.vx = Math.cos(rollAngle) * minimumRoll; this.vy = Math.sin(rollAngle) * minimumRoll; }
+    }
     const lunging = this.biteT > 0 || this.jetT > 0 || this.ramT > 0;   // dash windows lift the speed cap
     const ramSpeedCap = Math.max(1550, baseSpd * 5.5);
-    this.integrate(game, dt, ramming ? .35 : enrolled ? 3.4 : 2.4, (ramming ? ramSpeedCap : lunging ? spdCap * 2.4 : spdCap) * webM);
+    this.integrate(game, dt, ramming ? .35 : enrolled ? .42 : 2.4, (ramming ? ramSpeedCap : lunging ? spdCap * 2.4 : spdCap) * webM);
     this.resolveBite(game);
 
     // Ram — shell-first charge: batter everything hit once per charge
     if (this.ramT > 0) {
-      for (const c of game.creatures.slice()) {
-        if (this.ramHit && this.ramHit.has(c)) continue;
-        const dx = c.x - this.x, dy = c.y - this.y, d = hyp(dx, dy);
-        if (d < this.radius * 1.25 + c.radius + 8) {
-          if (this.ramHit) this.ramHit.add(c);
-          c.takeDamage(game, st.dmg * this.atkMul * (c.boss ? 2 : 2.5), this.x, this.y, true);
-          c.vx += dx / (d || 1) * 780; c.vy += dy / (d || 1) * 780;
-          if (!c.boss) c.stunT = Math.max(c.stunT || 0, .8);
-          game.fx.push({ x: c.x, y: c.y, t: 0, max: .45, R: this.radius + c.radius + 45, color: '#ffb36a', dir: 'out', width: 6 });
-          burst(game, c.x, c.y, '#ffe0b8', 28, 330);
+      for (const target of abilityTargets(game, this)) {
+        if (this.ramHit && this.ramHit.has(target)) continue;
+        const body = abilityBody(target), dx = body.x - this.x, dy = body.y - this.y, d = hyp(dx, dy), targetR = body.radius || target.radius || 12;
+        if (d < this.radius * 1.25 + targetR + 8) {
+          if (this.ramHit) this.ramHit.add(target);
+          abilityHit(game, this, target, st.dmg * this.atkMul * (target.boss ? 2 : 2.5), this.x, this.y);
+          body.vx += dx / (d || 1) * 780; body.vy += dy / (d || 1) * 780;
+          if (!target.boss) target.stunT = Math.max(target.stunT || 0, .8);
+          game.fx.push({ x: body.x, y: body.y, t: 0, max: .45, R: this.radius + targetR + 45, color: '#ffb36a', dir: 'out', width: 6 });
+          burst(game, body.x, body.y, '#ffe0b8', 28, 330);
           shakeForPlayer(game, this, 12);
           if (!game.mp || this === game.player) game.sfx.play('ram_hit');
         }
@@ -353,15 +394,15 @@ export class Player extends Entity {
     if (this.bloomT > 0) {
       this.bloomTick -= dt;
       if (this.bloomTick <= 0) {
-        this.bloomTick = 0.35; const R = this.radius + 52;
-        for (const c of game.creatures.slice()) {
-          if (c.stunT > 0 && !c.boss) continue;
-          const d = hyp(c.x - this.x, c.y - this.y);
-          if (d < R + c.radius) {
-            c.takeDamage(game, Math.max(7, st.dmg * this.atkMul * .24), this.x, this.y, true);
-            const k = 1 - d / (R + c.radius);
-            c.vx += (c.x - this.x) / (d || 1) * 180 * k; c.vy += (c.y - this.y) / (d || 1) * 180 * k;
-          }
+        this.bloomTick = 0.35; const R = this.radius + 115;
+        const targets = abilityTargets(game, this).map(target => ({ target, body: abilityBody(target), d: hyp(abilityBody(target).x - this.x, abilityBody(target).y - this.y) }))
+          .filter(entry => entry.d < R + (entry.body.radius || entry.target.radius || 0)).sort((a, b) => a.d - b.d).slice(0, 4);
+        this.bloomPoints = targets.map(entry => ({ x: entry.body.x, y: entry.body.y }));
+        for (let i = 0; i < targets.length; i++) {
+          const { target, body, d } = targets[i];
+          abilityHit(game, this, target, Math.max(7, st.dmg * this.atkMul * .27), this.x, this.y);
+          const inward = i === 0 ? -1 : 1, k = Math.max(.12, 1 - d / (R + (body.radius || 0)));
+          body.vx += (body.x - this.x) / (d || 1) * 240 * k * inward; body.vy += (body.y - this.y) / (d || 1) * 240 * k * inward;
         }
         burst(game, this.x, this.y, '#c9a0ff', 6, 110);
       }
@@ -369,42 +410,39 @@ export class Player extends Entity {
 
     // Whirlpool — the siphon vortex drags the sea inward and grinds it
     if (this.vortexT > 0) {
-      const R = 260;
-      for (const c of game.creatures.slice()) {
-        const dx = this.x - c.x, dy = this.y - c.y, d = hyp(dx, dy);
-        if (d < R + c.radius) {
-          const k = 1 - d / (R + c.radius);
-          const pull = c.boss ? 500 : 2200;   // minibosses resist most of the drag
-          c.vx += dx / (d || 1) * pull * k * dt; c.vy += dy / (d || 1) * pull * k * dt;
+      const R = 260, vx = this.vortexX || this.x, vy = this.vortexY || this.y;
+      for (const target of abilityTargets(game, this)) {
+        const body = abilityBody(target), dx = vx - body.x, dy = vy - body.y, d = hyp(dx, dy);
+        if (d < R + (body.radius || target.radius || 0)) {
+          const k = 1 - d / (R + (body.radius || target.radius || 0));
+          const pull = target.boss ? 500 : 2200;
+          body.vx += dx / (d || 1) * pull * k * dt; body.vy += dy / (d || 1) * pull * k * dt;
         }
       }
       this.vortexTick -= dt;
       if (this.vortexTick <= 0) {
         this.vortexTick = 0.45;
         // damage from the creature's own position -> no knockback fighting the drag
-        for (const c of game.creatures.slice()) { const d = hyp(c.x - this.x, c.y - this.y); if (d < R + c.radius) c.takeDamage(game, 9, c.x, c.y, true); }
-        game.fx.push({ x: this.x, y: this.y, t: 0, max: 0.5, R, color: '#6fd0e8', dir: 'in', width: 3 });
+        for (const target of abilityTargets(game, this)) { const body = abilityBody(target), d = hyp(body.x - vx, body.y - vy); if (d < R + (body.radius || target.radius || 0)) abilityHit(game, this, target, Math.max(9, st.dmg * this.atkMul * .18), body.x, body.y); }
+        game.fx.push({ x: vx, y: vy, t: 0, max: 0.5, R, color: '#6fd0e8', dir: 'in', width: 3 });
       }
       if (game.particles.length < 300) {
         const a = rand(0, TAU), rr = rand(R * 0.4, R);
-        game.particles.push({ x: this.x + Math.cos(a) * rr, y: this.y + Math.sin(a) * rr, vx: -Math.sin(a) * 140 - Math.cos(a) * 80, vy: Math.cos(a) * 140 - Math.sin(a) * 80, life: 0.5, max: 0.5, size: rand(1.5, 3), color: 'rgba(140,220,240,0.6)' });
+        game.particles.push({ x: vx + Math.cos(a) * rr, y: vy + Math.sin(a) * rr, vx: -Math.sin(a) * 140 - Math.cos(a) * 80, vy: Math.cos(a) * 140 - Math.sin(a) * 80, life: 0.5, max: 0.5, size: rand(1.5, 3), color: 'rgba(140,220,240,0.6)' });
       }
     }
 
+    updateAbilityRuntime(game, this, dt);
+
     // passive regen once out of combat
-    if (game.time - game.lastHurt > 3 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 6 * dt);
+    if (game.time - this.lastHurtT > 3 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 6 * dt);
     // Mending talent — steady regeneration, in and out of combat
     if (game.talentBonus && game.talentBonus.regen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + game.talentBonus.regen * dt);
     // Regenerate — amphibian regrowth that knits wounds even mid-fight
-    if (this.hasAbility('regen') && this.hp < this.maxHp) {
-      const inCombat = game.time - game.lastHurt < 3;
-      this.hp = Math.min(this.maxHp, this.hp + (inCombat ? 5 : 12) * dt);
-    }
-    if (this.hasAbility('airbreath') && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 7 * dt);
+    if (this.hasAbility('regen') && this.hp < this.maxHp && this.regenDelay <= 0) this.hp = Math.min(this.maxHp, this.hp + 14 * dt);
     // Basking Sail — sun-warmed metabolism mends wounds, faster out of combat
     if (this.hasAbility('sail') && this.hp < this.maxHp) {
-      const inCombat = game.time - game.lastHurt < 3;
-      this.hp = Math.min(this.maxHp, this.hp + (inCombat ? 3 : 9) * dt);
+      this.hp = Math.min(this.maxHp, this.hp + (2 + this.sailHeat * 7) * dt);
     }
   }
 }

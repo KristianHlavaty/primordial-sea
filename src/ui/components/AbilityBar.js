@@ -17,6 +17,8 @@ export function AbilityBar({ abilities, engine }) {
           ${a.passive ? html`<span className="apass">PASSIVE</span>` : html`<span className="akey">${a.key}</span>`}
           <span className="aname">${a.name}</span>
           ${!a.passive && !a.active && a.cdFrac > 0 && html`<div className="acd" style=${{ height: (a.cdFrac * 100) + '%' }}><span>${a.cd}</span></div>`}
+          ${a.meter > 0 && html`<div className="ameter" style=${{ width: (a.meter * 100) + '%' }}/>`}
+          ${a.meterLabel && html`<span className="ameterlabel">${a.meterLabel}</span>`}
           ${a.active && a.activeFrac > 0 && html`<div className="aactive" style=${{ width: (a.activeFrac * 100) + '%' }}/>`}
         </div>
       `)}

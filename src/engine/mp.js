@@ -445,6 +445,45 @@ export function mpBroadcast(engine, dt) {
   mpActivateWorld(engine, restoreMap);
 }
 
+function buildPowerState(pl) {
+  const point = value => value ? Math.round(value) : 0;
+  return {
+    eg: Math.ceil((pl.engulfT || 0) * 100), ea: roundTo(pl.engulfAngle || pl.angle || 0, 2),
+    sv: Math.ceil((pl.shockVisualT || 0) * 100), sl: (pl.shockLinks || []).map(link => [point(link.x), point(link.y)]),
+    ic: Math.ceil((pl.inkCloudT || 0) * 10), ix: point(pl.inkX), iy: point(pl.inkY), dx: point(pl.decoyX), dy: point(pl.decoyY), da: roundTo(pl.decoyAngle || 0, 2),
+    vx: point(pl.vortexX), vy: point(pl.vortexY),
+    cr: Math.ceil((pl.crushT || 0) * 100), ca: roundTo(pl.crushAngle || 0, 2), im: Math.ceil((pl.impaleT || 0) * 100), ia: roundTo(Number.isFinite(pl.impaleAngle) ? pl.impaleAngle : (pl.angle || 0), 2), ir: Math.round(pl.impaleReach || 0),
+    lp: Math.ceil((pl.leapT || 0) * 100), lm: Math.ceil((pl.leapMax || 0) * 100), lk: pl.leapKind || undefined, lx: point(pl.leapX), ly: point(pl.leapY),
+    st: Math.ceil((pl.stompT || 0) * 100), sx: point(pl.stompX), sy: point(pl.stompY), ts: Math.ceil((pl.tailSweepT || 0) * 100),
+    mo: Math.round((pl.sprintMomentum || 0) * 100), ef: Math.ceil((pl.evasionFlashT || 0) * 100),
+    fc: pl.filterCombo || 0, cc: Math.round((pl.camoCharge || 0) * 100), ap: pl.armorPlates || 0,
+    fo: Math.round((pl.fortify || 0) * 100), sa: Math.round((pl.sailHeat || 0) * 100), rb: Math.ceil((pl.rebirthT || 0) * 100),
+    bc: pl.barbCharge || 0, se: Math.ceil((pl.senseCd || 0) * 10), rd: Math.ceil((pl.regenDelay || 0) * 10), ai: Math.ceil((pl.airStride || 0) * 10), ru: pl.rebirthUsed ? 1 : 0,
+    hs: Math.round(pl.hardenStored || 0), ws: Math.round(pl.withdrawStored || 0), bb: pl.burstBreach ? 1 : 0,
+    sn: Math.ceil((pl.stunT || 0) * 10), so: Math.ceil((pl.slowT || 0) * 10), ar: Math.ceil((pl.armorBreakT || 0) * 10), vu: Math.ceil((pl.vulnerableT || 0) * 10),
+    vs: pl.venomStacks || 0, vm: Math.ceil((pl.venomMarkT || 0) * 10),
+    bp: (pl.bloomPoints || []).map(link => [point(link.x), point(link.y)]),
+  };
+}
+
+function applyPowerState(pl, state = {}) {
+  pl.engulfT = (state.eg || 0) / 100; pl.engulfAngle = state.ea || pl.angle || 0;
+  pl.shockVisualT = (state.sv || 0) / 100; pl.shockLinks = (state.sl || []).map(link => ({ x: link[0], y: link[1] }));
+  pl.inkCloudT = (state.ic || 0) / 10; pl.inkX = state.ix || 0; pl.inkY = state.iy || 0; pl.decoyX = state.dx || 0; pl.decoyY = state.dy || 0; pl.decoyAngle = state.da || 0;
+  pl.vortexX = state.vx || 0; pl.vortexY = state.vy || 0;
+  pl.crushT = (state.cr || 0) / 100; pl.crushAngle = state.ca || 0; pl.impaleT = (state.im || 0) / 100; pl.impaleAngle = Number.isFinite(state.ia) ? state.ia : (pl.angle || 0); pl.impaleReach = state.ir || 0;
+  pl.leapT = (state.lp || 0) / 100; pl.leapMax = (state.lm || 0) / 100; pl.leapKind = state.lk || null; pl.leapX = state.lx || 0; pl.leapY = state.ly || 0;
+  pl.stompT = (state.st || 0) / 100; pl.stompX = state.sx || 0; pl.stompY = state.sy || 0; pl.tailSweepT = (state.ts || 0) / 100;
+  pl.sprintMomentum = (state.mo || 0) / 100; pl.evasionFlashT = (state.ef || 0) / 100;
+  pl.filterCombo = state.fc || 0; pl.camoCharge = (state.cc || 0) / 100; pl.armorPlates = state.ap || 0;
+  pl.fortify = (state.fo || 0) / 100; pl.sailHeat = (state.sa || 0) / 100; pl.rebirthT = (state.rb || 0) / 100;
+  pl.barbCharge = state.bc || 0; pl.senseCd = (state.se || 0) / 10; pl.regenDelay = (state.rd || 0) / 10; pl.airStride = (state.ai || 0) / 10; pl.rebirthUsed = !!state.ru;
+  pl.hardenStored = state.hs || 0; pl.withdrawStored = state.ws || 0; pl.burstBreach = state.bb ? 1 : 0;
+  pl.stunT = (state.sn || 0) / 10; pl.slowT = (state.so || 0) / 10; pl.armorBreakT = (state.ar || 0) / 10; pl.vulnerableT = (state.vu || 0) / 10;
+  pl.venomStacks = state.vs || 0; pl.venomMarkT = (state.vm || 0) / 10;
+  pl.bloomPoints = (state.bp || []).map(link => ({ x: link[0], y: link[1] }));
+}
+
 function buildSnapshot(engine, recipientConn) {
   const mp = engine.mp, players = [];
   const pushP = (pl, c) => {
@@ -466,6 +505,7 @@ function buildSnapshot(engine, recipientConn) {
       ca: pl.castT > 0 ? pl.castAbility : undefined, cq: pl.castSeq || 0, ct: Math.ceil((pl.castT || 0) * 10),
       grt: Math.ceil((pl.graspT || 0) * 100),
       grx: pl.graspT > 0 ? Math.round(pl.graspX) : undefined, gry: pl.graspT > 0 ? Math.round(pl.graspY) : undefined,
+      pw: buildPowerState(pl),
       vh: pl.vehicle ? pl.vehicle.netId : 0, vt: pl.vehicle ? pl.vehicle.type : undefined,
       it: (pl.items || []).map(item => item ? [item.id, item.uses, Math.ceil((item.cd || 0) * 10)] : 0),
     });
@@ -474,7 +514,8 @@ function buildSnapshot(engine, recipientConn) {
   const npcs = [];
   for (const c of engine.creatures) {
     if (c.netId == null) c.netId = mp.nextNet++;
-    const npc = { n: c.netId, k: c.key, x: Math.round(c.x), y: Math.round(c.y), a: roundTo(c.angle, 2), hp: Math.round(c.hp), mhp: Math.round(c.maxHp), r: Math.round(c.radius), lv: c.level || 1, st: c.stunT > 0 ? 1 : 0 };
+    const npc = { n: c.netId, k: c.key, x: Math.round(c.x), y: Math.round(c.y), a: roundTo(c.angle, 2), hp: Math.round(c.hp), mhp: Math.round(c.maxHp), r: Math.round(c.radius), lv: c.level || 1, st: c.stunT > 0 ? 1 : 0,
+      ar: Math.ceil((c.armorBreakT || 0) * 10), vu: Math.ceil((c.vulnerableT || 0) * 10), vs: c.venomStacks || 0, vm: Math.ceil((c.venomMarkT || 0) * 10) };
     if (c.boss) {
       npc.bk = c.bossKind; npc.h = Math.ceil((c.hardenT || 0) * 10); npc.e = c.engaged ? 1 : 0;
       npc.tg = c.telegraph ? { ...c.telegraph, t: roundTo(c.telegraph.t, 2), max: roundTo(c.telegraph.max, 2) } : undefined;
@@ -492,7 +533,7 @@ function buildSnapshot(engine, recipientConn) {
     if (food.length >= 60) break;
   }
   const dynamicWebs = engine.webs.filter(w => w.life != null).map(w => ({
-    x: Math.round(w.x), y: Math.round(w.y), r: Math.round(w.r), angle: roundTo(w.angle || 0, 2), life: roundTo(w.life, 1),
+    x: Math.round(w.x), y: Math.round(w.y), r: Math.round(w.r), angle: roundTo(w.angle || 0, 2), life: roundTo(w.life, 1), abilityWeb: !!w.abilityWeb,
   }));
   const worldItems = engine.worldItems.map(item => {
     if (item.netId == null) item.netId = mp.nextNet++;
@@ -552,6 +593,7 @@ function makeRenderPlayer(engine, pd) {
     vehicle: null, vehicleType: pd.vt || null, vehicleNetId: pd.vh || null,
   };
   applyAbilityState(player, pd.ab);
+  applyPowerState(player, pd.pw);
   applyItemState(player, pd.it);
   return player;
 }
@@ -561,6 +603,7 @@ function makeRenderNpc(nd) {
     netId: nd.n, key: nd.bk, bossKind: nd.bk, kind: boss.kind, title: boss.title, short: boss.short,
     plan: { ...boss.plan }, boss: true, role: 'predator', scale: boss.scale || 1, animOff: (nd.n * 7) % 100,
     vx: 0, vy: 0, mouth: 0, hurt: 0, hpBarT: 0, stunT: 0, slowT: 0, hardenT: (nd.h || 0) / 10,
+    armorBreakT: (nd.ar || 0) / 10, vulnerableT: (nd.vu || 0) / 10, venomStacks: nd.vs || 0, venomMarkT: (nd.vm || 0) / 10,
     engaged: !!nd.e, telegraph: nd.tg || null,
     x: nd.x, y: nd.y, angle: nd.a, gx: nd.x, gy: nd.y, ga: nd.a,
     hp: nd.hp, maxHp: nd.mhp, radius: nd.r, level: nd.lv,
@@ -568,7 +611,8 @@ function makeRenderNpc(nd) {
   const s = NPCS[nd.k], plan = nd.pl || (s ? s.plan : { kind: 'microbe', body: '#88a', accent: '#ccd' });
   return {
     netId: nd.n, key: nd.k, plan, boss: false, role: s ? s.role : 'prey', scale: 1, animOff: (nd.n * 7) % 100,
-    vx: 0, vy: 0, mouth: 0, hurt: 0, hpBarT: 0, stunT: 0, x: nd.x, y: nd.y, angle: nd.a, gx: nd.x, gy: nd.y, ga: nd.a,
+    vx: 0, vy: 0, mouth: 0, hurt: 0, hpBarT: 0, stunT: 0, armorBreakT: (nd.ar || 0) / 10, vulnerableT: (nd.vu || 0) / 10,
+    venomStacks: nd.vs || 0, venomMarkT: (nd.vm || 0) / 10, x: nd.x, y: nd.y, angle: nd.a, gx: nd.x, gy: nd.y, ga: nd.a,
     hp: nd.hp, maxHp: nd.mhp, radius: nd.r, level: nd.lv, cocoon: !!nd.co, lumenOrb: !!nd.lo, hatchT: nd.ht,
   };
 }
@@ -612,6 +656,7 @@ function applySnapshot(engine, s) {
       const pl = engine.player;
       pl.gx = pd.x; pl.gy = pd.y; pl.ga = pd.a; pl.hp = pd.hp; pl.maxHp = pd.mhp; pl.level = pd.lv; pl.xp = pd.xp || 0;
       pl.shield = pd.sh; pl.shieldMax = pd.sm || 0; pl.forceFieldT = (pd.ff || 0) / 10; applyAbilityState(pl, pd.ab);
+      applyPowerState(pl, pd.pw);
       applyItemState(pl, pd.it);
       pl.kills = pd.k || 0; pl.deadT = pd.d || 0;
       pl.mpInvincible = !!pd.iv;
@@ -647,6 +692,7 @@ function applySnapshot(engine, s) {
     }
     rp.gx = pd.x; rp.gy = pd.y; rp.ga = pd.a; rp.hp = pd.hp; rp.maxHp = pd.mhp; rp.level = pd.lv; rp.xp = pd.xp || 0;
     rp.shield = pd.sh; rp.shieldMax = pd.sm || 0; rp.forceFieldT = (pd.ff || 0) / 10; applyAbilityState(rp, pd.ab);
+    applyPowerState(rp, pd.pw);
     applyItemState(rp, pd.it);
     rp.kills = pd.k || 0; rp.deadT = pd.d || 0; rp.mpInvincible = !!pd.iv;
     rp.castAbility = pd.ca || null; rp.castT = (pd.ct || 0) / 10; rp.castSeq = pd.cq || 0;
@@ -665,6 +711,7 @@ function applySnapshot(engine, s) {
     if (!c) { c = makeRenderNpc(nd); mp.npcById.set(nd.n, c); }
     c.gx = nd.x; c.gy = nd.y; c.ga = nd.a; c.hp = nd.hp; c.maxHp = nd.mhp; c.radius = nd.r; c.level = nd.lv;
     c.stunT = nd.st ? 0.4 : 0; c.hpBarT = nd.hp < nd.mhp ? 1.2 : c.hpBarT;
+    c.armorBreakT = (nd.ar || 0) / 10; c.vulnerableT = (nd.vu || 0) / 10; c.venomStacks = nd.vs || 0; c.venomMarkT = (nd.vm || 0) / 10;
     if (c.boss) { c.hardenT = (nd.h || 0) / 10; c.engaged = !!nd.e; c.telegraph = nd.tg || null; }
     if (c.cocoon && nd.ht != null) c.hatchT = nd.ht;
   }
@@ -796,6 +843,15 @@ export function mpClientUpdate(engine, dt) {
     e.forceFieldT = Math.max(0, (e.forceFieldT || 0) - dt);
     e.castT = Math.max(0, (e.castT || 0) - dt);
     e.graspT = Math.max(0, (e.graspT || 0) - dt);
+    e.engulfT = Math.max(0, (e.engulfT || 0) - dt); e.shockVisualT = Math.max(0, (e.shockVisualT || 0) - dt);
+    e.inkCloudT = Math.max(0, (e.inkCloudT || 0) - dt); e.crushT = Math.max(0, (e.crushT || 0) - dt);
+    e.impaleT = Math.max(0, (e.impaleT || 0) - dt); e.leapT = Math.max(0, (e.leapT || 0) - dt);
+    e.stompT = Math.max(0, (e.stompT || 0) - dt); e.tailSweepT = Math.max(0, (e.tailSweepT || 0) - dt);
+    e.evasionFlashT = Math.max(0, (e.evasionFlashT || 0) - dt); e.rebirthT = Math.max(0, (e.rebirthT || 0) - dt);
+    e.senseCd = Math.max(0, (e.senseCd || 0) - dt); e.regenDelay = Math.max(0, (e.regenDelay || 0) - dt);
+    e.stunT = Math.max(0, (e.stunT || 0) - dt); e.slowT = Math.max(0, (e.slowT || 0) - dt);
+    e.armorBreakT = Math.max(0, (e.armorBreakT || 0) - dt); e.vulnerableT = Math.max(0, (e.vulnerableT || 0) - dt);
+    e.venomMarkT = Math.max(0, (e.venomMarkT || 0) - dt); if (e.venomMarkT <= 0) e.venomStacks = 0;
     for (const id of (e.abilities || [])) {
       if (e.acd && e.acd[id] > 0) e.acd[id] = Math.max(0, e.acd[id] - dt);
       const timer = ACTIVE_TIMER[id]; if (timer && e[timer] > 0) e[timer] = Math.max(0, e[timer] - dt);
@@ -808,6 +864,7 @@ export function mpClientUpdate(engine, dt) {
     smooth(c); c.mouth = Math.max(0, (c.mouth || 0) - dt * 3); c.hurt = Math.max(0, (c.hurt || 0) - dt * 3);
     if (c.hpBarT > 0) c.hpBarT -= dt;
     if (c.hardenT > 0) c.hardenT = Math.max(0, c.hardenT - dt);
+    c.armorBreakT = Math.max(0, (c.armorBreakT || 0) - dt); c.vulnerableT = Math.max(0, (c.vulnerableT || 0) - dt); c.venomMarkT = Math.max(0, (c.venomMarkT || 0) - dt);
     if (c.telegraph && c.telegraph.t > 0) c.telegraph.t = Math.max(0, c.telegraph.t - dt);
     if (c.cocoon && c.hatchT > 0) c.hatchT = Math.max(0, c.hatchT - dt);
   }

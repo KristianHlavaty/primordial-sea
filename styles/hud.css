@@ -75,6 +75,8 @@
 .abil .acd{position:absolute; left:0; right:0; top:0; background:#04121ed9; display:flex; align-items:center; justify-content:center; pointer-events:none}
 .abil .acd span{font-size:16px; font-weight:800; color:#fff; text-shadow:0 1px 3px #000}
 .abil .aactive{position:absolute; bottom:0; left:0; height:3px; background:var(--ac); box-shadow:0 0 6px var(--ac)}
+.abil .ameter{position:absolute; bottom:4px; left:0; height:2px; background:var(--ac); opacity:.8; box-shadow:0 0 4px var(--ac)}
+.abil .ameterlabel{position:absolute; left:3px; right:3px; bottom:7px; z-index:2; overflow:hidden; text-align:center; color:#fff; font-size:7px; font-weight:900; letter-spacing:.5px; text-shadow:0 1px 3px #000}
 
 /* ---------- multiplayer collectible item bar ---------- */
 .itembarWrap{position:absolute; bottom:88px; left:50%; transform:translateX(-50%); pointer-events:none; z-index:17}

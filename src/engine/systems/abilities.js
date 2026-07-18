@@ -5,45 +5,59 @@
 import { ABILITIES } from '../../data/abilities.js';
 import { clamp, hyp, rand } from '../../core/math.js';
 import { burst, shakeForPlayer } from './effects.js';
+import {
+  abilityTargets, abilityBody, abilityHit, applyVenomStacks, beginLeap,
+  emergeBurrow, releaseShellEnergy,
+} from './abilityRuntime.js';
 
 export function activateAbility(game, idx, actor) {
   const p = actor || game.player;
-  if (!p || p.deadT > 0 || game.paused || game.dead || game.pendingEvolve || !game.playing) return;
+  if (!p || p.deadT > 0 || p.stunT > 0 || p.vehicle || game.paused || game.dead || game.pendingEvolve || !game.playing) return;
   const id = p.abilities[idx]; if (!id) return;
   const ab = ABILITIES[id]; if (!ab || ab.passive) return;
+  if (id === 'withdraw' && p.withdrawT > 0) {
+    p.withdrawT = 0; releaseShellEnergy(game, p, 'withdraw'); game.pushHud(true); return;
+  }
+  if (id === 'burrow' && p.burrowActive) {
+    emergeBurrow(game, p); game.pushHud(true); return;
+  }
   if ((p.acd[id] || 0) > 0) return;
   p.castAbility = id; p.castT = 0.75; p.castSeq = (p.castSeq || 0) + 1;
 
   if (id === 'harden') {
     p.shieldMax = Math.round(p.maxHp * 0.85); p.shield = p.shieldMax; p.shieldT = ab.dur; p.forceFieldT = 0;
+    p.hardenActive = 1; p.hardenStored = 0;
     const R = p.radius + 85;
-    for (const c of game.creatures.slice()) {
-      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
-      if (d >= R + c.radius) continue;
-      const k = 1 - d / (R + c.radius);
-      c.vx += dx / (d || 1) * 460 * k; c.vy += dy / (d || 1) * 460 * k;
-      c.takeDamage(game, p.species.stats.dmg * p.atkMul * .35, p.x, p.y, true);
+    for (const target of abilityTargets(game, p)) {
+      const body = abilityBody(target), targetR = body.radius || target.radius || 12, dx = body.x - p.x, dy = body.y - p.y, d = hyp(dx, dy);
+      if (d >= R + targetR) continue;
+      const k = 1 - d / (R + targetR);
+      body.vx += dx / (d || 1) * 460 * k; body.vy += dy / (d || 1) * 460 * k;
+      abilityHit(game, p, target, p.species.stats.dmg * p.atkMul * .35, p.x, p.y);
     }
     burst(game, p.x, p.y, '#bfeaff', 26, 230);
     game.fx.push({ x: p.x, y: p.y, t: 0, max: .48, R, color: '#7fd8ff', dir: 'out', width: 5 });
     shakeForPlayer(game, p, 3);
   }
   else if (id === 'enroll') {
-    p.enrollT = ab.dur;
+    p.enrollT = ab.dur; p.enrollHit = new Set();
+    p.vx += Math.cos(p.angle) * 720; p.vy += Math.sin(p.angle) * 720;
     // shove and nick everything close by
-    for (const c of game.creatures.slice()) {
-      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy), rr = p.radius + c.radius + 60;
+    for (const target of abilityTargets(game, p)) {
+      const body = abilityBody(target), targetR = body.radius || target.radius || 12, dx = body.x - p.x, dy = body.y - p.y, d = hyp(dx, dy), rr = p.radius + targetR + 60;
       if (d < rr) {
         const k = 1 - d / rr;
-        c.vx += dx / (d || 1) * 620 * k; c.vy += dy / (d || 1) * 620 * k;
-        c.takeDamage(game, p.species.stats.dmg * p.atkMul * 1.25, p.x, p.y, true);
+        p.enrollHit.add(target); body.vx += dx / (d || 1) * 620 * k; body.vy += dy / (d || 1) * 620 * k;
+        abilityHit(game, p, target, p.species.stats.dmg * p.atkMul * 1.25, p.x, p.y);
+        const nx = dx / (d || 1), ny = dy / (d || 1), intoTarget = Math.max(0, p.vx * nx + p.vy * ny);
+        if (intoTarget > 0) { p.vx -= nx * intoTarget * 1.38; p.vy -= ny * intoTarget * 1.38; }
       }
     }
     game.fx.push({ x: p.x, y: p.y, t: 0, max: .5, R: p.radius + 90, color: '#ffcf6a', dir: 'out', width: 6 });
     burst(game, p.x, p.y, '#ffe6b0', 30, 300); shakeForPlayer(game, p, 5);
   }
   else if (id === 'burst') {
-    p.burstT = ab.dur;
+    p.burstT = ab.dur; p.burstBreach = 1;
     p.vx += Math.cos(p.angle) * 460; p.vy += Math.sin(p.angle) * 460;
     game.fx.push({ x: p.x, y: p.y, t: 0, max: .42, R: p.radius + 75, color: '#5ee0f2', dir: 'out', width: 4 });
     burst(game, p.x, p.y, '#9bf4ff', 20, 250);
@@ -54,29 +68,32 @@ export function activateAbility(game, idx, actor) {
     burst(game, p.x, p.y, '#ff4058', 28, 270); shakeForPlayer(game, p, 2);
   }
   else if (id === 'engulf') {
-    const R = 300;
+    const R = 330, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
+    p.engulfT = .78; p.engulfAngle = p.angle;
     // suck in food pellets...
     for (const f of game.food) {
       const d = hyp(f.x - p.x, f.y - p.y);
       if (d < R) { const k = 1 - d / R; f.vx += (p.x - f.x) / (d || 1) * 900 * k; f.vy += (p.y - f.y) / (d || 1) * 900 * k; }
     }
-    // ...and briefly stun + drag smaller creatures
-    for (const c of game.creatures.slice()) {
-      if (c.boss || c.radius >= p.radius * 1.15) continue;
-      const d = hyp(c.x - p.x, c.y - p.y);
-      if (d < 220) {
-        const k = 1 - d / 220;
-        c.vx += (p.x - c.x) / (d || 1) * 820 * k; c.vy += (p.y - c.y) / (d || 1) * 820 * k;
-        c.stunT = Math.max(c.stunT || 0, 0.7);
-        c.takeDamage(game, p.species.stats.dmg * p.atkMul * .3, c.x, c.y, true);
-      }
+    // A directed vacuum cone swallows the nearest small victim, then spits it out.
+    let swallow = null, swallowD = Infinity;
+    for (const target of abilityTargets(game, p)) {
+      const body = abilityBody(target), dx = body.x - p.x, dy = body.y - p.y, d = hyp(dx, dy);
+      const dot = (dx * fx + dy * fy) / (d || 1);
+      if (d >= 260 + (body.radius || target.radius || 0) || dot < .18) continue;
+      const k = 1 - d / 260;
+      body.vx += (p.x - body.x) / (d || 1) * 1150 * k; body.vy += (p.y - body.y) / (d || 1) * 1150 * k;
+      if (!target.boss) target.stunT = Math.max(target.stunT || 0, .7);
+      abilityHit(game, p, target, p.species.stats.dmg * p.atkMul * .32, body.x, body.y);
+      if (!target.boss && !target.speciesId && (body.radius || target.radius) < p.radius * 1.15 && d < swallowD) { swallow = target; swallowD = d; }
     }
+    if (swallow) { p.engulfTarget = swallow; p.engulfSwallowT = .72; }
     p.hp = Math.min(p.maxHp, p.hp + Math.max(10, p.maxHp * .08));
     game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.55, R, color: '#8fe6c8', dir: 'in', width: 5 });
     burst(game, p.x, p.y, '#b5ffe8', 18, 170);
   }
   else if (id === 'bloom') {
-    p.bloomT = ab.dur; p.bloomTick = 0;
+    p.bloomT = ab.dur; p.bloomTick = 0; p.bloomGrab = null;
     burst(game, p.x, p.y, '#e0b8ff', 24, 220);
     game.fx.push({ x: p.x, y: p.y, t: 0, max: .48, R: p.radius + 95, color: '#c79bff', dir: 'out', width: 4 });
   }
@@ -87,21 +104,31 @@ export function activateAbility(game, idx, actor) {
     const bx = p.x - Math.cos(p.angle) * p.radius, by = p.y - Math.sin(p.angle) * p.radius;
     for (let i = 0; i < 22; i++)
       game.particles.push({ x: bx, y: by, vx: -Math.cos(p.angle) * rand(120, 360) + rand(-65, 65), vy: -Math.sin(p.angle) * rand(120, 360) + rand(-65, 65), life: 0.55, max: 0.55, size: rand(2, 5), color: 'rgba(160,240,255,0.72)' });
+    for (const target of abilityTargets(game, p)) {
+      const body = abilityBody(target), dx = body.x - p.x, dy = body.y - p.y, d = hyp(dx, dy);
+      const rear = (-dx * Math.cos(p.angle) - dy * Math.sin(p.angle)) / (d || 1);
+      if (d > 175 + (body.radius || target.radius || 0) || rear < .2) continue;
+      abilityHit(game, p, target, p.species.stats.dmg * p.atkMul * .55, bx, by);
+      body.vx -= Math.cos(p.angle) * (target.boss ? 260 : 720); body.vy -= Math.sin(p.angle) * (target.boss ? 260 : 720);
+    }
     game.fx.push({ x: bx, y: by, t: 0, max: .38, R: p.radius + 65, color: '#7fe6d8', dir: 'out', width: 4 });
     shakeForPlayer(game, p, 2);
   }
   else if (id === 'withdraw') {
-    p.withdrawT = ab.dur; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * .08);
+    p.withdrawT = ab.dur; p.withdrawStored = 0; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * .08);
     burst(game, p.x, p.y, '#e8c98a', 18, 180);
     game.fx.push({ x: p.x, y: p.y, t: 0, max: .45, R: p.radius + 55, color: '#e8c98a', dir: 'in', width: 5 });
   }
   else if (id === 'whirlpool') {
-    p.vortexT = ab.dur; p.vortexTick = 0;
-    game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.5, R: 260, color: '#6fd0e8', dir: 'in', width: 4 });
+    p.vortexT = ab.dur; p.vortexTick = 0; p.vortexActive = 1; p.vortexReleased = 0;
+    p.vortexX = clamp(p.x + Math.cos(p.angle) * 145, 80, game.W - 80);
+    p.vortexY = clamp(p.y + Math.sin(p.angle) * 145, 80, game.H - 80);
+    game.fx.push({ x: p.vortexX, y: p.vortexY, t: 0, max: 0.5, R: 260, color: '#6fd0e8', dir: 'in', width: 4 });
     shakeForPlayer(game, p, 3);
   }
   else if (id === 'ink') {
-    p.stealthT = ab.dur;
+    p.stealthT = .35; p.inkCloudT = 6; p.inkX = p.x; p.inkY = p.y;
+    p.decoyX = p.x; p.decoyY = p.y; p.decoyAngle = p.angle;
     for (let i = 0; i < 26; i++) {
       if (game.particles.length > 320) game.particles.shift();
       game.particles.push({ x: p.x + rand(-20, 20), y: p.y + rand(-20, 20), vx: rand(-50, 50), vy: rand(-50, 50), life: rand(1.2, 2.4), max: 2.4, size: rand(8, 20), color: 'rgba(20,26,44,0.55)' });
@@ -164,51 +191,44 @@ export function activateAbility(game, idx, actor) {
     burst(game, p.x, p.y, '#ffd39d', 24, 280);
   }
   else if (id === 'impale') {
-    // skewering claw lunge — heavy cone damage in front
     const st = p.species.stats;
     p.jetT = 0.25; p.vx += Math.cos(p.angle) * 560; p.vy += Math.sin(p.angle) * 560;
     const reach = p.radius + st.reach * 1.8, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
-    for (const c of game.creatures.slice()) {
-      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
-      if (d < reach + c.radius) {
+    p.impaleT = .72; p.impaleAngle = p.angle; p.impaleReach = reach;
+    let carried = null, carriedD = Infinity;
+    for (const target of abilityTargets(game, p)) {
+      const body = abilityBody(target), dx = body.x - p.x, dy = body.y - p.y, d = hyp(dx, dy);
+      if (d < reach + (body.radius || target.radius || 0)) {
         const dot = (dx * fx + dy * fy) / (d || 1);
         if (dot > 0.4) {
-          c.takeDamage(game, st.dmg * p.atkMul * 2, p.x, p.y, true);
-          if (!c.boss) c.stunT = Math.max(c.stunT || 0, 0.8);
-          burst(game, c.x, c.y, '#ffd27a', 8, 140);
+          abilityHit(game, p, target, st.dmg * p.atkMul * 2, p.x, p.y);
+          if (!target.boss) { target.stunT = Math.max(target.stunT || 0, .8); if (d < carriedD) { carried = target; carriedD = d; } }
+          burst(game, body.x, body.y, '#ffd27a', 8, 140);
         }
       }
     }
+    if (carried) p.impaleTarget = carried;
     shakeForPlayer(game, p, 3);
   }
   else if (id === 'crush') {
-    // the guillotine bite — one devastating shear in front
-    const st = p.species.stats;
-    const reach = p.radius + st.reach + 30, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
-    for (const c of game.creatures.slice()) {
-      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
-      if (d < reach + c.radius) {
-        const dot = (dx * fx + dy * fy) / (d || 1);
-        if (dot > 0.2) {
-          c.takeDamage(game, st.dmg * p.atkMul * 3, p.x, p.y, true);
-          c.vx += dx / (d || 1) * 250; c.vy += dy / (d || 1) * 250;
-          burst(game, c.x, c.y, '#ff8a5e', 10, 160);
-        }
-      }
-    }
-    game.fx.push({ x: p.x + fx * p.radius, y: p.y + fy * p.radius, t: 0, max: 0.4, R: reach, color: '#ff8a5e', dir: 'out', width: 4 });
-    shakeForPlayer(game, p, 6);
+    p.crushT = .44; p.crushAngle = p.angle;
+    game.fx.push({ x: p.x, y: p.y, t: 0, max: .44, R: p.radius + 80, color: '#ff8a5e', dir: 'in', width: 5 });
   }
   else if (id === 'shock') {
-    const R = 270;
-    for (const c of game.creatures.slice()) {
-      const d = hyp(c.x - p.x, c.y - p.y);
-      if (d < R + c.radius) {
-        if (c.boss) { c.slowT = Math.max(c.slowT || 0, 2.8); }
-        else { c.stunT = Math.max(c.stunT || 0, 2.8); c.takeDamage(game, Math.max(8, p.species.stats.dmg * p.atkMul * .35), p.x, p.y, true); }
-      }
+    const remaining = abilityTargets(game, p).filter(target => hyp(abilityBody(target).x - p.x, abilityBody(target).y - p.y) < 300);
+    const links = [{ x: p.x, y: p.y }]; let x = p.x, y = p.y;
+    for (let i = 0; i < 6 && remaining.length; i++) {
+      remaining.sort((a, b) => hyp(abilityBody(a).x - x, abilityBody(a).y - y) - hyp(abilityBody(b).x - x, abilityBody(b).y - y));
+      const target = remaining.shift(), body = abilityBody(target), d = hyp(body.x - x, body.y - y);
+      if (i > 0 && d > 210) break;
+      links.push({ x: body.x, y: body.y });
+      abilityHit(game, p, target, Math.max(8, p.species.stats.dmg * p.atkMul * (.58 - i * .055)), x, y);
+      if (target.boss) target.slowT = Math.max(target.slowT || 0, 2.8);
+      else target.stunT = Math.max(target.stunT || 0, 1.7 + i * .12);
+      target.conductiveT = Math.max(target.conductiveT || 0, 4); x = body.x; y = body.y;
     }
-    game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.55, R, color: '#9fdcff', dir: 'out', width: 4 });
+    p.shockLinks = links; p.shockVisualT = .65;
+    game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.55, R: 290, color: '#9fdcff', dir: 'out', width: 4 });
     if (game.perks.shockAfterglow) {
       p.shockEchoT = .72; p.shockEchoX = p.x; p.shockEchoY = p.y;
       game.fx.push({ x: p.x, y: p.y, t: 0, max: .72, R: 70, color: '#e5ffff', dir: 'in', width: 3 });
@@ -217,98 +237,48 @@ export function activateAbility(game, idx, actor) {
   }
   else if (id === 'websnare') {
     const R = p.radius + 150;
-    for (const c of game.creatures.slice()) {
-      const d = hyp(c.x - p.x, c.y - p.y);
-      if (d >= R + c.radius) continue;
-      if (c.boss) c.slowT = Math.max(c.slowT || 0, 4);
-      else { c.stunT = Math.max(c.stunT || 0, 2.4); c.vx *= .15; c.vy *= .15; }
-      burst(game, c.x, c.y, '#d9e6df', 6, 65);
+    for (const target of abilityTargets(game, p)) {
+      const body = abilityBody(target), d = hyp(body.x - p.x, body.y - p.y);
+      if (d >= R + (body.radius || target.radius || 0)) continue;
+      if (target.boss) target.slowT = Math.max(target.slowT || 0, 4);
+      else { target.stunT = Math.max(target.stunT || 0, 2.4); body.vx *= .15; body.vy *= .15; }
+      burst(game, body.x, body.y, '#d9e6df', 6, 65);
     }
+    game.webs.push({ x: p.x + Math.cos(p.angle) * 70, y: p.y + Math.sin(p.angle) * 70, r: R, angle: p.angle, life: 7, abilityWeb: true, owner: p });
+    p.webT = 7;
     game.fx.push({ x: p.x, y: p.y, t: 0, max: .55, R, color: '#d9e6df', dir: 'out', width: 2 });
   }
   else if (id === 'pounce') {
-    // leap onto prey ahead: lunge forward, then a heavy landing that wounds + knocks down
-    const st = p.species.stats;
-    p.jetT = 0.32; p.vx += Math.cos(p.angle) * 820; p.vy += Math.sin(p.angle) * 820;
-    const reach = p.radius + st.reach * 2, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
-    for (const c of game.creatures.slice()) {
-      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
-      if (d < reach + c.radius) {
-        const dot = (dx * fx + dy * fy) / (d || 1);
-        if (dot > 0.1) {
-          c.takeDamage(game, st.dmg * p.atkMul * 1.8, p.x, p.y, true);
-          if (!c.boss) c.stunT = Math.max(c.stunT || 0, 1);
-          c.vx += dx / (d || 1) * 220; c.vy += dy / (d || 1) * 220;
-          burst(game, c.x, c.y, '#ffb04e', 8, 150);
-        }
-      }
-    }
-    shakeForPlayer(game, p, 4);
+    beginLeap(game, p, 'pounce', 300 + p.radius * 2, .58); p.jetT = .58;
   }
-  else if (id === 'burrow') { p.burrowT = ab.dur; burst(game, p.x, p.y, '#6a4e2c', 24, 220); game.fx.push({ x: p.x, y: p.y, t: 0, max: .42, R: p.radius + 70, color: '#c79a5e', dir: 'out', width: 4 }); shakeForPlayer(game, p, 2); }
+  else if (id === 'burrow') { p.burrowT = ab.dur; p.burrowActive = 1; burst(game, p.x, p.y, '#6a4e2c', 24, 220); game.fx.push({ x: p.x, y: p.y, t: 0, max: .42, R: p.radius + 70, color: '#c79a5e', dir: 'out', width: 4 }); shakeForPlayer(game, p, 2); }
   else if (id === 'stomp') {
-    // ground slam: shockwave that damages, staggers and hurls everything back
-    const R = p.radius + 90;
-    for (const c of game.creatures.slice()) {
-      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
-      if (d < R + c.radius) {
-        const k = 1 - d / (R + c.radius);
-        c.takeDamage(game, p.species.stats.dmg * p.atkMul * .9, p.x, p.y, true);
-        if (!c.boss) c.stunT = Math.max(c.stunT || 0, 1.2);
-        c.vx += dx / (d || 1) * 520 * k; c.vy += dy / (d || 1) * 520 * k;
-      }
-    }
-    game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.5, R, color: '#e0a060', dir: 'out', width: 5 });
-    burst(game, p.x, p.y, '#f2c080', 24, 260); shakeForPlayer(game, p, 7);
+    p.stompT = 1.05; p.stompX = p.x; p.stompY = p.y; p.stompHit = new Set(); p.stompHit2 = new Set();
+    burst(game, p.x, p.y, '#f2c080', 20, 230); shakeForPlayer(game, p, 4);
   }
   else if (id === 'tailsweep') {
-    // full-circle tail whip: knock every nearby animal off its feet
-    const R = p.radius + 70;
-    for (const c of game.creatures.slice()) {
-      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
-      if (d < R + c.radius) {
-        c.takeDamage(game, p.species.stats.dmg * p.atkMul * .72, p.x, p.y, true);
-        c.vx += dx / (d || 1) * 360; c.vy += dy / (d || 1) * 360;
-      }
-    }
-    game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.4, R, color: '#9fd0a0', dir: 'out', width: 4 });
-    burst(game, p.x, p.y, '#9fd0a0', 10, 150);
+    p.tailSweepT = .72; p.tailSweepAngle = p.angle;
+    game.fx.push({ x: p.x, y: p.y, t: 0, max: .72, R: p.radius + 90, color: '#9fd0a0', dir: 'out', width: 4 });
   }
   else if (id === 'sprint') {
-    p.sprintT = ab.dur; p.vx += Math.cos(p.angle) * 360; p.vy += Math.sin(p.angle) * 360;
+    p.sprintT = ab.dur; p.sprintMomentum = 0; p.sprintHit = new Set(); p.vx += Math.cos(p.angle) * 360; p.vy += Math.sin(p.angle) * 360;
     burst(game, p.x, p.y, '#c7ffd0', 18, 220);
     game.fx.push({ x: p.x, y: p.y, t: 0, max: .4, R: p.radius + 65, color: '#9ce0a0', dir: 'out', width: 4 });
   }
   else if (id === 'dive') {
-    // aerial dive-bomb: a long fast plunge that slams down on prey ahead
-    const st = p.species.stats;
-    p.jetT = 0.34; p.vx += Math.cos(p.angle) * 900; p.vy += Math.sin(p.angle) * 900;
-    const reach = p.radius + st.reach * 1.9, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
-    for (const c of game.creatures.slice()) {
-      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
-      if (d < reach + c.radius) {
-        const dot = (dx * fx + dy * fy) / (d || 1);
-        if (dot > 0) {
-          c.takeDamage(game, st.dmg * p.atkMul * 1.9, p.x, p.y, true);
-          if (!c.boss) c.stunT = Math.max(c.stunT || 0, 0.7);
-          c.vx += dx / (d || 1) * 200; c.vy += dy / (d || 1) * 200;
-          burst(game, c.x, c.y, '#ffd27a', 8, 150);
-        }
-      }
-    }
-    shakeForPlayer(game, p, 4);
+    beginLeap(game, p, 'dive', 390 + p.radius * 2, .7); p.jetT = .7;
   }
   else if (id === 'venomsting') {
     // stinger into a single target ahead: deep damage + potent lingering venom
     const st = p.species.stats, reach = p.radius + st.reach * 1.6, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
     let best = null, bd = 1e9;
-    for (const c of game.creatures) {
-      const dx = c.x - p.x, dy = c.y - p.y, d = hyp(dx, dy);
-      if (d < reach + c.radius) { const dot = (dx * fx + dy * fy) / (d || 1); if (dot > 0.2 && d < bd) { bd = d; best = c; } }
+    for (const target of abilityTargets(game, p)) {
+      const body = abilityBody(target), dx = body.x - p.x, dy = body.y - p.y, d = hyp(dx, dy);
+      if (d < reach + (body.radius || target.radius || 0)) { const dot = (dx * fx + dy * fy) / (d || 1); if (dot > 0.2 && d < bd) { bd = d; best = target; } }
     }
     if (best) {
-      best.takeDamage(game, st.dmg * p.atkMul * 2.4, p.x, p.y, true);
-      best.poisonT = 5; best.poisonDps = Math.max(best.poisonDps || 0, st.dmg * p.atkMul * 0.4);
+      abilityHit(game, p, best, st.dmg * p.atkMul * 2.4, p.x, p.y);
+      applyVenomStacks(game, p, best, 1.8);
       if (!best.boss) best.stunT = Math.max(best.stunT || 0, 0.5);
       burst(game, best.x, best.y, '#b6e05a', 12, 160);
     }
