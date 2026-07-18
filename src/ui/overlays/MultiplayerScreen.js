@@ -74,7 +74,7 @@ function HostPanel({ profile, onCreate, onCancel }) {
         </label>
         <label className="roomToggle mapRoomToggle">
           <input type="checkbox" checked=${mapTransitions} onChange=${e => setMapTransitions(e.target.checked)}/>
-          <span><b>Allow travel to adjacent maps</b><small>When a player crosses an edge, the whole room travels to that neighboring map</small></span>
+          <span><b>Allow travel to adjacent maps</b><small>Players cross independently and can regroup by using the same passage</small></span>
         </label>
         <label className="roomToggle itemsRoomToggle">
           <input type="checkbox" checked=${items} onChange=${e => { setItems(e.target.checked); if (!e.target.checked) setFunItems(false); }}/>
@@ -95,7 +95,7 @@ function HostPanel({ profile, onCreate, onCancel }) {
         ${[2, 3, 4, 5, 6, 8].map(n => html`<button key=${n} className=${'hpTier' + (n === maxPlayers ? ' sel' : '')} onClick=${() => setMaxPlayers(n)}>${n}</button>`)}
       </div>
 
-      <div className="mpNote" style=${{ marginTop: '12px' }}>Combat is <b>free-for-all</b>. ${mapTransitions ? 'Adjacent-map travel moves the whole room together.' : 'The map and stage stay fixed for the whole match.'}</div>
+      <div className="mpNote" style=${{ marginTop: '12px' }}>Combat is <b>free-for-all</b>. ${mapTransitions ? 'Adjacent-map travel is independent for each player.' : 'The map and stage stay fixed for the whole match.'}</div>
 
       <div className="pfActions">
         <button className="stayBtn" onClick=${onCancel}>Cancel</button>

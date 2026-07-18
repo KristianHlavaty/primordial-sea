@@ -315,7 +315,8 @@ function drawPlayerShield(E, player, sx, sy, creatureRadius) {
    player's chosen colour. Their bite arc shows when they lunge. */
 function drawRemotePlayers(E) {
   const ctx = E.ctx;
-  for (const rp of E.remotePlayers) {
+  const remotes = E.visibleRemotePlayers ? E.visibleRemotePlayers() : E.remotePlayers;
+  for (const rp of remotes) {
     if (rp.deadT > 0) continue;   // dead & respawning — not drawn
     const sx = rp.x - E.cam.x, sy = rp.y - E.cam.y;
     if (sx < -90 || sx > E.vw + 90 || sy < -90 || sy > E.vh + 90) continue;
@@ -345,7 +346,8 @@ function drawPlayerTags(E) {
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.strokeText(name, sx, sy);
     ctx.fillStyle = color || '#eaf4ff'; ctx.fillText(name, sx, sy);
   };
-  for (const rp of E.remotePlayers) { if (rp.deadT > 0) continue; tag(rp, rp.name || 'Player', rp.color); }
+  const remotes = E.visibleRemotePlayers ? E.visibleRemotePlayers() : E.remotePlayers;
+  for (const rp of remotes) { if (rp.deadT > 0) continue; tag(rp, rp.name || 'Player', rp.color); }
   if (E.player && !(E.player.deadT > 0)) tag(E.player, (E.mp && E.mp.selfName) || 'You', (E.mp && E.mp.selfColor) || '#8affd0');
   ctx.textAlign = 'left';
 }

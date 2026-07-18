@@ -31,7 +31,7 @@ import { burst } from './systems/effects.js';
 import { updateItems, useHeldItem, dropHeldItem } from './systems/items.js';
 import { updateVehicles, toggleVehicle, exitVehicle } from './systems/vehicles.js';
 import { renderWorld } from '../render/renderWorld.js';
-import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpMinimap, mpMaybeCrossMap, mpQueueEvolution, mpChooseEvolution, mpUseCheat, mpUseItem, mpDropItem, mpToggleVehicle } from './mp.js';
+import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpMinimap, mpMaybeCrossMap, mpUpdateWorlds, mpActivateWorld, mpQueueEvolution, mpChooseEvolution, mpUseCheat, mpUseItem, mpDropItem, mpToggleVehicle } from './mp.js';
 import { Sfx } from './audio.js';
 
 const CURRENT_SPEED = 165;   // sea-stage water current — px/s of drift at full strength
@@ -271,21 +271,35 @@ export class Engine {
     if (!this.mp) return;
     this.mp.roster = roster || {};
     if (this.mp.role === 'host') {
-      for (const rp of this.remotePlayers) if (!(roster && roster[rp.connId]) && rp.vehicle) exitVehicle(this, rp, true);
+      const restoreMap = this.mapId;
+      for (const rp of this.remotePlayers) if (!(roster && roster[rp.connId]) && rp.vehicle) {
+        if (rp.mapId) mpActivateWorld(this, rp.mapId);
+        exitVehicle(this, rp, true);
+      }
+      mpActivateWorld(this, restoreMap);
       this.remotePlayers = this.remotePlayers.filter(rp => roster && roster[rp.connId]);   // drop players who left the room
     }
     for (const rp of this.remotePlayers) { const r = roster && roster[rp.connId]; if (r) { rp.name = r.name; rp.color = r.color; } }
     if (this.onScheduleChange) this.onScheduleChange();
   }
 
-  /* Every player entity (self + remotes). Used by NPC targeting and PvP bites. */
-  allPlayers() { return this.player ? [this.player, ...this.remotePlayers] : this.remotePlayers.slice(); }
+  /* Every player in the active map. Multiplayer players in another adjacent
+     map remain authoritative, but cannot collide, fight or attract this map's
+     NPCs until they return. */
+  allPlayers() {
+    const players = this.player ? [this.player, ...this.remotePlayers] : this.remotePlayers.slice();
+    if (this.mp && this.mp.role === 'host' && this.mp.worlds) return players.filter(player => (player.mapId || this.mapId) === this.mapId);
+    return players;
+  }
+  worldPlayer() { return this._worldFocusPlayer || this.allPlayers()[0] || this.player; }
+  visibleRemotePlayers() {
+    if (this.mp && this.mp.role === 'host' && this.mp.worlds) return this.remotePlayers.filter(player => (player.mapId || this.mapId) === this.mapId);
+    return this.remotePlayers;
+  }
   /* Nearest LIVING player to a point (NPCs hunt/flee whoever is closest). */
   nearestPlayer(x, y) {
     let best = null, bd = Infinity;
-    const local = this.player;
-    if (local && local.deadT <= 0) { const dx = local.x - x, dy = local.y - y; bd = dx * dx + dy * dy; best = local; }
-    for (const p of this.remotePlayers) {
+    for (const p of this.allPlayers()) {
       if (p.deadT > 0) continue;
       const dx = p.x - x, dy = p.y - y, d = dx * dx + dy * dy;
       if (d < bd) { bd = d; best = p; }
@@ -468,22 +482,17 @@ export class Engine {
      Bosses are anchored to their leash spot and shrug it off. */
   applyCurrent(dt) {
     if (this.stage !== 'sea') return;
-    const p = this.player, cp = this.currentAt(p.x, p.y);
-    if (!p.vehicle) {
-      p.x = clamp(p.x + cp.x * dt, p.radius, this.W - p.radius);
-      p.y = clamp(p.y + cp.y * dt, p.radius, this.H - p.radius);
+    for (const player of this.allPlayers()) {
+      if (player.vehicle) continue;
+      const current = this.currentAt(player.x, player.y);
+      player.x = clamp(player.x + current.x * dt, player.radius, this.W - player.radius);
+      player.y = clamp(player.y + current.y * dt, player.radius, this.H - player.radius);
     }
     for (const c of this.creatures) {
       if (c.boss) continue;
       const cc = this.currentAt(c.x, c.y);
       c.x = clamp(c.x + cc.x * dt, c.radius, this.W - c.radius);
       c.y = clamp(c.y + cc.y * dt, c.radius, this.H - c.radius);
-    }
-    for (const rp of this.remotePlayers) {
-      if (rp.vehicle) continue;
-      const cr = this.currentAt(rp.x, rp.y);
-      rp.x = clamp(rp.x + cr.x * dt, rp.radius, this.W - rp.radius);
-      rp.y = clamp(rp.y + cr.y * dt, rp.radius, this.H - rp.radius);
     }
     for (const f of this.food) { const cf = this.currentAt(f.x, f.y); f.x += cf.x * dt * 0.8; f.y += cf.y * dt * 0.8; }
   }
@@ -504,9 +513,8 @@ export class Engine {
         }
       }
     };
-    push(this.player);
+    for (const player of this.allPlayers()) push(player);
     for (const c of this.creatures) push(c);
-    for (const rp of this.remotePlayers) push(rp);
   }
 
   /* Advance the drifting flow streaks (a faint screen-space visual of the
@@ -687,11 +695,24 @@ export class Engine {
 
   update(dt) {
     this.time += dt;
-    const p = this.player; if (!p) return;
-    this.worldMouse.x = this.cam.x + this.mouse.x; this.worldMouse.y = this.cam.y + this.mouse.y;
+    if (!this.player) return;
+    if (this.mp && this.mp.role === 'host' && this.mp.mapTransitions) {
+      mpUpdateWorlds(this, dt, () => this.updateActiveWorld(dt));
+    } else this.updateActiveWorld(dt);
+    if (this.mp) {
+      if (this.mp.feed.length) this.mp.feed = this.mp.feed.filter(f => this.time - f.t < 5);
+      if (this.mp.role === 'host') mpBroadcast(this, dt);
+    }
+    this.pushHud();
+  }
 
-    p.update(this, dt);
-    if (this.mp && this.mp.role === 'host') for (const rp of this.remotePlayers) rp.update(this, dt);
+  updateActiveWorld(dt) {
+    const p = this.worldPlayer(); if (!p) return;
+    if (p === this.player) {
+      this.worldMouse.x = this.cam.x + this.mouse.x; this.worldMouse.y = this.cam.y + this.mouse.y;
+    }
+
+    for (const player of this.allPlayers()) player.update(this, dt);
 
     if ((!this.mp && this.maybeCrossEdge(dt)) || (this.mp && this.mp.role === 'host' && mpMaybeCrossMap(this, dt))) return;
 
@@ -770,19 +791,17 @@ export class Engine {
     if (!this.mp && !this.pendingEvolve && !this.dead && !this.advanceAvailable && p.level >= MAX_LEVEL && p.species.evolvesTo.length) this.triggerEvolve();
     else if (!this.mp && !this.pendingEvolve && !this.dead && !this.ascendOffered && this.isSeaApex()) this.triggerAscend();
 
-    // camera follows with a soft lag
-    const camtx = clamp(p.x - this.vw / 2, 0, Math.max(0, this.W - this.vw));
-    const camty = clamp(p.y - this.vh / 2, 0, Math.max(0, this.H - this.vh));
-    this.cam.x = lerp(this.cam.x, camtx, 1 - Math.exp(-dt * 6));
-    this.cam.y = lerp(this.cam.y, camty, 1 - Math.exp(-dt * 6));
-    this.shake *= Math.exp(-dt * 8);
+    // The host camera follows only the host's own map while other occupied
+    // maps continue simulating off-screen.
+    if (p === this.player) {
+      const camtx = clamp(p.x - this.vw / 2, 0, Math.max(0, this.W - this.vw));
+      const camty = clamp(p.y - this.vh / 2, 0, Math.max(0, this.H - this.vh));
+      this.cam.x = lerp(this.cam.x, camtx, 1 - Math.exp(-dt * 6));
+      this.cam.y = lerp(this.cam.y, camty, 1 - Math.exp(-dt * 6));
+      this.shake *= Math.exp(-dt * 8);
+    }
 
     spawnMaintain(this, dt);
-    if (this.mp) {
-      if (this.mp.feed.length) this.mp.feed = this.mp.feed.filter(f => this.time - f.t < 5);
-      if (this.mp.role === 'host') mpBroadcast(this, dt);
-    }
-    this.pushHud();
   }
 
   visitRenderObjects(visitor) {
@@ -832,6 +851,7 @@ export class Engine {
      networking and canvas animation do not need a full React render each tick. */
   pushHud(force) {
     if (this.backgrounded) return;
+    if (this.mp && this.mp.role === 'host' && this.mp.worlds && this.player && this.player.mapId && this.mapId !== this.player.mapId) return;
     if (!force) { if (this.time - this.hudT < (this.mp ? 0.1 : 0.05)) return; }
     this.hudT = this.time;
     const p = this.player;

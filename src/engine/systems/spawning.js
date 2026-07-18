@@ -73,7 +73,7 @@ function seedPlant(game) { const s = plantSpot(game); spawnPlant(game, s.x, s.y,
 function genObstacles(game) {
   game.obstacles.length = 0;
   const set = OBSTACLE_SETS[game.mapId]; if (!set) return;
-  const p = game.player;
+  const p = game.worldPlayer ? game.worldPlayer() : game.player;
   const bossSpots = (MAPS[game.mapId].bosses || []).map(bk => BOSSES[bk]).filter(Boolean).map(b => ({ x: game.W * b.at.x, y: game.H * b.at.y }));
   let tries = 0;
   while (game.obstacles.length < set.n && tries < set.n * 25) {
@@ -100,12 +100,13 @@ export function spawnPlant(game, x, y, kind) {
 }
 
 export function spawnInitial(game) {
+  const focus = game.worldPlayer ? game.worldPlayer() : game.player;
   game.creatures.length = 0; game.plants.length = 0; game.food.length = 0; game.particles.length = 0; game.eggs.length = 0;
   game.webs.length = 0;
   const webCount = MAPS[game.mapId].webFields || 0;
   for (let i = 0; i < webCount; i++) {
     let x = 260 + (i * 733) % (game.W - 520), y = 240 + (i * 977) % (game.H - 480);
-    if (Math.abs(x - game.player.x) < 300 && Math.abs(y - game.player.y) < 260) x = (x + 700) % (game.W - 300) + 150;
+    if (Math.abs(x - focus.x) < 300 && Math.abs(y - focus.y) < 260) x = (x + 700) % (game.W - 300) + 150;
     game.webs.push({ x, y, r: 92 + (i % 4) * 24, angle: i * .73 });
   }
   genObstacles(game);
@@ -113,7 +114,7 @@ export function spawnInitial(game) {
   for (let i = 0; i < target; i++) spawnRandomNpc(game);
   // seed some easy food near the player at start
   const starterPrey = MAPS[game.mapId].starterPrey ?? 6;
-  for (let i = 0; i < starterPrey; i++) game.creatures.push(Creature.spawn(easyPrey(game), game.player.x + rand(-260, 260), game.player.y + rand(-200, 200), game.era));
+  for (let i = 0; i < starterPrey; i++) game.creatures.push(Creature.spawn(easyPrey(game), focus.x + rand(-260, 260), focus.y + rand(-200, 200), game.era));
   for (let i = 0; i < plantCap(game); i++) seedPlant(game);
   game.bubbles.length = 0;
   if (game.stage === 'sea') { // bubbles are underwater ambiance only
@@ -139,10 +140,11 @@ export function spawnMaintain(game, dt) {
   if (game.plants.length < plantCap(game)) seedPlant(game);
   // recycle far creatures if far over cap
   if (game.creatures.length > target + 6) {
+    const focus = game.worldPlayer ? game.worldPlayer() : game.player;
     let fi = -1, fd = 0;
     for (let i = 0; i < game.creatures.length; i++) {
       const c = game.creatures[i]; if (c.boss) continue;
-      const d = Math.abs(c.x - game.player.x) + Math.abs(c.y - game.player.y);
+      const d = Math.abs(c.x - focus.x) + Math.abs(c.y - focus.y);
       if (d > fd && d > game.vw) { fd = d; fi = i; }
     }
     if (fi >= 0) game.creatures.splice(fi, 1);

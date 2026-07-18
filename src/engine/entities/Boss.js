@@ -59,7 +59,7 @@ class Spiderling extends Creature {
   }
 
   act(game, dt) {
-    const p = (game.mp && game.nearestPlayer(this.x, this.y)) || game.player;
+    const p = (game.mp && game.nearestPlayer(this.x, this.y)) || (game.worldPlayer ? game.worldPlayer() : game.player);
     if (!p) return;
     const dx = p.x - this.x, dy = p.y - this.y, d = hyp(dx, dy) || 1;
     this.faceTarget = Math.atan2(dy, dx); this.vx += dx / d * this.accel * dt; this.vy += dy / d * this.accel * dt;
@@ -89,7 +89,7 @@ class LumenOrb extends Creature {
 
   update(game, dt) {
     this.lifeT -= dt; this.hurt = Math.max(0, this.hurt - dt * 3);
-    const p = (game.mp && game.nearestPlayer(this.x, this.y)) || game.player;
+    const p = (game.mp && game.nearestPlayer(this.x, this.y)) || (game.worldPlayer ? game.worldPlayer() : game.player);
     if (!p) { this.expire(game, false); return; }
     const dx = p.x - this.x, dy = p.y - this.y, d = hyp(dx, dy) || 1;
     this.vx += dx / d * this.speed * this.turn * dt; this.vy += dy / d * this.speed * this.turn * dt;
@@ -125,7 +125,7 @@ export class Boss extends Creature {
   }
 
   act(game, dt) {
-    const p = (game.mp && game.nearestPlayer(this.x, this.y)) || game.player;
+    const p = (game.mp && game.nearestPlayer(this.x, this.y)) || (game.worldPlayer ? game.worldPlayer() : game.player);
     if (!p) return;
     this.abilT -= dt;
     if (this.hardenT > 0) this.hardenT -= dt;
@@ -156,7 +156,7 @@ export class Boss extends Creature {
   }
 
   beginSpecial(game, target) {
-    const p = target || game.player, a = Math.atan2(p.y - this.y, p.x - this.x);
+    const p = target || (game.worldPlayer ? game.worldPlayer() : game.player), a = Math.atan2(p.y - this.y, p.x - this.x);
     const common = { t: 1.25, max: 1.25, x: p.x, y: p.y, ox: this.x, oy: this.y, angle: a, color: this.plan.accent };
     const alt = this.specialCount % 2 === 1;
     if (this.bossKind === 'lumenara') {

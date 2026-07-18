@@ -1,9 +1,9 @@
 /* Multiplayer glue for the engine (Phase 3).
 
    Authority model: the HOST's browser runs the real Engine.update() and owns
-   the world. Each other player is a RemotePlayer entity the host moves from the
+   every occupied map world. Each other player is a RemotePlayer entity the host moves from the
    input packets that player sends. ~20×/s the host broadcasts a SNAPSHOT of the
-   world; clients render it and send their input up ~30×/s. The relay server
+   player's current world; clients render it and send their input up ~30×/s. The relay server
    (server/relay.mjs) just forwards these packets between the browsers in a room.
 
    Clients do NOT simulate: they keep their own creature + everyone else + the
@@ -16,11 +16,12 @@
 import { RemotePlayer } from './entities/RemotePlayer.js';
 import { activateAbility } from './systems/abilities.js';
 import { useHeldItem, dropHeldItem } from './systems/items.js';
-import { toggleVehicle } from './systems/vehicles.js';
+import { toggleVehicle, exitVehicle } from './systems/vehicles.js';
+import { spawnInitial } from './systems/spawning.js';
 import { SPECIES, speciesOfStageTier, speciesStage } from '../data/species.js';
 import { ABILITY_SETS, ACTIVE_TIMER } from '../data/abilities.js';
 import { NPCS } from '../data/npcs.js';
-import { MAPS } from '../data/maps.js';
+import { MAPS, OPPOSITE_EDGE } from '../data/maps.js';
 import { BOSSES } from '../data/bosses.js';
 import { ITEMS, ITEM_SLOT_COUNT } from '../data/items.js';
 import { MAX_LEVEL, xpNeed } from '../data/progression.js';
@@ -28,6 +29,67 @@ import { angLerp, clamp, lerp, hyp } from '../core/math.js';
 
 const HOST_HZ = 20, CLIENT_HZ = 30;
 const INPUT_KEEPALIVE = 0.25;
+
+/* The host can simulate several adjacent maps at once. The Engine object is
+   reused as the simulation context, while these fields are swapped between
+   persistent map worlds. Player entities stay global and carry their mapId. */
+const WORLD_ARRAY_FIELDS = [
+  'creatures', 'plants', 'food', 'worldItems', 'itemProjectiles', 'vehicles',
+  'webs', 'obstacles', 'flow', 'particles', 'bubbles', 'eggs', 'fx', 'floaters',
+];
+const WORLD_SCALAR_FIELDS = ['spawnT', 'itemSpawnT', 'vehicleSpawnT', 'vehicleTarget'];
+
+function worldState(engine, mapId, fresh = false) {
+  const map = MAPS[mapId];
+  const state = { mapId, stage: map.stage, theme: map.theme, W: map.W, H: map.H };
+  for (const field of WORLD_ARRAY_FIELDS) state[field] = fresh ? [] : engine[field];
+  for (const field of WORLD_SCALAR_FIELDS) state[field] = fresh ? 0 : engine[field];
+  return state;
+}
+
+function saveActiveWorld(engine) {
+  const mp = engine.mp;
+  if (!mp || mp.role !== 'host' || !mp.worlds || !mp.worlds.has(engine.mapId)) return;
+  const state = mp.worlds.get(engine.mapId);
+  for (const field of WORLD_ARRAY_FIELDS) state[field] = engine[field];
+  for (const field of WORLD_SCALAR_FIELDS) state[field] = engine[field];
+}
+
+export function mpActivateWorld(engine, mapId) {
+  const mp = engine.mp, state = mp && mp.worlds && mp.worlds.get(mapId);
+  if (!state) return false;
+  engine.mapId = state.mapId; engine.stage = state.stage; engine.theme = state.theme;
+  engine.W = state.W; engine.H = state.H;
+  for (const field of WORLD_ARRAY_FIELDS) engine[field] = state[field];
+  for (const field of WORLD_SCALAR_FIELDS) engine[field] = state[field];
+  return true;
+}
+
+function ensureWorld(engine, mapId, focusPlayer) {
+  const mp = engine.mp;
+  if (mp.worlds.has(mapId)) return mp.worlds.get(mapId);
+  saveActiveWorld(engine);
+  const previousMap = engine.mapId;
+  const state = worldState(engine, mapId, true);
+  mp.worlds.set(mapId, state);
+  mpActivateWorld(engine, mapId);
+  engine._worldFocusPlayer = focusPlayer;
+  spawnInitial(engine);
+  engine._worldFocusPlayer = null;
+  saveActiveWorld(engine);
+  mpActivateWorld(engine, previousMap);
+  return state;
+}
+
+function withPlayerWorld(engine, player, action) {
+  const mp = engine.mp;
+  if (!mp || mp.role !== 'host' || !mp.worlds || !player || !player.mapId) return action();
+  saveActiveWorld(engine);
+  const previousMap = engine.mapId;
+  if (!mpActivateWorld(engine, player.mapId)) return;
+  try { return action(); }
+  finally { saveActiveWorld(engine); mpActivateWorld(engine, previousMap); }
+}
 
 const sendTransient = (lobby, packet) => {
   if (!lobby) return;
@@ -58,17 +120,22 @@ export function mpStartHost(engine, { room, profile, lobby, selfConn, roster }) 
     role: 'host', lobby, self: selfConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, items, funItems, cheats,
     selfName: profile ? profile.name : 'Host', selfColor: profile ? profile.color : '#8affd0',
     inputs: {}, seq: 0, sendAcc: 0, nextNet: 1, feed: [], feedId: 0,
-    worldDirty: false, edgeKey: null, edgeDwell: 0, edgeConn: null, edgeName: null,
+    worlds: new Map(), dirtyWorldFor: new Set(), edgePrompts: new Map(),
   };
   const mine = resolveSpecies(roster[selfConn] && roster[selfConn].species, stage, tier, fantasy);
   engine.player = null; engine.makePlayer(mine);
   engine.remotePlayers = [];
   engine.loadMap(room.map);
+  engine.player.mapId = room.map;
   for (const cid in roster) {
     if (String(cid) === String(selfConn)) continue;
-    engine.remotePlayers.push(new RemotePlayer(resolveSpecies(roster[cid].species, stage, tier, fantasy), engine,
-      { connId: Number(cid), name: roster[cid].name, color: roster[cid].color }));
+    const remote = new RemotePlayer(resolveSpecies(roster[cid].species, stage, tier, fantasy), engine,
+      { connId: Number(cid), name: roster[cid].name, color: roster[cid].color });
+    remote.mapId = room.map;
+    engine.remotePlayers.push(remote);
   }
+  engine.mp.worlds.set(room.map, worldState(engine, room.map));
+  engine.mp.worldDirty = false;
   engine.playing = true; engine.paused = false; engine.dead = false;
   engine.sfx.unlock(); engine.pushHud(true);
 }
@@ -89,12 +156,14 @@ export function mpStartClient(engine, { room, profile, lobby, selfConn, hostConn
     role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, items, funItems, cheats,
     selfName: profile ? profile.name : 'You', selfColor: profile ? profile.color : '#8affd0',
     sendAcc: 0, inputKeepalive: INPUT_KEEPALIVE, lastInput: null, reAsk: 0, gotInit: false,
+    rosterStats: [],
     npcById: new Map(), rpById: new Map(), foodById: new Map(), itemById: new Map(), projectileById: new Map(), vehicleById: new Map(),
     seenNpcs: new Set(), seenPlayers: new Set(), seenFood: new Set(), seenItems: new Set(), seenProjectiles: new Set(), seenVehicles: new Set(), feed: [], feedId: 0,
   };
   engine.mapId = room.map; engine.stage = stage; engine.theme = map.theme; engine.W = map.W; engine.H = map.H;
   const mine = resolveSpecies(roster[selfConn] && roster[selfConn].species, stage, tier, fantasy);
   engine.player = null; engine.makePlayer(mine);
+  engine.player.mapId = room.map;
   engine.player.x = engine.W / 2; engine.player.y = engine.H / 2; engine.player._netInit = false;
   engine.remotePlayers = []; engine.creatures = []; engine.plants = []; engine.food = []; engine.obstacles = []; engine.webs = []; engine.bubbles = [];
   engine.worldItems = []; engine.itemProjectiles = []; engine.vehicles = [];
@@ -123,24 +192,25 @@ export function mpOnPacket(engine, from, data) {
       if (rp) rp.input = { tx: data.tx || 0, ty: data.ty || 0, moving: !!data.m, bite: !!data.b };
     } else if (data.k === 'A') {
       const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
-      if (rp && !rp.vehicleType && !(rp.mpEvolveChoices && rp.mpEvolveChoices.length)) activateAbility(engine, data.i, rp);
+      if (rp && !rp.vehicleType && !(rp.mpEvolveChoices && rp.mpEvolveChoices.length)) withPlayerWorld(engine, rp, () => activateAbility(engine, data.i, rp));
     } else if (data.k === 'E') {
       const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
-      if (rp) commitEvolution(engine, rp, data.id);
+      if (rp) withPlayerWorld(engine, rp, () => commitEvolution(engine, rp, data.id));
     } else if (data.k === 'C') {
       const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
-      if (rp) applyCheat(engine, rp, data.action);
+      if (rp) withPlayerWorld(engine, rp, () => applyCheat(engine, rp, data.action));
     } else if (data.k === 'U') {
       const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
-      if (rp) useHeldItem(engine, rp, data.i | 0);
+      if (rp) withPlayerWorld(engine, rp, () => useHeldItem(engine, rp, data.i | 0));
     } else if (data.k === 'D') {
       const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
-      if (rp) dropHeldItem(engine, rp, data.i | 0);
+      if (rp) withPlayerWorld(engine, rp, () => dropHeldItem(engine, rp, data.i | 0));
     } else if (data.k === 'V') {
       const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
-      if (rp) toggleVehicle(engine, rp);
+      if (rp) withPlayerWorld(engine, rp, () => toggleVehicle(engine, rp));
     } else if (data.k === 'ready') {
-      if (mp.lobby) mp.lobby.raw({ t: 'relay', to: from, data: buildWorldInit(engine) });
+      const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
+      if (mp.lobby && rp) withPlayerWorld(engine, rp, () => mp.lobby.raw({ t: 'relay', to: from, data: buildWorldInit(engine) }));
     }
   } else if (mp.role === 'client') {
     if (data.k === 'S') applySnapshot(engine, data);
@@ -152,6 +222,7 @@ export function mpOnPacket(engine, from, data) {
 function ensureRemote(engine, connId) {
   const mp = engine.mp, r = mp.roster[connId] || {};
   const rp = new RemotePlayer(resolveSpecies(r.species, mp.stage, mp.tier, mp.fantasy), engine, { connId, name: r.name, color: r.color });
+  rp.mapId = engine.player.mapId || engine.mapId;
   engine.remotePlayers.push(rp);
   if (engine.onScheduleChange) engine.onScheduleChange();
   return rp;
@@ -200,7 +271,7 @@ export function mpChooseEvolution(engine, id) {
 function commitEvolution(engine, player, id) {
   const choices = player.mpEvolveChoices || [];
   if (!choices.includes(id) || !SPECIES[id] || speciesStage(id) !== engine.stage) return;
-  const kills = player.kills || 0, deaths = player.deaths || 0, invincible = !!player.mpInvincible;
+  const kills = player.kills || 0, deaths = player.deaths || 0, invincible = !!player.mpInvincible, mapId = player.mapId || engine.mapId;
   let evolved;
   if (player === engine.player) {
     engine.makePlayer(id);
@@ -214,6 +285,7 @@ function commitEvolution(engine, player, id) {
     }, player);
     engine.remotePlayers[index] = evolved;
   }
+  evolved.mapId = mapId;
   evolved.kills = kills; evolved.deaths = deaths; evolved.mpInvincible = invincible; evolved.mpEvolveChoices = [];
   evolved.spawnProtT = Math.max(evolved.spawnProtT || 0, 1.5);
   engine.sfx.play('evolve'); engine.shake = Math.min(10, engine.shake + 5);
@@ -265,16 +337,14 @@ function applyCheat(engine, player, action) {
   engine.pushHud(true);
 }
 
-/* A multiplayer room shares one authoritative map. When map travel is
-   enabled, any living player can hold against a connected edge to move the
-   entire room to that neighboring map. */
+/* Each player crosses independently. The host keeps every occupied map alive
+   and only changes the crossing player's map membership and landing point. */
 export function mpMaybeCrossMap(engine, dt) {
   const mp = engine.mp;
   if (!mp || mp.role !== 'host' || !mp.mapTransitions) {
     engine.nearEdge = null;
     return false;
   }
-  if (engine.transitionCd > 0) engine.transitionCd -= dt;
   const map = MAPS[engine.mapId], neighbors = (map && map.neighbors) || {};
   const passageAllows = (player, edge) => {
     const gate = map.passages && map.passages[edge]; if (!gate) return true;
@@ -290,29 +360,65 @@ export function mpMaybeCrossMap(engine, dt) {
     return null;
   };
 
-  let candidate = null;
+  let crossed = false;
   for (const player of engine.allPlayers()) {
     if (!player || player.deadT > 0) continue;
+    player._transitionCd = Math.max(0, (player._transitionCd || 0) - dt);
     const edge = edgeOf(player);
-    if (edge) {
-      candidate = { player, edge, conn: player === engine.player ? mp.self : player.connId, name: MAPS[neighbors[edge]].name };
-      break;
+    const conn = player === engine.player ? mp.self : player.connId;
+    const edgeKey = edge || null;
+    if (edgeKey !== player._edgeKey) { player._edgeKey = edgeKey; player._edgeDwell = 0; }
+    if (!edge) {
+      player._edgeDwell = 0; mp.edgePrompts.delete(conn); continue;
+    }
+    const targetId = neighbors[edge], target = MAPS[targetId];
+    mp.edgePrompts.set(conn, target.name);
+    if (player._transitionCd > 0) continue;
+    player._edgeDwell = (player._edgeDwell || 0) + dt;
+    if (player._edgeDwell > 0.3) {
+      if (player.vehicle) exitVehicle(engine, player, true);
+      const arrive = OPPOSITE_EDGE[edge], horizontal = arrive === 'top' || arrive === 'bottom';
+      const gate = target.passages && target.passages[arrive];
+      const center = (horizontal ? target.W : target.H) * (gate ? gate.center : 0.5);
+      if (arrive === 'right') { player.x = target.W - player.radius - 90; player.y = center; }
+      else if (arrive === 'left') { player.x = player.radius + 90; player.y = center; }
+      else if (arrive === 'top') { player.x = center; player.y = player.radius + 90; }
+      else if (arrive === 'bottom') { player.x = center; player.y = target.H - player.radius - 90; }
+      player.x = clamp(player.x, player.radius, target.W - player.radius);
+      player.y = clamp(player.y, player.radius, target.H - player.radius);
+      player.vx = 0; player.vy = 0; player.mapId = targetId;
+      player._transitionCd = 1.2; player._edgeKey = null; player._edgeDwell = 0;
+      ensureWorld(engine, targetId, player);
+      mp.edgePrompts.delete(conn);
+      if (player !== engine.player) mp.dirtyWorldFor.add(conn);
+      else {
+        engine.cam.x = clamp(player.x - engine.vw / 2, 0, Math.max(0, target.W - engine.vw));
+        engine.cam.y = clamp(player.y - engine.vh / 2, 0, Math.max(0, target.H - engine.vh));
+      }
+      engine.visitedMaps.add(targetId);
+      crossed = true;
     }
   }
-  mp.edgeConn = candidate ? candidate.conn : null;
-  mp.edgeName = candidate ? candidate.name : null;
-  engine.nearEdge = candidate && candidate.player === engine.player ? candidate.name : null;
-  const edgeKey = candidate ? (String(candidate.conn) + ':' + candidate.edge) : null;
-  if (edgeKey !== mp.edgeKey) { mp.edgeKey = edgeKey; mp.edgeDwell = 0; }
-  if (candidate && engine.transitionCd <= 0) {
-    mp.edgeDwell += dt;
-    if (mp.edgeDwell > 0.3) {
-      engine.loadMap(neighbors[candidate.edge], candidate.edge);
-      mp.edgeKey = null; mp.edgeDwell = 0; mp.edgeConn = null; mp.edgeName = null;
-      return true;
-    }
-  } else if (!candidate) mp.edgeDwell = 0;
-  return false;
+  engine.nearEdge = mp.edgePrompts.get(mp.self) || null;
+  return crossed;
+}
+
+/* Run the ordinary world update once for every occupied host-side map, then
+   restore the host player's map for rendering, input, HUD and camera work. */
+export function mpUpdateWorlds(engine, dt, updateWorld) {
+  const mp = engine.mp;
+  saveActiveWorld(engine);
+  const players = engine.player ? [engine.player, ...engine.remotePlayers] : engine.remotePlayers.slice();
+  const occupied = [...new Set(players.map(player => player.mapId).filter(mapId => mp.worlds.has(mapId)))];
+  for (const mapId of occupied) {
+    mpActivateWorld(engine, mapId);
+    engine._worldFocusPlayer = players.find(player => player.mapId === mapId) || null;
+    updateWorld();
+    saveActiveWorld(engine);
+  }
+  engine._worldFocusPlayer = null;
+  mpActivateWorld(engine, engine.player.mapId);
+  engine.nearEdge = mp.edgePrompts.get(mp.self) || null;
 }
 
 /* ---------------- host: broadcast ---------------- */
@@ -320,17 +426,26 @@ export function mpMaybeCrossMap(engine, dt) {
 export function mpBroadcast(engine, dt) {
   const mp = engine.mp;
   if (!engine.remotePlayers.length) { mp.sendAcc = 0; return; }
-  if (mp.worldDirty) {
-    if (mp.lobby) mp.lobby.raw({ t: 'relay', data: buildWorldInit(engine) });
-    mp.worldDirty = false;
+  saveActiveWorld(engine);
+  const restoreMap = engine.player.mapId;
+  for (const conn of mp.dirtyWorldFor) {
+    const player = engine.remotePlayers.find(remote => String(remote.connId) === String(conn));
+    if (player && mpActivateWorld(engine, player.mapId) && mp.lobby) {
+      mp.lobby.raw({ t: 'relay', to: player.connId, data: buildWorldInit(engine) });
+    }
   }
+  mp.dirtyWorldFor.clear();
   mp.sendAcc += dt;
-  if (mp.sendAcc < 1 / HOST_HZ) return;
+  if (mp.sendAcc < 1 / HOST_HZ) { mpActivateWorld(engine, restoreMap); return; }
   mp.sendAcc %= 1 / HOST_HZ;
-  sendTransient(mp.lobby, { t: 'relay', data: buildSnapshot(engine) });
+  for (const player of engine.remotePlayers) {
+    if (!mpActivateWorld(engine, player.mapId)) continue;
+    sendTransient(mp.lobby, { t: 'relay', to: player.connId, data: buildSnapshot(engine, player.connId) });
+  }
+  mpActivateWorld(engine, restoreMap);
 }
 
-function buildSnapshot(engine) {
+function buildSnapshot(engine, recipientConn) {
   const mp = engine.mp, players = [];
   const pushP = (pl, c) => {
     // Cooldown/active times travel as deciseconds to keep the 20 Hz snapshot
@@ -351,8 +466,7 @@ function buildSnapshot(engine) {
       it: (pl.items || []).map(item => item ? [item.id, item.uses, Math.ceil((item.cd || 0) * 10)] : 0),
     });
   };
-  pushP(engine.player, mp.self);
-  for (const rp of engine.remotePlayers) pushP(rp, rp.connId);
+  for (const player of engine.allPlayers()) pushP(player, player === engine.player ? mp.self : player.connId);
   const npcs = [];
   for (const c of engine.creatures) {
     if (c.netId == null) c.netId = mp.nextNet++;
@@ -395,9 +509,14 @@ function buildSnapshot(engine) {
     r: vehicle.radius, oc: vehicle.occupantConn, cd: Math.ceil((vehicle.weaponCd || 0) * 100),
     tm: Number.isFinite(vehicle.timeLeft) ? Math.ceil(vehicle.timeLeft * 10) : undefined,
   }));
+  const rosterPlayers = [engine.player, ...engine.remotePlayers].map(player => ({
+    c: player === engine.player ? mp.self : player.connId,
+    lv: player.level || 1, k: player.kills || 0, d: player.deadT > 0 ? 1 : 0, map: player.mapId || engine.mapId,
+  }));
   return {
     k: 'S', q: mp.seq++, players, npcs, food, dynamicWebs, worldItems, itemProjectiles, vehicles,
-    edgeC: mp.edgeConn, edgeName: mp.edgeName,
+    rosterPlayers,
+    edgeC: mp.edgePrompts.has(recipientConn) ? recipientConn : null, edgeName: mp.edgePrompts.get(recipientConn) || null,
     perks: engine.perks, bossesDefeated: [...engine.bossesDefeated],
   };
 }
@@ -468,6 +587,7 @@ function applyItemState(player, state) {
 
 function applySnapshot(engine, s) {
   const mp = engine.mp;
+  if (Array.isArray(s.rosterPlayers)) mp.rosterStats = s.rosterPlayers.map(player => ({ ...player }));
   engine.nearEdge = s.edgeC === mp.self ? (s.edgeName || null) : null;
   if (s.perks) engine.perks = {
     dmgReduce: s.perks.dmgReduce || 0, dodge: s.perks.dodge || 0, webResist: s.perks.webResist || 0,
@@ -618,6 +738,8 @@ function applyWorldInit(engine, w) {
   engine.W = w.W; engine.H = w.H; engine.theme = w.theme; engine.era = w.era || 0;
   if (w.map) {
     engine.mapId = w.map;
+    if (engine.player) engine.player.mapId = w.map;
+    engine.visitedMaps.add(w.map);
     if (MAPS[w.map]) { engine.stage = MAPS[w.map].stage; mp.stage = engine.stage; }
   }
   if (mapChanged) {
@@ -703,8 +825,18 @@ export function mpClientUpdate(engine, dt) {
 /* Roster snapshot for the HUD (all players, self first). */
 export function mpRoster(engine) {
   const mp = engine.mp; if (!mp) return null;
-  const out = [{ connId: mp.self, name: mp.selfName, color: mp.selfColor, level: engine.player ? engine.player.level : 1, kills: engine.player ? (engine.player.kills || 0) : 0, dead: !!(engine.player && engine.player.deadT > 0), self: true }];
-  for (const rp of engine.remotePlayers) out.push({ connId: rp.connId, name: rp.name, color: rp.color, level: rp.level || 1, kills: rp.kills || 0, dead: rp.deadT > 0, self: false });
+  if (mp.role === 'client' && mp.rosterStats.length) {
+    return mp.rosterStats.map(stat => {
+      const profile = mp.roster[stat.c] || {};
+      return {
+        connId: stat.c, name: String(stat.c) === String(mp.self) ? mp.selfName : (profile.name || 'Player'),
+        color: String(stat.c) === String(mp.self) ? mp.selfColor : (profile.color || '#8affd0'),
+        level: stat.lv || 1, kills: stat.k || 0, dead: !!stat.d, self: String(stat.c) === String(mp.self), mapId: stat.map,
+      };
+    }).sort((a, b) => b.kills - a.kills);
+  }
+  const out = [{ connId: mp.self, name: mp.selfName, color: mp.selfColor, level: engine.player ? engine.player.level : 1, kills: engine.player ? (engine.player.kills || 0) : 0, dead: !!(engine.player && engine.player.deadT > 0), self: true, mapId: engine.player && engine.player.mapId }];
+  for (const rp of engine.remotePlayers) out.push({ connId: rp.connId, name: rp.name, color: rp.color, level: rp.level || 1, kills: rp.kills || 0, dead: rp.deadT > 0, self: false, mapId: rp.mapId });
   return out.sort((a, b) => b.kills - a.kills);
 }
 
@@ -720,7 +852,8 @@ export function mpMinimap(engine) {
   });
   const players = [];
   if (engine.player) players.push(marker(engine.player, true));
-  for (const player of engine.remotePlayers) players.push(marker(player, false));
+  const remotes = engine.visibleRemotePlayers ? engine.visibleRemotePlayers() : engine.remotePlayers;
+  for (const player of remotes) players.push(marker(player, false));
   const bosses = mp.bosses ? engine.creatures.filter(c => c.boss).map(c => ({
     id: c.bossKind, name: c.short || c.title || 'Boss', color: (c.plan && c.plan.accent) || '#ff697a',
     x: clamp(c.x / engine.W * 100, 0, 100), y: clamp(c.y / engine.H * 100, 0, 100),

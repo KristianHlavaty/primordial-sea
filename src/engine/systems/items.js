@@ -25,9 +25,10 @@ function randomItemType(game) {
 }
 
 function spawnPoint(game) {
+  const focus = game.worldPlayer ? game.worldPlayer() : game.player;
   for (let attempt = 0; attempt < 30; attempt++) {
     const x = rand(140, game.W - 140), y = rand(140, game.H - 140);
-    if (hyp(x - game.player.x, y - game.player.y) < 280) continue;
+    if (hyp(x - focus.x, y - focus.y) < 280) continue;
     if (game.obstacles.some(o => hyp(x - o.x, y - o.y) < (o.r || 40) + 45)) continue;
     return { x, y };
   }
