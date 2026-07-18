@@ -4,35 +4,35 @@
 export const ITEMS = {
   bone_club: {
     name: 'Bone Club', icon: 'club', color: '#e6c996', modern: false, uses: 10, cooldown: 0.75,
-    desc: 'A heavy close-range sweep that knocks enemies away.', kind: 'melee', damage: 68, range: 145, spread: 0.82, knockback: 430,
+    desc: 'A heavy close-range sweep that sends enemies flying.', kind: 'melee', damage: 75, range: 155, spread: 0.86, knockback: 520,
   },
   fossil_spear: {
     name: 'Fossil Spear', icon: 'spear', color: '#9fe7dc', modern: false, uses: 7, cooldown: 0.7,
-    desc: 'Throws a fast piercing shard in the direction you face.', kind: 'projectile', damage: 58, speed: 880, life: 1.25, radius: 7,
+    desc: 'Throws a fast piercing shard in the direction you face.', kind: 'projectile', damage: 64, speed: 920, life: 1.3, radius: 8, knockback: 340,
   },
   venom_pod: {
     name: 'Venom Pod', icon: 'pod', color: '#b5df61', modern: false, uses: 4, cooldown: 1.25,
-    desc: 'Lobs a toxic pod that bursts and poisons creatures.', kind: 'grenade', damage: 42, speed: 470, fuse: 0.8, blast: 165, poison: 4,
+    desc: 'Lobs a toxic pod that bursts, poisons and shoves creatures away.', kind: 'grenade', damage: 48, speed: 490, fuse: 0.8, blast: 180, poison: 4.5, shockRadius: 245, shockwave: 400,
   },
   shock_pearl: {
     name: 'Shock Pearl', icon: 'pearl', color: '#82eaff', modern: false, uses: 3, cooldown: 2.8,
-    desc: 'Releases a stunning electrical pulse around you.', kind: 'pulse', damage: 30, blast: 225, stun: 1.8,
+    desc: 'Releases a stunning electrical shockwave that blasts enemies back.', kind: 'pulse', damage: 35, blast: 250, stun: 2, shockRadius: 285, shockwave: 620,
   },
   ak47: {
     name: 'AK-47', icon: 'rifle', color: '#ffbd69', modern: true, uses: 30, cooldown: 0.13,
-    desc: 'Rapid, long-range rifle fire. Completely evolutionarily inaccurate.', kind: 'hitscan', damage: 32, range: 980, spread: 0.025,
+    desc: 'Rapid, long-range rifle fire. Completely evolutionarily inaccurate.', kind: 'hitscan', damage: 35, range: 1020, spread: 0.025,
   },
   shotgun: {
     name: 'Shotgun', icon: 'shotgun', color: '#ff9f7b', modern: true, uses: 8, cooldown: 0.9,
-    desc: 'A brutal short-range cone that can strike several targets.', kind: 'cone', damage: 104, range: 340, spread: 0.5, knockback: 520,
+    desc: 'A brutal short-range blast that strikes and launches several targets.', kind: 'cone', damage: 115, range: 365, spread: 0.52, knockback: 680,
   },
   grenade: {
     name: 'Grenade', icon: 'grenade', color: '#a9cf78', modern: true, uses: 3, cooldown: 1.35,
-    desc: 'A timed explosive with a large damage radius.', kind: 'grenade', damage: 150, speed: 520, fuse: 1.1, blast: 270,
+    desc: 'A timed explosive with a fiery blast and powerful pressure wave.', kind: 'grenade', damage: 165, speed: 530, fuse: 1.1, blast: 300, shockRadius: 390, shockwave: 720,
   },
   rocket_launcher: {
     name: 'Rocket Launcher', icon: 'rocket', color: '#ff6575', modern: true, uses: 2, cooldown: 1.7,
-    desc: 'Launches an impact rocket with an enormous explosion.', kind: 'rocket', damage: 205, speed: 720, life: 1.8, blast: 245, radius: 10,
+    desc: 'Launches an impact rocket with an enormous fiery shockwave.', kind: 'rocket', damage: 225, speed: 760, life: 1.9, blast: 285, radius: 11, shockRadius: 410, shockwave: 880,
   },
 };
 

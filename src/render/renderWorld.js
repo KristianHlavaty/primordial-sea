@@ -353,7 +353,7 @@ export function renderWorld(E) {
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, f.r, 0, TAU); ctx.fill();
   }
 
-  // multiplayer collectible weapons and their authoritative attack visuals
+  // collectible weapons and their shared/authoritative attack visuals
   for (const item of E.worldItems) drawWorldItem(E, item);
   for (const projectile of E.itemProjectiles) drawItemProjectile(E, projectile);
 

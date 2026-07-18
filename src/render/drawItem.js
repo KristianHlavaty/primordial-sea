@@ -52,23 +52,173 @@ export function drawWorldItem(E, item) {
   }
 }
 
+const seeded = (seed, n) => {
+  const value = Math.sin((seed || 1) * 12.9898 + n * 78.233) * 43758.5453;
+  return value - Math.floor(value);
+};
+
+function drawTracer(ctx, x, y, projectile, color, frac) {
+  const ex = x + Math.cos(projectile.angle) * projectile.length;
+  const ey = y + Math.sin(projectile.angle) * projectile.length;
+  const gradient = ctx.createLinearGradient(x, y, ex, ey);
+  gradient.addColorStop(0, withA(color, 0)); gradient.addColorStop(.05, '#fff');
+  gradient.addColorStop(.22, withA(color, .95)); gradient.addColorStop(1, withA(color, 0));
+  ctx.save(); ctx.globalAlpha = Math.min(1, frac * 1.8); ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = withA(color, .22); ctx.lineWidth = projectile.type === 'shotgun' ? 9 : 6; ctx.shadowColor = color; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
+  ctx.strokeStyle = gradient; ctx.lineWidth = projectile.type === 'shotgun' ? 3.2 : 2.2; ctx.shadowBlur = 5; ctx.stroke();
+  ctx.restore();
+}
+
+function drawMuzzle(ctx, x, y, projectile, color, frac) {
+  const R = projectile.radius || 38, seed = projectile.seed || 1;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(projectile.angle || 0); ctx.globalAlpha = Math.min(1, frac * 2.2); ctx.globalCompositeOperation = 'lighter';
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+  glow.addColorStop(0, '#fff'); glow.addColorStop(.18, '#fff3b0'); glow.addColorStop(.48, withA(color, .72)); glow.addColorStop(1, withA(color, 0));
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+  for (let i = 0; i < 5; i++) {
+    const offset = (seeded(seed, i) - .5) * R * .32, length = R * (1.1 + seeded(seed, i + 9) * .8), half = R * (.1 + seeded(seed, i + 15) * .13);
+    ctx.fillStyle = i < 2 ? '#fff7cf' : withA(color, .8);
+    ctx.beginPath(); ctx.moveTo(-R * .1, offset - half); ctx.lineTo(length, offset); ctx.lineTo(-R * .1, offset + half); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawImpact(ctx, x, y, projectile, color, frac) {
+  const progress = 1 - frac, seed = projectile.seed || 1, R = projectile.radius || 18;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, R * (1 + progress));
+  glow.addColorStop(0, withA('#ffffff', frac)); glow.addColorStop(.25, withA(color, frac * .8)); glow.addColorStop(1, withA(color, 0));
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, R * (1 + progress), 0, TAU); ctx.fill();
+  for (let i = 0; i < 9; i++) {
+    const a = seeded(seed, i) * TAU, inner = R * .18, outer = R * (.45 + progress * (1.2 + seeded(seed, i + 20)));
+    ctx.strokeStyle = i % 3 ? withA(color, frac * .85) : withA('#ffffff', frac); ctx.lineWidth = i % 3 ? 1.8 : 2.6;
+    ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * inner, y + Math.sin(a) * inner); ctx.lineTo(x + Math.cos(a) * outer, y + Math.sin(a) * outer); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawPulse(ctx, x, y, projectile, color, frac) {
+  const progress = 1 - frac, eased = 1 - (1 - progress) ** 3, R = projectile.radius, radius = Math.max(12, R * (.08 + eased * .92));
+  const seed = projectile.seed || 1;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  glow.addColorStop(0, withA('#ffffff', frac * .4)); glow.addColorStop(.28, withA(color, frac * .28)); glow.addColorStop(1, withA(color, 0));
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.fill();
+  ctx.strokeStyle = withA('#eaffff', frac * .9); ctx.lineWidth = 2 + frac * 5; ctx.shadowColor = color; ctx.shadowBlur = 18;
+  ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = withA(color, frac * .7); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, radius * .82, 0, TAU); ctx.stroke();
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * TAU + seeded(seed, i) * .28;
+    ctx.strokeStyle = i % 3 ? withA(color, frac * .75) : withA('#ffffff', frac * .82); ctx.lineWidth = i % 3 ? 1.6 : 2.4;
+    ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * radius * .12, y + Math.sin(a) * radius * .12);
+    for (let step = 1; step <= 4; step++) {
+      const rr = radius * (.12 + step * .2), jitter = (seeded(seed, i * 7 + step) - .5) * radius * .12;
+      ctx.lineTo(x + Math.cos(a) * rr - Math.sin(a) * jitter, y + Math.sin(a) * rr + Math.cos(a) * jitter);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawExplosion(ctx, x, y, projectile, def, color, frac) {
+  const progress = 1 - frac, eased = 1 - (1 - progress) ** 3;
+  const shockR = projectile.radius || (def && def.shockRadius) || 220;
+  const blastR = (def && def.blast) || shockR * .72;
+  const conventional = projectile.type === 'grenade' || projectile.type === 'rocket_launcher';
+  const seed = projectile.seed || 1, fireAlpha = clamp(1 - progress / .78, 0, 1);
+  ctx.save();
+
+  // Pressure wave: a bright compressed-air front followed by a wider dust ring.
+  const ringR = shockR * (.06 + eased * .94);
+  ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = conventional ? '#ff9a45' : color; ctx.shadowBlur = 18;
+  ctx.strokeStyle = withA('#ffffff', frac * .72); ctx.lineWidth = 2 + frac * 8;
+  ctx.beginPath(); ctx.arc(x, y, ringR, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = withA(conventional ? '#ff9a45' : color, frac * .62); ctx.lineWidth = 4 + frac * 12;
+  ctx.beginPath(); ctx.arc(x, y, ringR * .94, 0, TAU); ctx.stroke();
+  ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0;
+
+  // Billowing smoke lobes expand at different speeds but remain stable frame-to-frame.
+  const smokeT = clamp((progress - .06) / .94, 0, 1), smokeFade = Math.sin(smokeT * Math.PI) * (conventional ? .72 : .48);
+  for (let i = 0; i < (conventional ? 16 : 11); i++) {
+    const a = seeded(seed, i) * TAU, drift = blastR * smokeT * (.12 + seeded(seed, i + 18) * .48);
+    const sx = x + Math.cos(a) * drift, sy = y + Math.sin(a) * drift - blastR * smokeT * seeded(seed, i + 40) * .13;
+    const lobe = blastR * (.08 + seeded(seed, i + 30) * .12) * (.35 + smokeT * 1.05);
+    const smoke = ctx.createRadialGradient(sx - lobe * .18, sy - lobe * .2, lobe * .08, sx, sy, lobe);
+    if (conventional) {
+      smoke.addColorStop(0, `rgba(105,91,82,${smokeFade * .76})`); smoke.addColorStop(.55, `rgba(55,48,48,${smokeFade * .64})`); smoke.addColorStop(1, 'rgba(20,18,22,0)');
+    } else {
+      smoke.addColorStop(0, withA('#dfff86', smokeFade * .5)); smoke.addColorStop(.5, withA(color, smokeFade * .42)); smoke.addColorStop(1, withA(color, 0));
+    }
+    ctx.fillStyle = smoke; ctx.beginPath(); ctx.arc(sx, sy, lobe, 0, TAU); ctx.fill();
+  }
+
+  // Hot core and rolling fireballs sit in front of the smoke during the first half-second.
+  if (fireAlpha > 0) {
+    ctx.globalCompositeOperation = 'lighter';
+    const coreR = blastR * (.18 + eased * .72), core = ctx.createRadialGradient(x - coreR * .12, y - coreR * .16, 0, x, y, coreR);
+    if (conventional) {
+      core.addColorStop(0, withA('#ffffff', fireAlpha)); core.addColorStop(.13, withA('#fff3a6', fireAlpha)); core.addColorStop(.38, withA('#ffad32', fireAlpha * .95)); core.addColorStop(.7, withA('#ed4b18', fireAlpha * .7)); core.addColorStop(1, withA('#8f160b', 0));
+    } else {
+      core.addColorStop(0, withA('#f7ffd4', fireAlpha)); core.addColorStop(.25, withA('#d9ff6e', fireAlpha * .9)); core.addColorStop(.65, withA(color, fireAlpha * .65)); core.addColorStop(1, withA(color, 0));
+    }
+    ctx.fillStyle = core; ctx.beginPath(); ctx.arc(x, y, coreR, 0, TAU); ctx.fill();
+    for (let i = 0; i < 9; i++) {
+      const a = seeded(seed, i + 70) * TAU, rr = blastR * eased * (.08 + seeded(seed, i + 80) * .48), r = blastR * (.045 + seeded(seed, i + 90) * .07) * fireAlpha;
+      ctx.fillStyle = i % 3 ? withA(conventional ? '#ff7a24' : color, fireAlpha * .78) : withA('#fff0a0', fireAlpha * .9);
+      ctx.beginPath(); ctx.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr, Math.max(2, r), 0, TAU); ctx.fill();
+    }
+  }
+
+  // Fast sparks and darker debris sell the scale beyond the central fireball.
+  ctx.lineCap = 'round';
+  for (let i = 0; i < (conventional ? 24 : 14); i++) {
+    const a = seeded(seed, i + 110) * TAU, speed = .36 + seeded(seed, i + 140) * .64;
+    const outer = shockR * progress * speed, inner = Math.max(4, outer - shockR * (.035 + seeded(seed, i + 160) * .08));
+    ctx.globalCompositeOperation = i % 4 ? 'lighter' : 'source-over';
+    ctx.strokeStyle = i % 4 ? withA(conventional ? '#ffb13b' : color, frac * .86) : withA('#302b2b', frac * .72);
+    ctx.lineWidth = i % 4 ? 1.4 + seeded(seed, i + 180) * 2 : 3;
+    ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * inner, y + Math.sin(a) * inner); ctx.lineTo(x + Math.cos(a) * outer, y + Math.sin(a) * outer); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 export function drawItemProjectile(E, projectile) {
   const ctx = E.ctx, def = ITEMS[projectile.type], color = projectile.color || (def && def.color) || '#fff';
   const x = projectile.x - E.cam.x, y = projectile.y - E.cam.y;
   const frac = projectile.maxLife ? clamp(projectile.life / projectile.maxLife, 0, 1) : 1;
-  ctx.save(); ctx.globalAlpha = Math.max(.12, frac);
   if (projectile.visual === 'tracer') {
-    ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.shadowColor = color; ctx.shadowBlur = 8;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(projectile.angle) * projectile.length, y + Math.sin(projectile.angle) * projectile.length); ctx.stroke();
+    drawTracer(ctx, x, y, projectile, color, frac);
+  } else if (projectile.visual === 'muzzle') {
+    drawMuzzle(ctx, x, y, projectile, color, frac);
+  } else if (projectile.visual === 'impact') {
+    drawImpact(ctx, x, y, projectile, color, frac);
   } else if (projectile.visual === 'swing') {
+    ctx.save(); ctx.globalAlpha = Math.min(1, frac * 1.7); ctx.globalCompositeOperation = 'lighter';
     ctx.strokeStyle = color; ctx.lineWidth = 7; ctx.shadowColor = color; ctx.shadowBlur = 8;
     ctx.beginPath(); ctx.arc(x, y, projectile.radius, projectile.angle - (projectile.spread || .8), projectile.angle + (projectile.spread || .8)); ctx.stroke();
-  } else if (projectile.visual === 'pulse' || projectile.visual === 'blast') {
-    const progress = 1 - frac, radius = Math.max(8, projectile.radius * (.2 + progress * .8));
-    ctx.strokeStyle = color; ctx.fillStyle = withA(color, .12 * frac); ctx.lineWidth = 6 * frac + 1; ctx.shadowColor = color; ctx.shadowBlur = 12;
-    ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = withA('#ffffff', .7); ctx.lineWidth = 2.2; ctx.shadowBlur = 3;
+    ctx.beginPath(); ctx.arc(x, y, projectile.radius * .94, projectile.angle - (projectile.spread || .8), projectile.angle + (projectile.spread || .8)); ctx.stroke(); ctx.restore();
+  } else if (projectile.visual === 'pulse') {
+    drawPulse(ctx, x, y, projectile, color, frac);
+  } else if (projectile.visual === 'blast') {
+    drawExplosion(ctx, x, y, projectile, def, color, frac);
   } else if (projectile.visual === 'projectile' && def) {
-    ctx.translate(x, y); ctx.rotate(projectile.angle || 0); ctx.translate(-14, -14); drawItemIcon(ctx, projectile.type, 28);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(projectile.angle || 0);
+    if (projectile.type === 'rocket_launcher') {
+      ctx.globalCompositeOperation = 'lighter';
+      const flame = ctx.createLinearGradient(-44, 0, -4, 0); flame.addColorStop(0, 'rgba(255,65,20,0)'); flame.addColorStop(.45, '#ff7b24'); flame.addColorStop(.78, '#ffe36e'); flame.addColorStop(1, '#fff');
+      ctx.fillStyle = flame; ctx.beginPath(); ctx.moveTo(-46, 0); ctx.lineTo(-9, -8); ctx.lineTo(-4, 0); ctx.lineTo(-9, 8); ctx.closePath(); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+    } else if (projectile.type === 'fossil_spear') {
+      ctx.strokeStyle = withA(color, .62); ctx.lineWidth = 4; ctx.shadowColor = color; ctx.shadowBlur = 10; ctx.beginPath(); ctx.moveTo(-48, 0); ctx.lineTo(-8, 0); ctx.stroke();
+    } else if (projectile.type === 'venom_pod') {
+      ctx.fillStyle = withA(color, .18); ctx.beginPath(); ctx.arc(0, 0, 25, 0, TAU); ctx.fill();
+    }
+    ctx.translate(-14, -14); drawItemIcon(ctx, projectile.type, 28);
+    if (projectile.type === 'grenade') {
+      const blink = .45 + .55 * Math.sin(E.time * 22) ** 2; ctx.fillStyle = `rgba(255,220,110,${blink})`; ctx.beginPath(); ctx.arc(21, 5, 3.2, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
   }
-  ctx.restore();
 }

@@ -33,6 +33,12 @@ export class Sfx {
       else if (type === 'evolve') { [330, 440, 554, 740].forEach((f, i) => setTimeout(() => beep(f, 0.25, 0.06, 'triangle', f * 1.3), i * 90)); }
       else if (type === 'egg') beep(520, 0.3, 0.05, 'sine', 300);
       else if (type === 'power') beep(300, 0.14, 0.06, 'triangle', 620);
+      else if (type === 'shot') { beep(185, 0.07, 0.045, 'square', 82); beep(920, 0.035, 0.025, 'triangle', 380); }
+      else if (type === 'shotgun') { beep(120, 0.16, 0.09, 'sawtooth', 45); beep(520, 0.07, 0.045, 'square', 110); }
+      else if (type === 'rocket') { beep(150, 0.2, 0.055, 'sawtooth', 62); beep(420, 0.08, 0.028, 'triangle', 140); }
+      else if (type === 'explosion') { beep(95, 0.48, 0.12, 'sawtooth', 28); beep(210, 0.2, 0.065, 'square', 48); }
+      else if (type === 'swing') beep(260, 0.11, 0.04, 'sawtooth', 95);
+      else if (type === 'throw') beep(430, 0.08, 0.028, 'triangle', 210);
       else if (type === 'dodge') beep(760, 0.08, 0.045, 'sine', 1180);
       else if (type === 'shieldhit') beep(240, 0.09, 0.05, 'triangle', 380);
     } catch (e) { /* ignore audio errors */ }

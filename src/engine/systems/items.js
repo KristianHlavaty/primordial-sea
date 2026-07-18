@@ -49,6 +49,13 @@ function damageTarget(game, actor, target, damage, x, y, knockback = 0) {
   if (knockback && target.hp > 0) target.knockbackFrom(x, y, knockback);
 }
 
+function pushShockwave(target, x, y, distance, radius, force) {
+  if (!target || target.hp <= 0 || !force || distance > radius + target.radius) return;
+  const falloff = clamp(1 - distance / (radius + target.radius), 0, 1);
+  const resistance = target.boss ? 0.38 : 1;
+  target.knockbackFrom(x, y, force * (0.25 + falloff * 0.75) * resistance);
+}
+
 function addVisual(game, visual, data) {
   game.itemProjectiles.push({ visual, life: data.life || 0.35, maxLife: data.life || 0.35, ...data });
 }
@@ -73,18 +80,30 @@ function rayTarget(game, actor, angle, range, width = 9) {
 
 function explode(game, projectile) {
   const def = ITEMS[projectile.type], R = projectile.blast || def.blast;
+  const shockRadius = projectile.shockRadius || def.shockRadius || R;
+  const shockwave = projectile.shockwave || def.shockwave || 0;
   for (const target of targets(game, projectile.owner)) {
-    const d = hyp(target.x - projectile.x, target.y - projectile.y); if (d > R + target.radius) continue;
-    const falloff = Math.max(0.35, 1 - d / (R + target.radius));
-    damageTarget(game, projectile.owner, target, projectile.damage * falloff, projectile.x, projectile.y, 420 * falloff);
-    if (!isPlayer(target) && projectile.poison && target.hp > 0) {
-      target.poisonT = Math.max(target.poisonT || 0, projectile.poison);
-      target.poisonDps = Math.max(target.poisonDps || 0, projectile.damage * 0.22);
+    const d = hyp(target.x - projectile.x, target.y - projectile.y);
+    if (d <= R + target.radius) {
+      const falloff = Math.max(0.35, 1 - d / (R + target.radius));
+      damageTarget(game, projectile.owner, target, projectile.damage * falloff, projectile.x, projectile.y);
+      if (!isPlayer(target) && projectile.poison && target.hp > 0) {
+        target.poisonT = Math.max(target.poisonT || 0, projectile.poison);
+        target.poisonDps = Math.max(target.poisonDps || 0, projectile.damage * 0.22);
+      }
     }
+    pushShockwave(target, projectile.x, projectile.y, d, shockRadius, shockwave);
   }
-  burst(game, projectile.x, projectile.y, def.color, 34, 290);
-  addVisual(game, 'blast', { x: projectile.x, y: projectile.y, radius: R, color: def.color, life: 0.5 });
-  game.shake = Math.min(18, game.shake + Math.min(12, projectile.damage * 0.06)); game.sfx.play('power');
+  const conventional = projectile.type === 'grenade' || projectile.type === 'rocket_launcher';
+  burst(game, projectile.x, projectile.y, conventional ? '#ffb347' : def.color, conventional ? 52 : 40, conventional ? 440 : 330);
+  if (conventional) burst(game, projectile.x, projectile.y, '#59463f', 24, 230);
+  addVisual(game, 'blast', {
+    type: projectile.type, x: projectile.x, y: projectile.y, radius: shockRadius,
+    color: conventional ? '#ff7b32' : def.color, life: conventional ? (projectile.type === 'rocket_launcher' ? 0.95 : 0.85) : 0.7,
+    seed: projectile.seed || Math.floor(rand(1, 100000)),
+  });
+  const shake = projectile.type === 'rocket_launcher' ? 17 : projectile.type === 'grenade' ? 14 : 10;
+  game.shake = Math.min(22, game.shake + shake); game.sfx.play(conventional ? 'explosion' : 'power');
 }
 
 function fireItem(game, actor, held, def) {
@@ -101,30 +120,48 @@ function fireItem(game, actor, held, def) {
     if (def.kind === 'cone') {
       for (let i = -2; i <= 2; i++) {
         const a = angle + i * spread * 0.38;
-        addVisual(game, 'tracer', { x: actor.x + fx * actor.radius, y: actor.y + fy * actor.radius, angle: a, length: range, color: def.color, life: 0.16 });
+        addVisual(game, 'tracer', { type: held.id, x: actor.x + fx * actor.radius, y: actor.y + fy * actor.radius, angle: a, length: range * rand(.82, 1), color: def.color, life: 0.2, seed: Math.floor(rand(1, 100000)) });
       }
-    } else addVisual(game, 'swing', { x: actor.x, y: actor.y, angle, radius: range, spread, color: def.color, life: 0.28 });
+      addVisual(game, 'muzzle', { type: held.id, x: actor.x + fx * (actor.radius + 8), y: actor.y + fy * (actor.radius + 8), angle, radius: 54, color: def.color, life: 0.18, seed: Math.floor(rand(1, 100000)) });
+      game.shake = Math.min(22, game.shake + 5); game.sfx.play('shotgun');
+    } else {
+      addVisual(game, 'swing', { type: held.id, x: actor.x, y: actor.y, angle, radius: range, spread, color: def.color, life: 0.34 });
+      game.shake = Math.min(22, game.shake + 2.5); game.sfx.play('swing');
+    }
   } else if (def.kind === 'hitscan') {
     const shotAngle = angle + rand(-def.spread, def.spread), hit = rayTarget(game, actor, shotAngle, def.range);
     if (hit.target) damageTarget(game, actor, hit.target, def.damage, actor.x, actor.y, 90);
-    addVisual(game, 'tracer', { x: actor.x + fx * actor.radius, y: actor.y + fy * actor.radius, angle: shotAngle, length: hit.distance, color: def.color, life: 0.18 });
+    const mx = actor.x + fx * (actor.radius + 8), my = actor.y + fy * (actor.radius + 8);
+    addVisual(game, 'tracer', { type: held.id, x: mx, y: my, angle: shotAngle, length: hit.distance, color: def.color, life: 0.2, seed: Math.floor(rand(1, 100000)) });
+    addVisual(game, 'muzzle', { type: held.id, x: mx, y: my, angle: shotAngle, radius: 34, color: def.color, life: 0.14, seed: Math.floor(rand(1, 100000)) });
+    addVisual(game, 'impact', { type: held.id, x: mx + Math.cos(shotAngle) * hit.distance, y: my + Math.sin(shotAngle) * hit.distance, angle: shotAngle, radius: hit.target ? 25 : 15, color: def.color, life: 0.22, seed: Math.floor(rand(1, 100000)) });
+    game.shake = Math.min(22, game.shake + 1.2); game.sfx.play('shot');
   } else if (def.kind === 'pulse') {
+    const shockRadius = def.shockRadius || def.blast;
     for (const target of targets(game, actor)) {
-      if (hyp(target.x - actor.x, target.y - actor.y) > def.blast + target.radius) continue;
-      damageTarget(game, actor, target, def.damage, actor.x, actor.y, 360);
-      if (!isPlayer(target) && !target.boss) target.stunT = Math.max(target.stunT || 0, def.stun);
-      else if (!isPlayer(target) && target.boss) target.slowT = Math.max(target.slowT || 0, def.stun);
+      const d = hyp(target.x - actor.x, target.y - actor.y);
+      if (d <= def.blast + target.radius) {
+        damageTarget(game, actor, target, def.damage, actor.x, actor.y);
+        if (!isPlayer(target) && !target.boss) target.stunT = Math.max(target.stunT || 0, def.stun);
+        else if (!isPlayer(target) && target.boss) target.slowT = Math.max(target.slowT || 0, def.stun);
+      }
+      pushShockwave(target, actor.x, actor.y, d, shockRadius, def.shockwave);
     }
-    addVisual(game, 'pulse', { x: actor.x, y: actor.y, radius: def.blast, color: def.color, life: 0.55 });
-    burst(game, actor.x, actor.y, def.color, 24, 240); game.sfx.play('power');
+    addVisual(game, 'pulse', { type: held.id, x: actor.x, y: actor.y, radius: shockRadius, color: def.color, life: 0.72, seed: Math.floor(rand(1, 100000)) });
+    burst(game, actor.x, actor.y, def.color, 38, 360); game.shake = Math.min(22, game.shake + 9); game.sfx.play('power');
   } else {
     const start = actor.radius + 18;
     game.itemProjectiles.push({
       type: held.id, visual: 'projectile', owner: actor, ownerConn: actorConn(game, actor),
       x: actor.x + fx * start, y: actor.y + fy * start, vx: fx * def.speed, vy: fy * def.speed,
       angle, radius: def.radius || 9, damage: def.damage, blast: def.blast || 0, poison: def.poison || 0,
+      knockback: def.knockback || 0, shockRadius: def.shockRadius || 0, shockwave: def.shockwave || 0, seed: Math.floor(rand(1, 100000)),
       life: def.life || def.fuse, maxLife: def.life || def.fuse, timed: def.kind === 'grenade', impactBlast: def.kind === 'rocket',
     });
+    if (def.kind === 'rocket') {
+      addVisual(game, 'muzzle', { type: held.id, x: actor.x + fx * start, y: actor.y + fy * start, angle, radius: 48, color: '#ffb347', life: 0.2, seed: Math.floor(rand(1, 100000)) });
+      game.shake = Math.min(22, game.shake + 5); game.sfx.play('rocket');
+    } else game.sfx.play('throw');
   }
   held.uses--;
 }
@@ -195,7 +232,7 @@ function updateProjectiles(game, dt) {
       p.x = clamp(p.x, p.radius, game.W - p.radius); p.y = clamp(p.y, p.radius, game.H - p.radius);
     }
     if (hit && !p.timed) {
-      if (p.impactBlast) explode(game, p); else damageTarget(game, p.owner, hit, p.damage, p.x, p.y, 280);
+      if (p.impactBlast) explode(game, p); else damageTarget(game, p.owner, hit, p.damage, p.x, p.y, p.knockback || 280);
       game.itemProjectiles.splice(i, 1); continue;
     }
     if (p.life <= 0 || (!p.timed && (out || blocked))) {

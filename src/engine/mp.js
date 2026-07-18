@@ -372,7 +372,7 @@ function buildSnapshot(engine) {
       n: projectile.netId, t: projectile.type, v: projectile.visual, x: Math.round(projectile.x), y: Math.round(projectile.y),
       a: roundTo(projectile.angle || 0, 2), r: Math.round(projectile.radius || 0), l: roundTo(projectile.life || 0, 2),
       ml: roundTo(projectile.maxLife || 0, 2), len: Math.round(projectile.length || 0),
-      sp: roundTo(projectile.spread || 0, 2), c: projectile.color,
+      sp: roundTo(projectile.spread || 0, 2), c: projectile.color, sd: projectile.seed,
     };
   });
   return {
@@ -531,6 +531,7 @@ function applySnapshot(engine, s) {
   for (const projectileData of (s.itemProjectiles || [])) {
     seenP.add(projectileData.n);
     let projectile = mp.projectileById.get(projectileData.n);
+    const fresh = !projectile;
     if (!projectile) {
       projectile = { netId: projectileData.n, x: projectileData.x, y: projectileData.y, gx: projectileData.x, gy: projectileData.y };
       mp.projectileById.set(projectileData.n, projectile);
@@ -538,8 +539,16 @@ function applySnapshot(engine, s) {
     Object.assign(projectile, {
       type: projectileData.t, visual: projectileData.v, gx: projectileData.x, gy: projectileData.y,
       angle: projectileData.a, radius: projectileData.r, life: projectileData.l, maxLife: projectileData.ml,
-      length: projectileData.len, spread: projectileData.sp, color: projectileData.c,
+      length: projectileData.len, spread: projectileData.sp, color: projectileData.c, seed: projectileData.sd,
     });
+    if (fresh && projectile.visual === 'blast') {
+      engine.shake = Math.min(22, engine.shake + (projectile.type === 'rocket_launcher' ? 17 : projectile.type === 'grenade' ? 14 : 10));
+      engine.sfx.play(projectile.type === 'grenade' || projectile.type === 'rocket_launcher' ? 'explosion' : 'power');
+    } else if (fresh && projectile.visual === 'pulse') {
+      engine.shake = Math.min(22, engine.shake + 9); engine.sfx.play('power');
+    } else if (fresh && projectile.visual === 'muzzle') {
+      engine.sfx.play(projectile.type === 'shotgun' ? 'shotgun' : projectile.type === 'rocket_launcher' ? 'rocket' : 'shot');
+    }
   }
   for (const [id] of mp.projectileById) if (!seenP.has(id)) mp.projectileById.delete(id);
   engine.itemProjectiles = [...mp.projectileById.values()];
