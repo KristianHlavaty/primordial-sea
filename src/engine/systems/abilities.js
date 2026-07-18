@@ -3,7 +3,7 @@
    Passives live where they hook in: Player (barbs/nettle/evasion/bloodscent/
    venom/rebirth), Creature (camo/ink senses), Engine (filter feeding). */
 import { ABILITIES } from '../../data/abilities.js';
-import { hyp, rand } from '../../core/math.js';
+import { clamp, hyp, rand } from '../../core/math.js';
 import { burst, shakeForPlayer } from './effects.js';
 
 export function activateAbility(game, idx, actor) {
@@ -108,17 +108,54 @@ export function activateAbility(game, idx, actor) {
     }
   }
   else if (id === 'grasp') {
-    // seize the nearest animal: drag it in, crush it, leave it reeling
-    let best = null, bd = 150 + p.radius;
-    for (const c of game.creatures) { if (c.boss) continue; const d = hyp(c.x - p.x, c.y - p.y); if (d < bd) { bd = d; best = c; } }
-    if (best) {
-      const d = bd || 1;
-      best.vx += (p.x - best.x) / d * 760; best.vy += (p.y - best.y) / d * 760;
-      best.stunT = Math.max(best.stunT || 0, 1.8);
-      best.takeDamage(game, p.species.stats.dmg * p.atkMul * 1.65, p.x, p.y, true);
-      burst(game, best.x, best.y, '#e4a6f2', 14, 180);
+    // Fire a long, generously aimed tentacle. In multiplayer the host also
+    // considers rival players in this map, keeping damage and movement authoritative.
+    const reach = 500 + p.radius, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
+    const candidates = game.creatures.slice();
+    if (game.mp && game.mp.role === 'host') {
+      for (const other of game.allPlayers()) {
+        if (other !== p && other.deadT <= 0 && other.spawnProtT <= 0 && !other.mpInvincible && !(other.mpEvolveChoices && other.mpEvolveChoices.length)) candidates.push(other);
+      }
     }
-    game.fx.push({ x: p.x, y: p.y, t: 0, max: 0.4, R: 150 + p.radius, color: '#c98ae0', dir: 'in', width: 3 });
+    let best = null, bd = reach, bestScore = Infinity;
+    for (const target of candidates) {
+      if (!target || target.hp <= 0) continue;
+      const body = target.vehicle || target, dx = body.x - p.x, dy = body.y - p.y, d = hyp(dx, dy);
+      if (d > reach + (body.radius || target.radius || 0)) continue;
+      const dot = (dx * fx + dy * fy) / (d || 1);
+      if (dot < .08) continue;
+      const side = Math.abs(-dx * fy + dy * fx), score = d + side * .7;
+      if (score < bestScore) { bestScore = score; bd = d; best = target; }
+    }
+    const targetBody = best && (best.vehicle || best);
+    p.graspT = .62;
+    p.graspX = targetBody ? targetBody.x : p.x + fx * reach;
+    p.graspY = targetBody ? targetBody.y : p.y + fy * reach;
+    if (best) {
+      const body = targetBody, dx = body.x - p.x, dy = body.y - p.y, d = bd || 1;
+      const damage = p.species.stats.dmg * p.atkMul * (best.boss ? 1.35 : 1.65);
+      if (best.speciesId) best.takeHit(game, damage, p.x, p.y, p);
+      else best.takeDamage(game, damage, p.x, p.y, true);
+      if (best.hp > 0) {
+        if (best.boss) {
+          // Huge bosses keep their ground: the arm only makes them flinch inward.
+          // Creature.takeDamage applies a small outward flinch of its own;
+          // this slightly stronger inward impulse leaves only a gentle tug.
+          body.vx += (p.x - body.x) / d * 185; body.vy += (p.y - body.y) / d * 185;
+        } else {
+          // Place ordinary prey at the mouth rather than merely adding an impulse
+          // that its AI or player steering could immediately cancel.
+          const stop = p.radius + (body.radius || best.radius || 12) + 12;
+          body.x = clamp(p.x + dx / d * stop, body.radius || 0, game.W - (body.radius || 0));
+          body.y = clamp(p.y + dy / d * stop, body.radius || 0, game.H - (body.radius || 0));
+          body.vx = (p.x - body.x) / (stop || 1) * 180; body.vy = (p.y - body.y) / (stop || 1) * 180;
+          if (body !== best) { best.x = body.x; best.y = body.y; best.vx = body.vx; best.vy = body.vy; }
+          if (!best.speciesId) best.stunT = Math.max(best.stunT || 0, 1.15);
+        }
+      }
+      burst(game, p.graspX, p.graspY, p.plan.accent || '#e4a6f2', 18, 210);
+    }
+    game.fx.push({ x: p.graspX, y: p.graspY, t: 0, max: .42, R: best ? 55 : 28, color: p.plan.accent || '#c98ae0', dir: 'in', width: 4 });
   }
   else if (id === 'ram') {
     p.ramT = ab.dur; p.ramHit = new Set(); p.ramAngle = p.angle;

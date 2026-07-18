@@ -275,6 +275,34 @@ function drawEntity(E, e) {
 function drawPlayerPowerState(E, player, sx, sy, radius) {
   const ctx = E.ctx, pulse = .5 + .5 * Math.sin(E.time * 12);
   ctx.save();
+  if (player.graspT > 0 && Number.isFinite(player.graspX) && Number.isFinite(player.graspY)) {
+    // The arm rapidly grows to the captured point, coils around it, then
+    // retracts. Body and highlight colours come directly from this species.
+    const life = clamp(player.graspT / .62, 0, 1), progress = 1 - life;
+    const extendP = clamp(progress / .28, 0, 1), retractP = clamp((progress - .38) / .62, 0, 1);
+    const reachP = (1 - (1 - extendP) ** 3) * (1 - retractP ** 2);
+    const dx = (player.graspX - player.x) * reachP, dy = (player.graspY - player.y) * reachP;
+    const length = hyp(dx, dy) || 1, nx = -dy / length, ny = dx / length;
+    const body = player.plan.body || '#9b5db0', accent = player.plan.accent || '#e4a6f2';
+    const waves = Math.min(15, radius * .32 + length * .018), phase = E.time * 20 + (player.animOff || 0);
+    const point = t => {
+      const curl = Math.sin(t * Math.PI) * Math.sin(t * TAU * 2.2 + phase) * waves;
+      return { x: sx + dx * t + nx * curl, y: sy + dy * t + ny * curl };
+    };
+    ctx.beginPath();
+    for (let i = 0; i <= 20; i++) { const q = point(i / 20); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.shadowColor = withA(accent, .75); ctx.shadowBlur = 10;
+    ctx.strokeStyle = withA(shade(body, -.12), .45 + life * .5); ctx.lineWidth = Math.max(7, radius * .34); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.strokeStyle = withA(accent, .62 + life * .3); ctx.lineWidth = Math.max(2.2, radius * .1); ctx.stroke();
+    // Bright suckers travel along the outer half of the arm and a gripping
+    // loop at the tip makes the captured target unambiguous.
+    ctx.fillStyle = withA(shade(accent, .35), .55 + life * .4);
+    for (let i = 8; i <= 18; i += 2) { const q = point(i / 20); ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(1.6, radius * .07), 0, TAU); ctx.fill(); }
+    const tip = point(1), tipAngle = Math.atan2(dy, dx);
+    ctx.save(); ctx.translate(tip.x, tip.y); ctx.rotate(tipAngle);
+    ctx.strokeStyle = withA(accent, .72 + pulse * .25); ctx.lineWidth = Math.max(3, radius * .12);
+    ctx.beginPath(); ctx.ellipse(0, 0, Math.max(9, radius * .42), Math.max(6, radius * .27), 0, 0, TAU); ctx.stroke(); ctx.restore();
+  }
   if (player.castT > 0 && player.castAbility && ABILITIES[player.castAbility]) {
     const color = ABILITIES[player.castAbility].color, life = clamp(player.castT / .75, 0, 1);
     ctx.strokeStyle = withA(color, .25 + life * .65); ctx.lineWidth = 2 + life * 4;

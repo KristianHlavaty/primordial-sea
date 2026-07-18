@@ -464,6 +464,8 @@ function buildSnapshot(engine, recipientConn) {
       iv: pl.mpInvincible ? 1 : 0,
       sq: pl.cameraShakeSeq || 0, sk: pl.cameraShakePower || 0,
       ca: pl.castT > 0 ? pl.castAbility : undefined, cq: pl.castSeq || 0, ct: Math.ceil((pl.castT || 0) * 10),
+      grt: Math.ceil((pl.graspT || 0) * 100),
+      grx: pl.graspT > 0 ? Math.round(pl.graspX) : undefined, gry: pl.graspT > 0 ? Math.round(pl.graspY) : undefined,
       vh: pl.vehicle ? pl.vehicle.netId : 0, vt: pl.vehicle ? pl.vehicle.type : undefined,
       it: (pl.items || []).map(item => item ? [item.id, item.uses, Math.ceil((item.cd || 0) * 10)] : 0),
     });
@@ -545,6 +547,7 @@ function makeRenderPlayer(engine, pd) {
     abilities: (ABILITY_SETS[pd.s] || []).slice(), acd: {}, biteAnim: pd.b, kills: pd.k || 0, deadT: pd.d || 0,
     mpInvincible: !!pd.iv, items: Array(ITEM_SLOT_COUNT).fill(null),
     castAbility: pd.ca || null, castT: (pd.ct || 0) / 10, castSeq: pd.cq || 0,
+    graspT: (pd.grt || 0) / 100, graspX: pd.grx || 0, graspY: pd.gry || 0,
     cameraShakeSeq: pd.sq || 0, cameraShakePower: pd.sk || 0,
     vehicle: null, vehicleType: pd.vt || null, vehicleNetId: pd.vh || null,
   };
@@ -617,6 +620,9 @@ function applySnapshot(engine, s) {
         engine.sfx.play(pl.castAbility === 'frenzy' ? 'frenzy' : pl.castAbility === 'ram' ? 'ram' : 'power');
       }
       pl._castSeen = pl.castSeq;
+      pl.graspT = (pd.grt || 0) / 100;
+      if (Number.isFinite(pd.grx)) pl.graspX = pd.grx;
+      if (Number.isFinite(pd.gry)) pl.graspY = pd.gry;
       pl.cameraShakeSeq = pd.sq || 0; pl.cameraShakePower = pd.sk || 0; pl._cameraShakeSeen = shakeSeen;
       if (pl.cameraShakeSeq > pl._cameraShakeSeen) {
         engine.shake = Math.min(22, engine.shake + pl.cameraShakePower);
@@ -644,6 +650,9 @@ function applySnapshot(engine, s) {
     applyItemState(rp, pd.it);
     rp.kills = pd.k || 0; rp.deadT = pd.d || 0; rp.mpInvincible = !!pd.iv;
     rp.castAbility = pd.ca || null; rp.castT = (pd.ct || 0) / 10; rp.castSeq = pd.cq || 0;
+    rp.graspT = (pd.grt || 0) / 100;
+    if (Number.isFinite(pd.grx)) rp.graspX = pd.grx;
+    if (Number.isFinite(pd.gry)) rp.graspY = pd.gry;
     rp.vehicle = null; rp.vehicleType = pd.vt || null; rp.vehicleNetId = pd.vh || null;
     if (pd.b > (rp.biteAnim || 0)) rp.biteAnim = pd.b;
   }
@@ -786,6 +795,7 @@ export function mpClientUpdate(engine, dt) {
     e.biteAnim = Math.max(0, (e.biteAnim || 0) - dt * 3); e.mouth = e.biteAnim; e.hurt = Math.max(0, (e.hurt || 0) - dt * 3);
     e.forceFieldT = Math.max(0, (e.forceFieldT || 0) - dt);
     e.castT = Math.max(0, (e.castT || 0) - dt);
+    e.graspT = Math.max(0, (e.graspT || 0) - dt);
     for (const id of (e.abilities || [])) {
       if (e.acd && e.acd[id] > 0) e.acd[id] = Math.max(0, e.acd[id] - dt);
       const timer = ACTIVE_TIMER[id]; if (timer && e[timer] > 0) e[timer] = Math.max(0, e[timer] - dt);

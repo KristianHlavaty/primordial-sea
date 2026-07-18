@@ -20,7 +20,7 @@ export const ABILITIES = {
   jet:        { name: 'Jet',            passive: false, cd: 7,  dur: 0,   color: '#7fe6d8', desc: 'Detonate the siphon in a brilliant wake that violently launches you forward.' },
   withdraw:   { name: 'Withdraw',       passive: false, cd: 14, dur: 4,   color: '#e8c98a', desc: 'Pull into the shell — take a fraction of damage and slowly mend, but you cannot bite.' },
   ink:        { name: 'Ink Cloud',      passive: false, cd: 12, dur: 3.5, color: '#8a93b8', desc: 'Vanish in a cloud of ink — prey and hunters alike lose all track of you while it lingers.' },
-  grasp:      { name: 'Grasp',          passive: false, cd: 10, dur: 0,   color: '#c98ae0', desc: 'Lash out an arm — seize the nearest animal, drag it close, crush it and leave it reeling.' },
+  grasp:      { name: 'Grasp',          passive: false, cd: 10, dur: 0,   color: '#c98ae0', desc: 'Fire a long living tentacle that seizes prey or rival creatures and reels them into biting distance. Bosses are only wounded and nudged.' },
   ram:        { name: 'Ram',            passive: false, cd: 9,  dur: 0.95,color: '#ffb36a', desc: 'Lock your heading and become a living torpedo; impacts crush, launch and shake your view.' },
   filter:     { name: 'Filter Feed',    passive: true,  cd: 0,  dur: 0,   color: '#9fe0b0', desc: 'Ciliary filter feeding — food drifts to you from much farther away and nourishes you more.' },
   impale:     { name: 'Impale',         passive: false, cd: 11, dur: 0,   color: '#ffd27a', desc: 'A skewering lunge of the claws — heavy damage that leaves prey reeling.' },

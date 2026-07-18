@@ -30,6 +30,7 @@ export class Player extends Entity {
     this.enrollT = 0; this.burstT = 0; this.frenzyT = 0; this.bloomT = 0; this.bloomTick = 0;
     this.withdrawT = 0; this.stealthT = 0; this.ramT = 0; this.jetT = 0; this.ramHit = null; this.ramAngle = 0;
     this.vortexT = 0; this.vortexTick = 0;
+    this.graspT = 0; this.graspX = 0; this.graspY = 0;
     this.castAbility = null; this.castT = 0; this.castSeq = 0; this._castSeen = 0;
     this.cameraShakeSeq = 0; this.cameraShakePower = 0; this._cameraShakeSeen = 0;
     this.shockEchoT = 0; this.shockEchoX = 0; this.shockEchoY = 0;
@@ -65,7 +66,7 @@ export class Player extends Entity {
     this.hp = this.maxHp; this.shield = 0; this.shieldT = 0; this.forceFieldT = 0; this.vx = 0; this.vy = 0;
     this.biteT = 0; this.cd = 0; this.hitSet = null;
     this.enrollT = this.burstT = this.frenzyT = this.withdrawT = this.stealthT = 0;
-    this.ramT = this.jetT = this.bloomT = this.vortexT = this.burrowT = this.sprintT = 0;
+    this.ramT = this.jetT = this.bloomT = this.vortexT = this.burrowT = this.sprintT = this.graspT = 0;
     this.castAbility = null; this.castT = 0; this.ramHit = null;
     this.rebirthUsed = false;
     this.vehicle = null; this.vehicleType = null; this.vehicleNetId = null; this.vehicleCreatureRadius = null;
@@ -281,6 +282,7 @@ export class Player extends Entity {
     this.withdrawT = Math.max(0, this.withdrawT - dt); this.stealthT = Math.max(0, this.stealthT - dt);
     this.ramT = Math.max(0, this.ramT - dt); this.jetT = Math.max(0, this.jetT - dt);
     this.vortexT = Math.max(0, this.vortexT - dt);
+    this.graspT = Math.max(0, this.graspT - dt);
     this.castT = Math.max(0, this.castT - dt);
     if (this.shockEchoT > 0) { this.shockEchoT -= dt; if (this.shockEchoT <= 0) { this.shockEchoT = 0; this.releaseShockAfterglow(game); } }
     this.burrowT = Math.max(0, this.burrowT - dt); this.sprintT = Math.max(0, this.sprintT - dt);
