@@ -91,10 +91,11 @@
   color:#e8f7ff; background:#04121edd; border:1px solid #48616e; font-size:10px; font-weight:900}
 .itemname{position:absolute; left:2px; right:2px; bottom:2px; z-index:3; color:#d7e6ed; font-size:7.5px; line-height:10px; font-weight:800; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 2px #000}
 .itemuses{position:absolute; top:3px; right:4px; z-index:3; min-width:16px; line-height:16px; border-radius:8px; text-align:center; color:#07131d; background:var(--ic); font-size:9px; font-weight:900}
+.itemdiscard{position:absolute;right:3px;top:22px;z-index:5;width:16px;height:16px;padding:0;border:1px solid #965766;border-radius:5px;background:#260d14dd;color:#ff9eaa;font:900 13px/13px "Segoe UI",sans-serif;cursor:pointer;opacity:.72}.itemdiscard:hover{opacity:1;border-color:#ff7d8d;background:#40131e;color:#fff}
 .itemempty{color:#527080; font-size:8px; font-weight:900; letter-spacing:1px}
 .modernBadge{position:absolute; right:3px; bottom:13px; z-index:3; color:#ffbd69; font-size:6px; font-weight:900; letter-spacing:.5px}
 .itemcd{position:absolute; z-index:2; left:0; right:0; top:0; background:#020b12d9; pointer-events:none}
-.itemDropLayer{position:fixed; inset:0; z-index:25; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:auto;
+.itemDropLayer{position:fixed; inset:0; z-index:25; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none;
   background:#020a10aa; border:4px dashed #ffbd6988; color:#ffcf8d; text-shadow:0 2px 5px #000}
 .itemDropLayer span{font-size:22px; font-weight:950; letter-spacing:2px}.itemDropLayer small{margin-top:6px; color:#cfdae0; font-size:12px}
 @media(max-height:620px){.itembarWrap{bottom:82px}.itemslot{width:50px;height:50px}.itemslot canvas{width:34px;height:34px}.edgePrompt.withItems{bottom:155px}}

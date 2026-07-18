@@ -22,9 +22,10 @@ function spawnPoint(game) {
   return { x: rand(100, game.W - 100), y: rand(100, game.H - 100) };
 }
 
-function addWorldItem(game, type, x, y, uses) {
+function addWorldItem(game, type, x, y, uses, pickupDelay = 0) {
   const p = x == null ? spawnPoint(game) : { x, y };
-  game.worldItems.push({ type, x: p.x, y: p.y, uses: uses == null ? ITEMS[type].uses : uses, radius: 18, bob: rand(0, 6.28) });
+  const item = { type, x: p.x, y: p.y, uses: uses == null ? ITEMS[type].uses : uses, radius: 18, bob: rand(0, 6.28), pickupDelay };
+  game.worldItems.push(item); return item;
 }
 
 export function spawnMapItems(game) {
@@ -221,7 +222,7 @@ export function dropHeldItem(game, actor, slot) {
     x = clamp(actor.x - Math.cos(actor.angle) * distance, 24, game.W - 24);
     y = clamp(actor.y - Math.sin(actor.angle) * distance, 24, game.H - 24);
   }
-  addWorldItem(game, held.id, x, y, held.uses);
+  addWorldItem(game, held.id, x, y, held.uses, 0.85);
   actor.items[slot] = null;
   if (game.mp) game.mp.sendAcc = 1;
   game.pushHud(true); return true;
@@ -233,7 +234,8 @@ function pickupItems(game) {
     const slot = actor.items.findIndex(x => !x); if (slot < 0) continue;
     let best = -1, bestD = Infinity;
     for (let i = 0; i < game.worldItems.length; i++) {
-      const item = game.worldItems[i], d = hyp(item.x - actor.x, item.y - actor.y);
+      const item = game.worldItems[i]; if (item.pickupDelay > 0) continue;
+      const d = hyp(item.x - actor.x, item.y - actor.y);
       if (d < actor.radius + item.radius + 12 && d < bestD) { best = i; bestD = d; }
     }
     if (best < 0) continue;
@@ -282,6 +284,7 @@ function updateProjectiles(game, dt) {
 export function updateItems(game, dt) {
   if (!isAuthority(game) || !itemsEnabled(game)) return;
   for (const actor of game.allPlayers()) for (const held of actor.items) if (held && held.cd > 0) held.cd = Math.max(0, held.cd - dt);
+  for (const item of game.worldItems) if (item.pickupDelay > 0) item.pickupDelay = Math.max(0, item.pickupDelay - dt);
   pickupItems(game); updateProjectiles(game, dt);
   game.itemSpawnT -= dt;
   if (game.itemSpawnT <= 0) {
