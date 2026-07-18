@@ -109,6 +109,7 @@ export class Engine {
     // UI-facing bits
     this.showLevels = true;
     this.fantasyEvolution = false;
+    this.itemsEnabled = true;
     this.funItems = false;
     this.cheatsEnabled = false; this.invincible = false;
     this.previewCanvas = {};   // evolve-modal preview canvases, keyed by species id
@@ -149,7 +150,8 @@ export class Engine {
   start(options = {}) {
     this.resetRun();
     this.fantasyEvolution = !!options.fantasyEvolution;
-    this.funItems = !!options.funItems;
+    this.itemsEnabled = options.items !== false;
+    this.funItems = this.itemsEnabled && !!options.funItems;
     this.cheatsEnabled = !!options.cheats; this.invincible = false;
     this.player = null; this.makePlayer('protocell');
     this.loadMap('sea_shallows');
@@ -162,7 +164,8 @@ export class Engine {
   startAt(speciesId, options = {}) {
     this.resetRun();
     this.fantasyEvolution = !!options.fantasyEvolution;
-    this.funItems = !!options.funItems;
+    this.itemsEnabled = options.items !== false;
+    this.funItems = this.itemsEnabled && !!options.funItems;
     this.cheatsEnabled = !!options.cheats; this.invincible = false;
     const stage = speciesStage(speciesId);
     this.era = stage === 'carboniferous' ? 8 : 4;   // NPCs scale to the skipped-to depth
@@ -317,11 +320,11 @@ export class Engine {
     this.player.addXp(this, xpNeed(this.player.level) / 2); this.pushHud(true);
   }
   useItem(slot) {
-    if (!this.playing || this.dead || this.paused || this.inputSuppressed || (!this.mp && this.pendingEvolve)) return;
+    if ((this.mp ? this.mp.items === false : !this.itemsEnabled) || !this.playing || this.dead || this.paused || this.inputSuppressed || (!this.mp && this.pendingEvolve)) return;
     if (this.mp) mpUseItem(this, slot); else useHeldItem(this, this.player, slot);
   }
   dropItem(slot) {
-    if (!this.playing || this.dead || this.paused || this.inputSuppressed || (!this.mp && this.pendingEvolve)) return;
+    if ((this.mp ? this.mp.items === false : !this.itemsEnabled) || !this.playing || this.dead || this.paused || this.inputSuppressed || (!this.mp && this.pendingEvolve)) return;
     if (this.mp) mpDropItem(this, slot); else dropHeldItem(this, this.player, slot);
   }
 
@@ -816,7 +819,8 @@ export class Engine {
         cd: Math.ceil(cd), cdFrac: ab.cd ? clamp(cd / ab.cd, 0, 1) : 0, ready: cd <= 0, active, activeFrac
       };
     }) : [];
-    const items = p ? ITEM_KEYS.map((key, slot) => {
+    const itemsEnabled = this.mp ? this.mp.items !== false : this.itemsEnabled;
+    const items = itemsEnabled && p ? ITEM_KEYS.map((key, slot) => {
       const held = p.items && p.items[slot], def = held && ITEMS[held.id];
       if (!def) return { slot, key, empty: true };
       return {

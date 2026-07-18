@@ -6,6 +6,7 @@ import { clamp, hyp, rand } from '../../core/math.js';
 import { burst } from './effects.js';
 
 const isAuthority = game => !game.mp || game.mp.role === 'host';
+const itemsEnabled = game => game.mp ? game.mp.items !== false : game.itemsEnabled !== false;
 const funItemsEnabled = game => game.mp ? !!game.mp.funItems : !!game.funItems;
 const worldCap = game => funItemsEnabled(game) ? 20 : 14;
 const itemPool = game => funItemsEnabled(game) ? NATURAL_ITEMS.concat(MODERN_ITEMS) : NATURAL_ITEMS;
@@ -28,7 +29,7 @@ function addWorldItem(game, type, x, y, uses) {
 
 export function spawnMapItems(game) {
   game.worldItems.length = 0; game.itemProjectiles.length = 0; game.itemSpawnT = 12;
-  if (!isAuthority(game)) return;
+  if (!isAuthority(game) || !itemsEnabled(game)) return;
   const pool = itemPool(game), count = worldCap(game);
   for (let i = 0; i < count; i++) addWorldItem(game, pool[i % pool.length]);
 }
@@ -129,7 +130,7 @@ function fireItem(game, actor, held, def) {
 }
 
 export function useHeldItem(game, actor, slot) {
-  if (!isAuthority(game) || !actor || actor.deadT > 0 || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
+  if (!isAuthority(game) || !itemsEnabled(game) || !actor || actor.deadT > 0 || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
   const held = actor.items[slot], def = held && ITEMS[held.id];
   if (!def || held.uses <= 0 || held.cd > 0 || (actor.mpEvolveChoices && actor.mpEvolveChoices.length)) return false;
   held.cd = def.cooldown; fireItem(game, actor, held, def);
@@ -139,7 +140,7 @@ export function useHeldItem(game, actor, slot) {
 }
 
 export function dropHeldItem(game, actor, slot) {
-  if (!isAuthority(game) || !actor || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
+  if (!isAuthority(game) || !itemsEnabled(game) || !actor || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
   const held = actor.items[slot]; if (!held || !ITEMS[held.id]) return false;
   const distance = actor.radius + 95;
   let x = clamp(actor.x + Math.cos(actor.angle) * distance, 24, game.W - 24);
@@ -205,7 +206,7 @@ function updateProjectiles(game, dt) {
 }
 
 export function updateItems(game, dt) {
-  if (!isAuthority(game)) return;
+  if (!isAuthority(game) || !itemsEnabled(game)) return;
   for (const actor of game.allPlayers()) for (const held of actor.items) if (held && held.cd > 0) held.cd = Math.max(0, held.cd - dt);
   pickupItems(game); updateProjectiles(game, dt);
   game.itemSpawnT -= dt;

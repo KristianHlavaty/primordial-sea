@@ -10,12 +10,13 @@ export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onE
   const [view, setView] = useState('home');   // 'home' | 'single'
   const [showLand, setShowLand] = useState(false);
   const [fantasyEvolution, setFantasyEvolution] = useState(true);
+  const [items, setItems] = useState(true);
   const [funItems, setFunItems] = useState(false);
   const [cheats, setCheats] = useState(false);
 
   const pioneerBtn = id => {
     const sp = SPECIES[id];
-    return html`<button key=${id} className=${'skipBtn ' + sp.branch} onClick=${() => onSkipToLand(id, { fantasyEvolution, funItems, cheats })}>
+    return html`<button key=${id} className=${'skipBtn ' + sp.branch} onClick=${() => onSkipToLand(id, { fantasyEvolution, items, funItems: items && funItems, cheats })}>
       ${sp.name}<small>${BRANCH_WORD[sp.branch] || sp.branch}</small></button>`;
   };
 
@@ -60,11 +61,14 @@ export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onE
       <label className="fantasyToggle"><input type="checkbox" checked=${fantasyEvolution} onChange=${e => setFantasyEvolution(e.target.checked)}/>
         Enable fantasy evolution bridges <small>(adds speculative land descendants for cnidarians and molluscs)</small>
       </label>
-      <label className="funItemsToggle"><input type="checkbox" checked=${funItems} onChange=${e => setFunItems(e.target.checked)}/>
+      <label className="itemsToggle"><input type="checkbox" checked=${items} onChange=${e => { setItems(e.target.checked); if (!e.target.checked) setFunItems(false); }}/>
+        Enable collectible items <small>(adds item drops and the Q/E/F inventory slots)</small>
+      </label>
+      <label className=${'funItemsToggle' + (!items ? ' disabled' : '')}><input type="checkbox" disabled=${!items} checked=${items && funItems} onChange=${e => setFunItems(e.target.checked)}/>
         Enable fun weapons <small>(adds AK-47s, grenades, shotguns and rocket launchers to item drops)</small>
       </label>
       <label className="cheatsToggle"><input type="checkbox" checked=${cheats} onChange=${e => setCheats(e.target.checked)}/> Cheats <small>(show testing controls in game)</small></label>
-      <button className="bigbtn" onClick=${() => onBegin({ fantasyEvolution, funItems, cheats })}>BEGIN LIFE</button>
+      <button className="bigbtn" onClick=${() => onBegin({ fantasyEvolution, items, funItems: items && funItems, cheats })}>BEGIN LIFE</button>
       <div className="skipRow">
         <button className="skipToggle" onClick=${() => setShowLand(v => !v)}>${showLand ? '▾ hide' : '▸ skip ahead'}</button>
         ${showLand && html`

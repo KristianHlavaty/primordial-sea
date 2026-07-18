@@ -47,13 +47,14 @@ export function mpStartHost(engine, { room, profile, lobby, selfConn, roster }) 
   const evolution = room.evolution !== false;
   const bosses = room.bosses === true;
   const mapTransitions = room.mapTransitions === true;
-  const funItems = room.funItems === true;
+  const items = room.items !== false;
+  const funItems = items && room.funItems === true;
   const cheats = room.cheats === true;
   engine.fantasyEvolution = fantasy; engine.cheatsEnabled = cheats; engine.invincible = false;
   const map = MAPS[room.map], stage = map.stage, tier = room.tier;
   engine.era = room.era || 0;
   engine.mp = {
-    role: 'host', lobby, self: selfConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, funItems, cheats,
+    role: 'host', lobby, self: selfConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, items, funItems, cheats,
     selfName: profile ? profile.name : 'Host', selfColor: profile ? profile.color : '#8affd0',
     inputs: {}, seq: 0, sendAcc: 0, nextNet: 1, feed: [], feedId: 0,
     worldDirty: false, edgeKey: null, edgeDwell: 0, edgeConn: null, edgeName: null,
@@ -77,13 +78,14 @@ export function mpStartClient(engine, { room, profile, lobby, selfConn, hostConn
   const evolution = room.evolution !== false;
   const bosses = room.bosses === true;
   const mapTransitions = room.mapTransitions === true;
-  const funItems = room.funItems === true;
+  const items = room.items !== false;
+  const funItems = items && room.funItems === true;
   const cheats = room.cheats === true;
   engine.fantasyEvolution = fantasy; engine.cheatsEnabled = cheats; engine.invincible = false;
   const map = MAPS[room.map], stage = map.stage, tier = room.tier;
   engine.era = room.era || 0;
   engine.mp = {
-    role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, funItems, cheats,
+    role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, items, funItems, cheats,
     selfName: profile ? profile.name : 'You', selfColor: profile ? profile.color : '#8affd0',
     sendAcc: 0, inputKeepalive: INPUT_KEEPALIVE, lastInput: null, reAsk: 0, gotInit: false,
     npcById: new Map(), rpById: new Map(), foodById: new Map(), itemById: new Map(), projectileById: new Map(),

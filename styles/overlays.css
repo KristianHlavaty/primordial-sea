@@ -88,9 +88,13 @@
 .fantasyToggle { display:flex; align-items:center; justify-content:center; gap:8px; margin:14px 0 10px; color:var(--dim); cursor:pointer; }
 .fantasyToggle input { accent-color:#b79bff; }
 .fantasyToggle small { opacity:.8; }
+.itemsToggle { display:flex; align-items:center; justify-content:center; gap:7px; margin:-2px 0 10px; color:#9fd8c8; font-size:12px; cursor:pointer; }
+.itemsToggle input { accent-color:#62c9ad; }
+.itemsToggle small { color:var(--dim); }
 .funItemsToggle { display:flex; align-items:center; justify-content:center; gap:7px; margin:-2px 0 10px; color:#e0a36c; font-size:12px; cursor:pointer; }
 .funItemsToggle input { accent-color:#ff9b45; }
 .funItemsToggle small { color:var(--dim); }
+.funItemsToggle.disabled { opacity:.42; cursor:not-allowed; }
 .cheatsToggle { display:flex; align-items:center; justify-content:center; gap:7px; margin:-4px 0 12px; color:#d78b96; font-size:12px; cursor:pointer; }
 .cheatsToggle input { accent-color:#ff5363; }
 .cheatsToggle small { color:var(--dim); }
