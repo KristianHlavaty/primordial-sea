@@ -16,6 +16,7 @@
 import { RemotePlayer } from './entities/RemotePlayer.js';
 import { activateAbility } from './systems/abilities.js';
 import { useHeldItem, dropHeldItem } from './systems/items.js';
+import { toggleVehicle } from './systems/vehicles.js';
 import { SPECIES, speciesOfStageTier, speciesStage } from '../data/species.js';
 import { ABILITY_SETS, ACTIVE_TIMER } from '../data/abilities.js';
 import { NPCS } from '../data/npcs.js';
@@ -88,15 +89,15 @@ export function mpStartClient(engine, { room, profile, lobby, selfConn, hostConn
     role: 'client', lobby, self: selfConn, host: hostConn, roster: roster || {}, stage, tier, fantasy, evolution, bosses, mapTransitions, items, funItems, cheats,
     selfName: profile ? profile.name : 'You', selfColor: profile ? profile.color : '#8affd0',
     sendAcc: 0, inputKeepalive: INPUT_KEEPALIVE, lastInput: null, reAsk: 0, gotInit: false,
-    npcById: new Map(), rpById: new Map(), foodById: new Map(), itemById: new Map(), projectileById: new Map(),
-    seenNpcs: new Set(), seenPlayers: new Set(), seenFood: new Set(), seenItems: new Set(), seenProjectiles: new Set(), feed: [], feedId: 0,
+    npcById: new Map(), rpById: new Map(), foodById: new Map(), itemById: new Map(), projectileById: new Map(), vehicleById: new Map(),
+    seenNpcs: new Set(), seenPlayers: new Set(), seenFood: new Set(), seenItems: new Set(), seenProjectiles: new Set(), seenVehicles: new Set(), feed: [], feedId: 0,
   };
   engine.mapId = room.map; engine.stage = stage; engine.theme = map.theme; engine.W = map.W; engine.H = map.H;
   const mine = resolveSpecies(roster[selfConn] && roster[selfConn].species, stage, tier, fantasy);
   engine.player = null; engine.makePlayer(mine);
   engine.player.x = engine.W / 2; engine.player.y = engine.H / 2; engine.player._netInit = false;
   engine.remotePlayers = []; engine.creatures = []; engine.plants = []; engine.food = []; engine.obstacles = []; engine.webs = []; engine.bubbles = [];
-  engine.worldItems = []; engine.itemProjectiles = [];
+  engine.worldItems = []; engine.itemProjectiles = []; engine.vehicles = [];
   seedBubbles(engine);
   engine.cam.x = clamp(engine.player.x - engine.vw / 2, 0, Math.max(0, engine.W - engine.vw));
   engine.cam.y = clamp(engine.player.y - engine.vh / 2, 0, Math.max(0, engine.H - engine.vh));
@@ -122,7 +123,7 @@ export function mpOnPacket(engine, from, data) {
       if (rp) rp.input = { tx: data.tx || 0, ty: data.ty || 0, moving: !!data.m, bite: !!data.b };
     } else if (data.k === 'A') {
       const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
-      if (rp && !(rp.mpEvolveChoices && rp.mpEvolveChoices.length)) activateAbility(engine, data.i, rp);
+      if (rp && !rp.vehicleType && !(rp.mpEvolveChoices && rp.mpEvolveChoices.length)) activateAbility(engine, data.i, rp);
     } else if (data.k === 'E') {
       const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
       if (rp) commitEvolution(engine, rp, data.id);
@@ -135,6 +136,9 @@ export function mpOnPacket(engine, from, data) {
     } else if (data.k === 'D') {
       const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
       if (rp) dropHeldItem(engine, rp, data.i | 0);
+    } else if (data.k === 'V') {
+      const rp = engine.remotePlayers.find(r => r.connId === from) || ensureRemote(engine, from);
+      if (rp) toggleVehicle(engine, rp);
     } else if (data.k === 'ready') {
       if (mp.lobby) mp.lobby.raw({ t: 'relay', to: from, data: buildWorldInit(engine) });
     }
@@ -169,6 +173,7 @@ export function mpQueueEvolution(engine, player) {
   if (!mp || mp.role !== 'host' || (player.mpEvolveChoices && player.mpEvolveChoices.length)) return;
   const choices = evolutionChoices(engine, player);
   if (!choices.length) return;   // apex of this stage: never cross into the next one
+  if (player.vehicle) toggleVehicle(engine, player);
   player.mpEvolveChoices = choices;
   if (player === engine.player) {
     engine.setInputSuppressed(true);
@@ -240,6 +245,13 @@ export function mpDropItem(engine, slot) {
   if (mp.role === 'client') {
     if (mp.lobby) mp.lobby.raw({ t: 'relay', to: mp.host, data: { k: 'D', i: slot } });
   } else dropHeldItem(engine, engine.player, slot);
+}
+
+export function mpToggleVehicle(engine) {
+  const mp = engine.mp; if (!mp || !engine.player) return;
+  if (mp.role === 'client') {
+    if (mp.lobby) mp.lobby.raw({ t: 'relay', to: mp.host, data: { k: 'V' } });
+  } else toggleVehicle(engine, engine.player);
 }
 
 function applyCheat(engine, player, action) {
@@ -334,6 +346,7 @@ function buildSnapshot(engine) {
       ab: abilityState, k: pl.kills || 0, d: Math.ceil(pl.deadT || 0),
       ev: pl.mpEvolveChoices && pl.mpEvolveChoices.length ? pl.mpEvolveChoices : undefined,
       iv: pl.mpInvincible ? 1 : 0,
+      vh: pl.vehicle ? pl.vehicle.netId : 0, vt: pl.vehicle ? pl.vehicle.type : undefined,
       it: (pl.items || []).map(item => item ? [item.id, item.uses, Math.ceil((item.cd || 0) * 10)] : 0),
     });
   };
@@ -375,8 +388,14 @@ function buildSnapshot(engine) {
       sp: roundTo(projectile.spread || 0, 2), c: projectile.color, sd: projectile.seed,
     };
   });
+  const vehicles = engine.vehicles.map(vehicle => ({
+    n: vehicle.netId, t: vehicle.type, x: Math.round(vehicle.x), y: Math.round(vehicle.y),
+    a: roundTo(vehicle.angle || 0, 2), hp: Math.round(vehicle.hp), mhp: vehicle.maxHp,
+    r: vehicle.radius, oc: vehicle.occupantConn, cd: Math.ceil((vehicle.weaponCd || 0) * 100),
+    tm: Number.isFinite(vehicle.timeLeft) ? Math.ceil(vehicle.timeLeft * 10) : undefined,
+  }));
   return {
-    k: 'S', q: mp.seq++, players, npcs, food, dynamicWebs, worldItems, itemProjectiles,
+    k: 'S', q: mp.seq++, players, npcs, food, dynamicWebs, worldItems, itemProjectiles, vehicles,
     edgeC: mp.edgeConn, edgeName: mp.edgeName,
     perks: engine.perks, bossesDefeated: [...engine.bossesDefeated],
   };
@@ -402,6 +421,7 @@ function makeRenderPlayer(engine, pd) {
     hp: pd.hp, maxHp: pd.mhp, level: pd.lv, xp: pd.xp || 0, shield: pd.sh, shieldMax: pd.sm || 0,
     abilities: (ABILITY_SETS[pd.s] || []).slice(), acd: {}, biteAnim: pd.b, kills: pd.k || 0, deadT: pd.d || 0,
     mpInvincible: !!pd.iv, items: Array(ITEM_SLOT_COUNT).fill(null),
+    vehicle: null, vehicleType: pd.vt || null, vehicleNetId: pd.vh || null,
   };
   applyAbilityState(player, pd.ab);
   applyItemState(player, pd.it);
@@ -456,6 +476,7 @@ function applySnapshot(engine, s) {
   for (const pd of s.players) {
     if (pd.c === mp.self) {
       const hadChoices = !!(engine.player.mpEvolveChoices && engine.player.mpEvolveChoices.length);
+      const previousVehicleType = engine.player.vehicleType;
       if (engine.player.speciesId !== pd.s && SPECIES[pd.s]) engine.makePlayer(pd.s);
       const pl = engine.player;
       pl.gx = pd.x; pl.gy = pd.y; pl.ga = pd.a; pl.hp = pd.hp; pl.maxHp = pd.mhp; pl.level = pd.lv; pl.xp = pd.xp || 0;
@@ -463,6 +484,9 @@ function applySnapshot(engine, s) {
       applyItemState(pl, pd.it);
       pl.kills = pd.k || 0; pl.deadT = pd.d || 0;
       pl.mpInvincible = !!pd.iv;
+      pl.vehicle = null; pl.vehicleType = pd.vt || null; pl.vehicleNetId = pd.vh || null;
+      if (!previousVehicleType && pl.vehicleType) engine.sfx.play('vehicle_enter');
+      else if (previousVehicleType && !pl.vehicleType) engine.sfx.play('vehicle_exit');
       pl.mpEvolveChoices = Array.isArray(pd.ev) ? pd.ev.slice() : [];
       if (pl.mpEvolveChoices.length) engine.setInputSuppressed(true);
       else if (hadChoices) engine.setInputSuppressed(false);
@@ -480,6 +504,7 @@ function applySnapshot(engine, s) {
     rp.shield = pd.sh; rp.shieldMax = pd.sm || 0; applyAbilityState(rp, pd.ab);
     applyItemState(rp, pd.it);
     rp.kills = pd.k || 0; rp.deadT = pd.d || 0; rp.mpInvincible = !!pd.iv;
+    rp.vehicle = null; rp.vehicleType = pd.vt || null; rp.vehicleNetId = pd.vh || null;
     if (pd.b > (rp.biteAnim || 0)) rp.biteAnim = pd.b;
   }
   for (const [cid, rp] of mp.rpById) if (!seen.has(cid)) { mp.rpById.delete(cid); const i = engine.remotePlayers.indexOf(rp); if (i >= 0) engine.remotePlayers.splice(i, 1); }
@@ -527,6 +552,25 @@ function applySnapshot(engine, s) {
   for (const [id] of mp.itemById) if (!seenI.has(id)) mp.itemById.delete(id);
   engine.worldItems = [...mp.itemById.values()];
 
+  const seenV = mp.seenVehicles; seenV.clear();
+  for (const vehicleData of (s.vehicles || [])) {
+    seenV.add(vehicleData.n);
+    let vehicle = mp.vehicleById.get(vehicleData.n);
+    if (!vehicle) {
+      vehicle = { netId: vehicleData.n, x: vehicleData.x, y: vehicleData.y, gx: vehicleData.x, gy: vehicleData.y, angle: vehicleData.a, ga: vehicleData.a, hurt: 0 };
+      mp.vehicleById.set(vehicleData.n, vehicle);
+    }
+    if (vehicle.hp != null && vehicleData.hp < vehicle.hp) vehicle.hurt = 1;
+    Object.assign(vehicle, {
+      type: vehicleData.t, gx: vehicleData.x, gy: vehicleData.y, ga: vehicleData.a,
+      hp: vehicleData.hp, maxHp: vehicleData.mhp, radius: vehicleData.r,
+      occupantConn: vehicleData.oc, weaponCd: (vehicleData.cd || 0) / 100,
+      timeLeft: vehicleData.tm == null ? null : vehicleData.tm / 10,
+    });
+  }
+  for (const [id] of mp.vehicleById) if (!seenV.has(id)) mp.vehicleById.delete(id);
+  engine.vehicles = [...mp.vehicleById.values()];
+
   const seenP = mp.seenProjectiles; seenP.clear();
   for (const projectileData of (s.itemProjectiles || [])) {
     seenP.add(projectileData.n);
@@ -546,12 +590,13 @@ function applySnapshot(engine, s) {
     } else if (fresh && projectile.visual === 'orbital_marker') {
       engine.sfx.play('orbital_lock');
     } else if (fresh && projectile.visual === 'blast') {
-      engine.shake = Math.min(22, engine.shake + (projectile.type === 'rocket_launcher' ? 17 : projectile.type === 'grenade' ? 14 : 10));
-      engine.sfx.play(projectile.type === 'grenade' || projectile.type === 'rocket_launcher' ? 'explosion' : 'power');
+      const torpedo = projectile.type === 'vehicle_torpedo';
+      engine.shake = Math.min(22, engine.shake + (projectile.type === 'rocket_launcher' ? 17 : projectile.type === 'vehicle_missile' ? 16 : projectile.type === 'grenade' ? 14 : torpedo ? 15 : 10));
+      engine.sfx.play(torpedo ? 'torpedo_hit' : projectile.type === 'grenade' || projectile.type === 'rocket_launcher' || projectile.type === 'vehicle_missile' ? 'explosion' : 'power');
     } else if (fresh && projectile.visual === 'pulse') {
       engine.shake = Math.min(22, engine.shake + 9); engine.sfx.play('power');
     } else if (fresh && projectile.visual === 'muzzle') {
-      engine.sfx.play(projectile.type === 'shotgun' ? 'shotgun' : projectile.type === 'rocket_launcher' ? 'rocket' : 'shot');
+      engine.sfx.play(projectile.type === 'shotgun' ? 'shotgun' : projectile.type === 'vehicle_torpedo' ? 'torpedo' : projectile.type === 'vehicle_missile' ? 'missile' : projectile.type === 'rocket_launcher' ? 'rocket' : 'shot');
     }
   }
   for (const [id] of mp.projectileById) if (!seenP.has(id)) mp.projectileById.delete(id);
@@ -567,10 +612,10 @@ function applyWorldInit(engine, w) {
     if (MAPS[w.map]) { engine.stage = MAPS[w.map].stage; mp.stage = engine.stage; }
   }
   if (mapChanged) {
-    mp.npcById.clear(); mp.rpById.clear(); mp.foodById.clear(); mp.itemById.clear(); mp.projectileById.clear();
-    mp.seenNpcs.clear(); mp.seenPlayers.clear(); mp.seenFood.clear(); mp.seenItems.clear(); mp.seenProjectiles.clear();
+    mp.npcById.clear(); mp.rpById.clear(); mp.foodById.clear(); mp.itemById.clear(); mp.projectileById.clear(); mp.vehicleById.clear();
+    mp.seenNpcs.clear(); mp.seenPlayers.clear(); mp.seenFood.clear(); mp.seenItems.clear(); mp.seenProjectiles.clear(); mp.seenVehicles.clear();
     engine.creatures.length = 0; engine.remotePlayers.length = 0; engine.food.length = 0;
-    engine.worldItems.length = 0; engine.itemProjectiles.length = 0;
+    engine.worldItems.length = 0; engine.itemProjectiles.length = 0; engine.vehicles.length = 0;
     engine.bubbles.length = 0; seedBubbles(engine);
     if (engine.player) engine.player._netInit = false;
     engine.transitionCd = 1.2; engine.nearEdge = null;
@@ -607,6 +652,11 @@ export function mpClientUpdate(engine, dt) {
   }
   for (const item of engine.worldItems) smooth(item);
   for (const projectile of engine.itemProjectiles) { smooth(projectile); projectile.life = Math.max(0, (projectile.life || 0) - dt); }
+  for (const vehicle of engine.vehicles) {
+    smooth(vehicle); vehicle.weaponCd = Math.max(0, (vehicle.weaponCd || 0) - dt);
+    vehicle.hurt = Math.max(0, (vehicle.hurt || 0) - dt * 3);
+    if (Number.isFinite(vehicle.timeLeft)) vehicle.timeLeft = Math.max(0, vehicle.timeLeft - dt);
+  }
 
   const p = engine.player;
   if (p) {

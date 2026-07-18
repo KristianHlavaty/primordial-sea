@@ -39,6 +39,13 @@ export class Sfx {
       else if (type === 'explosion') { beep(95, 0.48, 0.12, 'sawtooth', 28); beep(210, 0.2, 0.065, 'square', 48); }
       else if (type === 'orbital_lock') { beep(520, 0.38, 0.045, 'sine', 980); beep(260, 0.42, 0.025, 'triangle', 520); }
       else if (type === 'orbital_strike') { beep(1400, 0.72, 0.1, 'sawtooth', 85); beep(88, 0.85, 0.12, 'sawtooth', 28); beep(320, 0.35, 0.07, 'square', 52); }
+      else if (type === 'vehicle_enter') { beep(220, 0.18, 0.04, 'square', 440); beep(520, 0.22, 0.035, 'triangle', 760); }
+      else if (type === 'vehicle_exit') beep(480, 0.18, 0.035, 'triangle', 190);
+      else if (type === 'vehicle_hit') { beep(115, 0.16, 0.055, 'square', 62); beep(540, 0.08, 0.025, 'sawtooth', 170); }
+      else if (type === 'vehicle_destroy') { beep(82, 0.65, 0.13, 'sawtooth', 24); beep(260, 0.25, 0.07, 'square', 42); }
+      else if (type === 'torpedo') { beep(175, 0.28, 0.055, 'sine', 72); beep(620, 0.08, 0.024, 'triangle', 230); }
+      else if (type === 'torpedo_hit') { beep(78, 0.48, 0.11, 'sine', 26); beep(330, 0.18, 0.045, 'square', 68); }
+      else if (type === 'missile') { beep(260, 0.16, 0.05, 'sawtooth', 88); beep(700, 0.06, 0.025, 'square', 210); }
       else if (type === 'swing') beep(260, 0.11, 0.04, 'sawtooth', 95);
       else if (type === 'throw') beep(430, 0.08, 0.028, 'triangle', 210);
       else if (type === 'dodge') beep(760, 0.08, 0.045, 'sine', 1180);

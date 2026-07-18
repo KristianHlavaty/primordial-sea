@@ -11,7 +11,7 @@ export function attachInput(engine, canvas, ui) {
   const onUp = e => { if (e.button === 0) engine.setBite(false); };
 
   const onKeyDown = e => {
-    if (['Space', 'Escape', 'Digit1', 'Digit2', 'Digit3', 'KeyQ', 'KeyE', 'KeyF', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+    if (['Space', 'Escape', 'Digit1', 'Digit2', 'Digit3', 'KeyQ', 'KeyE', 'KeyF', 'KeyV', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
     const k = e.key.toLowerCase();
     const u = ui.current;
     if (k === 'escape') { if (!e.repeat) u.handleEscape && u.handleEscape(); return; }
@@ -23,6 +23,7 @@ export function attachInput(engine, canvas, ui) {
     if (e.code === 'KeyQ') { engine.useItem(0); return; }
     if (e.code === 'KeyE') { engine.useItem(1); return; }
     if (e.code === 'KeyF') { engine.useItem(2); return; }
+    if (e.code === 'KeyV') { if (!e.repeat) engine.toggleVehicle(); return; }
     const anyModal = u.treeOpen || u.atlasOpen || u.bossEffectsOpen || u.talentsOpen || u.achievementOpen;
     // T / B / K toggle the tree wiki, world atlas and talents (only one open at a time)
     if (k === 't') { if (u.treeOpen) u.closeTree && u.closeTree(); else if (!anyModal) u.openTree && u.openTree(); return; }

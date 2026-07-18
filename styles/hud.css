@@ -15,6 +15,16 @@
 .bar.bio .fill{background:linear-gradient(90deg,#3fa9d6,#5ee0f2)}
 .bar.shield .fill{background:linear-gradient(90deg,#3f9fd0,#a6ecff)}
 .bar .lab{position:absolute; inset:0; display:flex; justify-content:space-between; align-items:center; padding:0 8px; font-size:10px; font-weight:800; letter-spacing:1px; text-shadow:0 1px 2px #000c; color:#eef}
+.vehicleHud{width:min(38vw,340px);padding:8px 10px;background:#07141deb;border:1px solid #68ddea;border-radius:10px;box-shadow:0 8px 24px #0008,0 0 18px -8px #68ddea}
+.vehicleHud.helicopter{border-color:#b7c873;box-shadow:0 8px 24px #0008,0 0 18px -8px #b7c873}
+.vehicleHudTitle,.vehicleWeapon{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.8px}
+.vehicleHudTitle b{color:#c9fbff;text-transform:uppercase}.vehicleHud.helicopter .vehicleHudTitle b{color:#e3efae}.vehicleHudTitle span{color:var(--dim);font-size:8px;font-weight:900}
+.vehicleTimer{height:3px;margin:5px 0 2px;background:#02090dcc;border-radius:3px;overflow:hidden}.vehicleTimer i{display:block;width:100%;height:100%;transform-origin:left;background:#68ddea;box-shadow:0 0 6px #68ddea}.vehicleHud.helicopter .vehicleTimer i{background:#d8e777;box-shadow:0 0 6px #d8e777}
+.vehicleArmor{position:relative;height:12px;margin:6px 0;background:#02090dcc;border:1px solid #385967;border-radius:7px;overflow:hidden}
+.vehicleArmor i{position:absolute;inset:0;transform-origin:left;background:linear-gradient(90deg,#35a77f,#79e7bf)}
+.vehicleHud.helicopter .vehicleArmor i{background:linear-gradient(90deg,#8c9b3e,#d8e777)}
+.vehicleArmor em{position:absolute;inset:0;text-align:center;color:#f2fbff;font-size:8px;line-height:10px;font-style:normal;font-weight:900;text-shadow:0 1px 2px #000}
+.vehicleWeapon span{color:#ffd06a;font-weight:900;text-transform:uppercase}.vehicleWeapon b{font-size:8px;color:#b8cad4}
 .topright{position:absolute; top:14px; right:16px; display:flex; gap:8px; align-items:center; pointer-events:auto}
 .kills{background:#0009; border:1px solid var(--line); border-radius:8px; padding:5px 12px; font-weight:800; font-size:13px; letter-spacing:.5px}
 .kills span{color:var(--dim); font-weight:600; font-size:11px}

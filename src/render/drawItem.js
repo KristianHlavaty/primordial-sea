@@ -38,6 +38,12 @@ export function drawItemIcon(ctx, id, size) {
     ctx.beginPath(); ctx.arc(0, r * .18, r * .36, 0, TAU); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-r, r * .18); ctx.lineTo(-r * .46, r * .18); ctx.moveTo(r * .46, r * .18); ctx.lineTo(r, r * .18); ctx.stroke();
     ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(-r * .18, -r * 1.05); ctx.lineTo(r * .18, -r * 1.05); ctx.lineTo(r * .34, r * .08); ctx.lineTo(0, r * .48); ctx.lineTo(-r * .34, r * .08); ctx.closePath(); ctx.fill();
+  } else if (id === 'vehicle_torpedo') {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(r, 0); ctx.quadraticCurveTo(r * .58, -r * .42, -r * .58, -r * .36); ctx.lineTo(-r * .9, 0); ctx.lineTo(-r * .58, r * .36); ctx.quadraticCurveTo(r * .58, r * .42, r, 0); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r * .52, -r * .25); ctx.lineTo(-r * .92, -r * .65); ctx.lineTo(-r * .8, -.05); ctx.lineTo(-r * .92, r * .65); ctx.lineTo(-r * .52, r * .25); ctx.fill();
+  } else if (id === 'vehicle_missile') {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(r * 1.05, 0); ctx.lineTo(r * .55, -r * .3); ctx.lineTo(-r * .7, -r * .3); ctx.lineTo(-r, 0); ctx.lineTo(-r * .7, r * .3); ctx.lineTo(r * .55, r * .3); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r * .52, -r * .22); ctx.lineTo(-r * .9, -r * .62); ctx.lineTo(-r * .76, 0); ctx.lineTo(-r * .9, r * .62); ctx.lineTo(-r * .52, r * .22); ctx.fill();
   }
   ctx.restore();
 }
@@ -130,7 +136,8 @@ function drawExplosion(ctx, x, y, projectile, def, color, frac) {
   const progress = 1 - frac, eased = 1 - (1 - progress) ** 3;
   const shockR = projectile.radius || (def && def.shockRadius) || 220;
   const blastR = (def && def.blast) || shockR * .72;
-  const conventional = projectile.type === 'grenade' || projectile.type === 'rocket_launcher';
+  const conventional = projectile.type === 'grenade' || projectile.type === 'rocket_launcher' || projectile.type === 'vehicle_missile';
+  const aquatic = projectile.type === 'vehicle_torpedo';
   const seed = projectile.seed || 1, fireAlpha = clamp(1 - progress / .78, 0, 1);
   ctx.save();
 
@@ -153,7 +160,7 @@ function drawExplosion(ctx, x, y, projectile, def, color, frac) {
     if (conventional) {
       smoke.addColorStop(0, `rgba(105,91,82,${smokeFade * .76})`); smoke.addColorStop(.55, `rgba(55,48,48,${smokeFade * .64})`); smoke.addColorStop(1, 'rgba(20,18,22,0)');
     } else {
-      smoke.addColorStop(0, withA('#dfff86', smokeFade * .5)); smoke.addColorStop(.5, withA(color, smokeFade * .42)); smoke.addColorStop(1, withA(color, 0));
+      smoke.addColorStop(0, withA(aquatic ? '#efffff' : '#dfff86', smokeFade * .5)); smoke.addColorStop(.5, withA(color, smokeFade * .42)); smoke.addColorStop(1, withA(color, 0));
     }
     ctx.fillStyle = smoke; ctx.beginPath(); ctx.arc(sx, sy, lobe, 0, TAU); ctx.fill();
   }
@@ -165,7 +172,7 @@ function drawExplosion(ctx, x, y, projectile, def, color, frac) {
     if (conventional) {
       core.addColorStop(0, withA('#ffffff', fireAlpha)); core.addColorStop(.13, withA('#fff3a6', fireAlpha)); core.addColorStop(.38, withA('#ffad32', fireAlpha * .95)); core.addColorStop(.7, withA('#ed4b18', fireAlpha * .7)); core.addColorStop(1, withA('#8f160b', 0));
     } else {
-      core.addColorStop(0, withA('#f7ffd4', fireAlpha)); core.addColorStop(.25, withA('#d9ff6e', fireAlpha * .9)); core.addColorStop(.65, withA(color, fireAlpha * .65)); core.addColorStop(1, withA(color, 0));
+      core.addColorStop(0, withA(aquatic ? '#ffffff' : '#f7ffd4', fireAlpha)); core.addColorStop(.25, withA(aquatic ? '#bff7ff' : '#d9ff6e', fireAlpha * .9)); core.addColorStop(.65, withA(color, fireAlpha * .65)); core.addColorStop(1, withA(color, 0));
     }
     ctx.fillStyle = core; ctx.beginPath(); ctx.arc(x, y, coreR, 0, TAU); ctx.fill();
     for (let i = 0; i < 9; i++) {
@@ -308,10 +315,17 @@ export function drawItemProjectile(E, projectile) {
     drawExplosion(ctx, x, y, projectile, def, color, frac);
   } else if (projectile.visual === 'projectile' && def) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(projectile.angle || 0);
-    if (projectile.type === 'rocket_launcher') {
+    if (projectile.type === 'rocket_launcher' || projectile.type === 'vehicle_missile') {
       ctx.globalCompositeOperation = 'lighter';
       const flame = ctx.createLinearGradient(-44, 0, -4, 0); flame.addColorStop(0, 'rgba(255,65,20,0)'); flame.addColorStop(.45, '#ff7b24'); flame.addColorStop(.78, '#ffe36e'); flame.addColorStop(1, '#fff');
       ctx.fillStyle = flame; ctx.beginPath(); ctx.moveTo(-46, 0); ctx.lineTo(-9, -8); ctx.lineTo(-4, 0); ctx.lineTo(-9, 8); ctx.closePath(); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+    } else if (projectile.type === 'vehicle_torpedo') {
+      ctx.globalCompositeOperation = 'lighter';
+      const wake = ctx.createLinearGradient(-58, 0, -5, 0); wake.addColorStop(0, withA(color, 0)); wake.addColorStop(.55, withA(color, .35)); wake.addColorStop(1, '#e9ffff');
+      ctx.strokeStyle = wake; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(-58, 0); ctx.lineTo(-7, 0); ctx.stroke();
+      ctx.fillStyle = withA('#e9ffff', .65);
+      for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(-23 - i * 9, Math.sin(E.time * 12 + i) * 5, 1.5 + i * .35, 0, TAU); ctx.fill(); }
       ctx.globalCompositeOperation = 'source-over';
     } else if (projectile.type === 'fossil_spear') {
       ctx.strokeStyle = withA(color, .62); ctx.lineWidth = 4; ctx.shadowColor = color; ctx.shadowBlur = 10; ctx.beginPath(); ctx.moveTo(-48, 0); ctx.lineTo(-8, 0); ctx.stroke();

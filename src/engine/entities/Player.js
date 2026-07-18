@@ -9,6 +9,7 @@ import { MAX_LEVEL, XP_MULT, xpNeed } from '../../data/progression.js';
 import { TAU, hyp, rand, angLerp } from '../../core/math.js';
 import { withA } from '../../core/color.js';
 import { burst, addFloater } from '../systems/effects.js';
+import { updatePilotedVehicle, damageOccupiedVehicle } from '../systems/vehicles.js';
 
 export class Player extends Entity {
   /* `prev` (the pre-evolution player) carries position and heading over. */
@@ -35,6 +36,7 @@ export class Player extends Entity {
     this.kills = 0; this.deaths = 0; this.deadT = 0; this.spawnProtT = 0;   // multiplayer FFA state
     this.mpInvincible = false;  // per-player testing cheat; authoritative on the multiplayer host
     this.mpEvolveChoices = [];  // host-authoritative same-stage choices, empty during normal play
+    this.vehicle = null; this.vehicleType = null; this.vehicleNetId = null; this.vehicleCreatureRadius = null;
     this.applyLevelStats(world); this.hp = this.maxHp;
     const tb = world && world.talentBonus;                 // Carapace talent: each new form starts shielded
     if (tb && tb.startShieldPct > 0) { this.shield = Math.round(this.maxHp * tb.startShieldPct); this.shieldMax = this.shield; this.shieldT = 30; }
@@ -63,6 +65,7 @@ export class Player extends Entity {
     this.enrollT = this.burstT = this.frenzyT = this.withdrawT = this.stealthT = 0;
     this.ramT = this.jetT = this.bloomT = this.vortexT = this.burrowT = this.sprintT = 0;
     this.rebirthUsed = false;
+    this.vehicle = null; this.vehicleType = null; this.vehicleNetId = null; this.vehicleCreatureRadius = null;
     this.x = game.W * (0.2 + Math.random() * 0.6);
     this.y = game.H * (0.2 + Math.random() * 0.6);
     this.spawnProtT = 2.5;
@@ -178,6 +181,7 @@ export class Player extends Entity {
     if (this.hp <= 0 || this.deadT > 0) return;
     if (this.spawnProtT > 0 || (this.mpEvolveChoices && this.mpEvolveChoices.length)) { burst(game, this.x, this.y, '#a0ffd8', 3, 45); return; }   // respawning or choosing an evolution
     if (game.mp ? this.mpInvincible : game.invincible) { burst(game, this.x, this.y, '#ff5d68', 3, 45); return; }
+    if (this.vehicle && damageOccupiedVehicle(game, this, dmg)) return;
     if (this.enrollT > 0) { burst(game, this.x, this.y, '#ffe6b0', 4, 60); return; }
     if (this.burrowT > 0) { burst(game, this.x, this.y, '#c79a5e', 4, 60); return; }   // underground — untouchable
     const dodgeCh = (this.hasAbility('evasion') ? 0.25 : 0) + (this.hasAbility('ampullae') ? .15 : 0) + (this.hasAbility('silksense') ? .14 : 0) + game.perks.dodge + (game.talentBonus ? game.talentBonus.dodge : 0);
@@ -270,6 +274,11 @@ export class Player extends Entity {
     this.vortexT = Math.max(0, this.vortexT - dt);
     if (this.shockEchoT > 0) { this.shockEchoT -= dt; if (this.shockEchoT <= 0) { this.shockEchoT = 0; this.releaseShockAfterglow(game); } }
     this.burrowT = Math.max(0, this.burrowT - dt); this.sprintT = Math.max(0, this.sprintT - dt);
+    if (this.vehicle) {
+      updatePilotedVehicle(game, this, dt);
+      this.cd = Math.max(0, this.cd - dt); this.biteT = Math.max(0, this.biteT - dt);
+      return;
+    }
     const enrolled = this.enrollT > 0, withdrawn = this.withdrawT > 0, burrowed = this.burrowT > 0;
     const hasted = this.burstT > 0 || this.sprintT > 0;   // Burst (aquatic) or Sprint (land)
     const accMul = enrolled ? 0.25 : withdrawn ? 0.35 : burrowed ? 1.5 : (hasted ? 1.6 : 1);

@@ -39,9 +39,19 @@ export const ITEMS = {
     desc: 'Marks the ground for a delayed orbital laser with catastrophic impact.', kind: 'orbital', damage: 480, range: 620,
     delay: 1.45, beamLife: 1.05, blast: 340, shockRadius: 520, shockwave: 1200,
   },
+  vehicle_torpedo: {
+    name: 'Torpedo', icon: 'torpedo', color: '#72e7ff', modern: true, vehicleOnly: true, uses: 0, cooldown: 0.82,
+    desc: 'A submarine-launched homing-free torpedo with a crushing underwater pressure wave.', kind: 'rocket',
+    damage: 185, speed: 720, life: 3.2, blast: 205, radius: 13, shockRadius: 305, shockwave: 720,
+  },
+  vehicle_missile: {
+    name: 'Attack Missile', icon: 'missile', color: '#ffad55', modern: true, vehicleOnly: true, uses: 0, cooldown: 0.48,
+    desc: 'A fast helicopter missile that detonates on impact.', kind: 'rocket',
+    damage: 155, speed: 920, life: 2.4, blast: 180, radius: 11, shockRadius: 270, shockwave: 660,
+  },
 };
 
-export const NATURAL_ITEMS = Object.keys(ITEMS).filter(id => !ITEMS[id].modern);
-export const MODERN_ITEMS = Object.keys(ITEMS).filter(id => ITEMS[id].modern);
+export const NATURAL_ITEMS = Object.keys(ITEMS).filter(id => !ITEMS[id].modern && !ITEMS[id].vehicleOnly);
+export const MODERN_ITEMS = Object.keys(ITEMS).filter(id => ITEMS[id].modern && !ITEMS[id].vehicleOnly);
 export const ITEM_KEYS = ['Q', 'E', 'F'];
 export const ITEM_SLOT_COUNT = ITEM_KEYS.length;

@@ -27,6 +27,13 @@ export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects, o
             <div className="lab"><span>LEVEL ${hud.level}</span><span>${hud.level >= 10 ? (hud.canEvolve ? 'EVOLVE!' : 'MAX') : hud.xp + ' / ' + hud.xpNeed}</span></div>
           </div>
         </div>
+        ${hud.vehicle && html`
+          <div className=${'vehicleHud ' + hud.vehicle.type}>
+            <div className="vehicleHudTitle"><b>${hud.vehicle.name}</b><span>${hud.vehicle.time}s LEFT · V EXIT</span></div>
+            <div className="vehicleTimer"><i style=${{ transform: `scaleX(${hud.vehicle.timeFrac})` }}/></div>
+            <div className="vehicleArmor"><i style=${{ transform: `scaleX(${clamp(hud.vehicle.hp / hud.vehicle.maxHp, 0, 1)})` }}/><em>ARMOR ${hud.vehicle.hp}/${hud.vehicle.maxHp}</em></div>
+            <div className="vehicleWeapon"><span>${hud.vehicle.weapon}</span><b>${hud.vehicle.cdFrac > 0 ? 'RELOADING' : 'CLICK / SPACE TO FIRE'}</b></div>
+          </div>`}
         ${hud.perks && hud.perks.length > 0 && html`
           <div className="perks">
             ${hud.perks.map(pk => html`
@@ -55,14 +62,16 @@ export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects, o
       ${hud.landDeadEnd && html`
         <div className="deadEndNote">🌊 <b>Dead end.</b> This lineage has no real land descendants — it can't crawl ashore. Start a new run with <b>Fantasy Evolution</b> on to give it a speculative land path.</div>`}
       ${hud.nearEdge && html`<div className=${'edgePrompt' + (hud.items ? ' withItems' : '')}>▸ crossing to <b>${hud.nearEdge}</b>…</div>`}
-      <div className="hint">Steer <b>mouse</b>/<b>WASD</b> · <b>Click / Space</b> bite & dash · Powers <b>1 2 3</b>${hud.items ? html` · Items <b>Q E F</b>` : ''} · Eat to <b>level up</b> — reach <b>Lv 10</b> to evolve</div>
+      <div className="hint">${hud.vehicle
+        ? html`Pilot <b>mouse</b>/<b>WASD</b> · Fire ${hud.vehicle.weapon} <b>Click / Space</b> · Exit <b>V</b>`
+        : html`Steer <b>mouse</b>/<b>WASD</b> · <b>Click / Space</b> bite & dash · Powers <b>1 2 3</b>${hud.items ? html` · Items <b>Q E F</b>` : ''}${hud.funVehicles ? html` · Vehicles <b>V</b>` : ''} · Eat to <b>level up</b> — reach <b>Lv 10</b> to evolve`}</div>
       ${hud.cheatsEnabled && html`
         <div className="cheatPanel">
           <div className="cheatTitle">CHEATS</div>
           <button className=${hud.invincible ? 'active' : ''} onClick=${() => engine.toggleInvincible()}>${hud.invincible ? '◆' : '◇'} Invincibility</button>
           <button onClick=${() => engine.cheatLevelUp()} disabled=${hud.level >= 10 || hud.pendingEvolve}>＋ Level up</button>
         </div>`}
-      ${hud.items && html`<${ItemBar} items=${hud.items} engine=${engine}/>`}
-      <${AbilityBar} abilities=${hud.abilities} engine=${engine}/>
+      ${hud.items && !hud.vehicle && html`<${ItemBar} items=${hud.items} engine=${engine}/>`}
+      ${!hud.vehicle && html`<${AbilityBar} abilities=${hud.abilities} engine=${engine}/>`}
     </div>`;
 }

@@ -53,7 +53,11 @@ function pushShockwave(target, x, y, distance, radius, force) {
   if (!target || target.hp <= 0 || !force || distance > radius + target.radius) return;
   const falloff = clamp(1 - distance / (radius + target.radius), 0, 1);
   const resistance = target.boss ? 0.38 : 1;
-  target.knockbackFrom(x, y, force * (0.25 + falloff * 0.75) * resistance);
+  const amount = force * (0.25 + falloff * 0.75) * resistance;
+  if (target.vehicle) {
+    const dx = target.vehicle.x - x, dy = target.vehicle.y - y, length = hyp(dx, dy) || 1;
+    target.vehicle.vx += dx / length * amount; target.vehicle.vy += dy / length * amount;
+  } else target.knockbackFrom(x, y, amount);
 }
 
 function addVisual(game, visual, data) {
@@ -94,16 +98,17 @@ function explode(game, projectile) {
     }
     pushShockwave(target, projectile.x, projectile.y, d, shockRadius, shockwave);
   }
-  const conventional = projectile.type === 'grenade' || projectile.type === 'rocket_launcher';
-  burst(game, projectile.x, projectile.y, conventional ? '#ffb347' : def.color, conventional ? 52 : 40, conventional ? 440 : 330);
+  const torpedo = projectile.type === 'vehicle_torpedo';
+  const conventional = projectile.type === 'grenade' || projectile.type === 'rocket_launcher' || projectile.type === 'vehicle_missile';
+  burst(game, projectile.x, projectile.y, torpedo ? '#c9f8ff' : conventional ? '#ffb347' : def.color, conventional ? 52 : torpedo ? 48 : 40, conventional ? 440 : torpedo ? 390 : 330);
   if (conventional) burst(game, projectile.x, projectile.y, '#59463f', 24, 230);
   addVisual(game, 'blast', {
     type: projectile.type, x: projectile.x, y: projectile.y, radius: shockRadius,
     color: conventional ? '#ff7b32' : def.color, life: conventional ? (projectile.type === 'rocket_launcher' ? 0.95 : 0.85) : 0.7,
     seed: projectile.seed || Math.floor(rand(1, 100000)),
   });
-  const shake = projectile.type === 'rocket_launcher' ? 17 : projectile.type === 'grenade' ? 14 : 10;
-  game.shake = Math.min(22, game.shake + shake); game.sfx.play(conventional ? 'explosion' : 'power');
+  const shake = projectile.type === 'rocket_launcher' ? 17 : projectile.type === 'vehicle_missile' ? 16 : projectile.type === 'grenade' ? 14 : torpedo ? 15 : 10;
+  game.shake = Math.min(22, game.shake + shake); game.sfx.play(torpedo ? 'torpedo_hit' : conventional ? 'explosion' : 'power');
 }
 
 function fireOrbitalStrike(game, marker) {
@@ -195,7 +200,7 @@ function fireItem(game, actor, held, def) {
 }
 
 export function useHeldItem(game, actor, slot) {
-  if (!isAuthority(game) || !itemsEnabled(game) || !actor || actor.deadT > 0 || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
+  if (!isAuthority(game) || !itemsEnabled(game) || !actor || actor.vehicleType || actor.deadT > 0 || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
   const held = actor.items[slot], def = held && ITEMS[held.id];
   if (!def || held.uses <= 0 || held.cd > 0 || (actor.mpEvolveChoices && actor.mpEvolveChoices.length)) return false;
   held.cd = def.cooldown; fireItem(game, actor, held, def);
@@ -205,7 +210,7 @@ export function useHeldItem(game, actor, slot) {
 }
 
 export function dropHeldItem(game, actor, slot) {
-  if (!isAuthority(game) || !itemsEnabled(game) || !actor || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
+  if (!isAuthority(game) || !itemsEnabled(game) || !actor || actor.vehicleType || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
   const held = actor.items[slot]; if (!held || !ITEMS[held.id]) return false;
   const distance = actor.radius + 95;
   let x = clamp(actor.x + Math.cos(actor.angle) * distance, 24, game.W - 24);
@@ -224,7 +229,7 @@ export function dropHeldItem(game, actor, slot) {
 
 function pickupItems(game) {
   for (const actor of game.allPlayers()) {
-    if (!actor || actor.deadT > 0) continue;
+    if (!actor || actor.vehicleType || actor.deadT > 0) continue;
     const slot = actor.items.findIndex(x => !x); if (slot < 0) continue;
     let best = -1, bestD = Infinity;
     for (let i = 0; i < game.worldItems.length; i++) {

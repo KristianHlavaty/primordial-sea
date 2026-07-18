@@ -18,6 +18,7 @@
 import { Player } from './entities/Player.js';
 import { ABILITIES, ACTIVE_TIMER } from '../data/abilities.js';
 import { ITEMS, ITEM_KEYS } from '../data/items.js';
+import { VEHICLES } from '../data/vehicles.js';
 import { PERKS, BOSSES } from '../data/bosses.js';
 import { MAPS, STAGES, firstMapOf, OPPOSITE_EDGE } from '../data/maps.js';
 import { SPECIES, landPioneers, speciesStage } from '../data/species.js';
@@ -28,8 +29,9 @@ import { spawnInitial, spawnMaintain, spawnRandomNpc } from './systems/spawning.
 import { activateAbility } from './systems/abilities.js';
 import { burst } from './systems/effects.js';
 import { updateItems, useHeldItem, dropHeldItem } from './systems/items.js';
+import { updateVehicles, toggleVehicle, exitVehicle } from './systems/vehicles.js';
 import { renderWorld } from '../render/renderWorld.js';
-import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpMinimap, mpMaybeCrossMap, mpQueueEvolution, mpChooseEvolution, mpUseCheat, mpUseItem, mpDropItem } from './mp.js';
+import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpMinimap, mpMaybeCrossMap, mpQueueEvolution, mpChooseEvolution, mpUseCheat, mpUseItem, mpDropItem, mpToggleVehicle } from './mp.js';
 import { Sfx } from './audio.js';
 
 const CURRENT_SPEED = 165;   // sea-stage water current — px/s of drift at full strength
@@ -82,6 +84,7 @@ export class Engine {
     this.remotePlayers = [];        // host: RemotePlayer entities; client: interpolated render-objects
     this.creatures = []; this.plants = []; this.food = [];
     this.worldItems = []; this.itemProjectiles = []; this.itemSpawnT = 0;
+    this.vehicles = []; this.vehicleSeq = 0; this.vehicleSpawnT = 0; this.vehicleTarget = 0;
     this.webs = [];
     this.obstacles = [];   // static land blockers (rocks, logs, stumps…)
     this.flow = [];   // sea-current streak particles (screen-space visual)
@@ -126,13 +129,17 @@ export class Engine {
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
   }
 
-  makePlayer(speciesId) { this.player = new Player(speciesId, this.player, this); }
+  makePlayer(speciesId) {
+    if (this.player && this.player.vehicle) exitVehicle(this, this.player, true);
+    this.player = new Player(speciesId, this.player, this);
+  }
 
   /* ---------------- run control ---------------- */
 
   /* Reset flow/progress state shared by every fresh run (start / startAt). */
   resetRun() {
     this.mp = null; this.remotePlayers = [];
+    this.vehicles = []; this.vehicleSeq = 0; this.vehicleSpawnT = 0; this.vehicleTarget = 0;
     this.era = 0; this.kills = 0; this.dead = false; this.paused = false;
     this.pendingEvolve = false; this.choices = []; this.evolveMode = 'normal';
     this.perks = { dmgReduce: 0, dodge: 0, webResist: 0, shockAfterglow: 0, list: [] }; this.bossesDefeated = new Set();
@@ -194,6 +201,7 @@ export class Engine {
      at the opposite edge of the new map); omit it for a fresh/landfall entry
      (player is centered). */
   loadMap(mapId, via) {
+    for (const player of this.allPlayers()) if (player.vehicle) exitVehicle(this, player, true);
     const m = MAPS[mapId];
     this.mapId = mapId; this.stage = m.stage; this.theme = m.theme; this.W = m.W; this.H = m.H;
     if (this.talent.trees[this.stage]) this.talent.trees[this.stage].unlocked = true;   // entering a stage unlocks its tree
@@ -262,7 +270,10 @@ export class Engine {
   mpSetRoster(roster) {
     if (!this.mp) return;
     this.mp.roster = roster || {};
-    if (this.mp.role === 'host') this.remotePlayers = this.remotePlayers.filter(rp => roster && roster[rp.connId]);   // drop players who left the room
+    if (this.mp.role === 'host') {
+      for (const rp of this.remotePlayers) if (!(roster && roster[rp.connId]) && rp.vehicle) exitVehicle(this, rp, true);
+      this.remotePlayers = this.remotePlayers.filter(rp => roster && roster[rp.connId]);   // drop players who left the room
+    }
     for (const rp of this.remotePlayers) { const r = roster && roster[rp.connId]; if (r) { rp.name = r.name; rp.color = r.color; } }
     if (this.onScheduleChange) this.onScheduleChange();
   }
@@ -285,6 +296,7 @@ export class Engine {
   /* FFA death: put the victim on a respawn timer, credit the killer, post a feed line. */
   mpPlayerDied(victim, attacker) {
     if (!this.mp || victim.deadT > 0) return;
+    if (victim.vehicle) exitVehicle(this, victim, true);
     victim.deadT = 3.5; victim.deaths = (victim.deaths || 0) + 1; victim.shield = 0;
     const killer = (attacker && attacker !== victim && this.allPlayers().includes(attacker)) ? attacker : null;
     if (killer) killer.kills = (killer.kills || 0) + 1;
@@ -320,12 +332,16 @@ export class Engine {
     this.player.addXp(this, xpNeed(this.player.level) / 2); this.pushHud(true);
   }
   useItem(slot) {
-    if ((this.mp ? this.mp.items === false : !this.itemsEnabled) || !this.playing || this.dead || this.paused || this.inputSuppressed || (!this.mp && this.pendingEvolve)) return;
+    if ((this.mp ? this.mp.items === false : !this.itemsEnabled) || !this.playing || this.dead || this.paused || this.inputSuppressed || this.player.vehicleType || (!this.mp && this.pendingEvolve)) return;
     if (this.mp) mpUseItem(this, slot); else useHeldItem(this, this.player, slot);
   }
   dropItem(slot) {
-    if ((this.mp ? this.mp.items === false : !this.itemsEnabled) || !this.playing || this.dead || this.paused || this.inputSuppressed || (!this.mp && this.pendingEvolve)) return;
+    if ((this.mp ? this.mp.items === false : !this.itemsEnabled) || !this.playing || this.dead || this.paused || this.inputSuppressed || this.player.vehicleType || (!this.mp && this.pendingEvolve)) return;
     if (this.mp) mpDropItem(this, slot); else dropHeldItem(this, this.player, slot);
+  }
+  toggleVehicle() {
+    if (!this.playing || this.dead || this.paused || this.inputSuppressed || !this.player) return;
+    if (this.mp) mpToggleVehicle(this); else toggleVehicle(this, this.player);
   }
 
   /* ---------------- talents ---------------- */
@@ -421,6 +437,7 @@ export class Engine {
   releaseInput() { this.keys = {}; this.biteHeld = false; }
   setInputSuppressed(value) { this.inputSuppressed = !!value; if (this.inputSuppressed) this.releaseInput(); }
   useAbility(idx) {
+    if (this.player && this.player.vehicleType) return;
     if (this.mp) {
       if (this.player && this.player.mpEvolveChoices && this.player.mpEvolveChoices.length) return;
       if (this.mp.role === 'client') { if (this.mp.lobby) this.mp.lobby.raw({ t: 'relay', to: this.mp.host, data: { k: 'A', i: idx } }); return; }
@@ -452,15 +469,22 @@ export class Engine {
   applyCurrent(dt) {
     if (this.stage !== 'sea') return;
     const p = this.player, cp = this.currentAt(p.x, p.y);
-    p.x = clamp(p.x + cp.x * dt, p.radius, this.W - p.radius);
-    p.y = clamp(p.y + cp.y * dt, p.radius, this.H - p.radius);
+    if (!p.vehicle) {
+      p.x = clamp(p.x + cp.x * dt, p.radius, this.W - p.radius);
+      p.y = clamp(p.y + cp.y * dt, p.radius, this.H - p.radius);
+    }
     for (const c of this.creatures) {
       if (c.boss) continue;
       const cc = this.currentAt(c.x, c.y);
       c.x = clamp(c.x + cc.x * dt, c.radius, this.W - c.radius);
       c.y = clamp(c.y + cc.y * dt, c.radius, this.H - c.radius);
     }
-    for (const rp of this.remotePlayers) { const cr = this.currentAt(rp.x, rp.y); rp.x = clamp(rp.x + cr.x * dt, rp.radius, this.W - rp.radius); rp.y = clamp(rp.y + cr.y * dt, rp.radius, this.H - rp.radius); }
+    for (const rp of this.remotePlayers) {
+      if (rp.vehicle) continue;
+      const cr = this.currentAt(rp.x, rp.y);
+      rp.x = clamp(rp.x + cr.x * dt, rp.radius, this.W - rp.radius);
+      rp.y = clamp(rp.y + cr.y * dt, rp.radius, this.H - rp.radius);
+    }
     for (const f of this.food) { const cf = this.currentAt(f.x, f.y); f.x += cf.x * dt * 0.8; f.y += cf.y * dt * 0.8; }
   }
 
@@ -469,6 +493,7 @@ export class Engine {
   resolveObstacles() {
     if (!this.obstacles.length) return;
     const push = (e) => {
+      if (e.vehicleType === 'helicopter') return;
       for (const o of this.obstacles) {
         const dx = e.x - o.x, dy = e.y - o.y, d = Math.sqrt(dx * dx + dy * dy), min = e.radius + o.r;
         if (d < min) {
@@ -677,6 +702,7 @@ export class Engine {
     this.applyCurrent(dt);   // sea current sweeps player + free creatures + food
     this.resolveObstacles(); // keep player + creatures out of land blockers
     updateItems(this, dt);
+    updateVehicles(this, dt);
 
     // Food is host-authoritative in multiplayer. Let every living player pull
     // and collect pellets; if ranges overlap, the closest player gets them.
@@ -766,6 +792,7 @@ export class Engine {
     for (const object of this.food) visitor(object);
     for (const object of this.worldItems) visitor(object);
     for (const object of this.itemProjectiles) visitor(object);
+    for (const object of this.vehicles) visitor(object);
     for (const object of this.particles) visitor(object);
     for (const object of this.bubbles) visitor(object);
     for (const object of this.eggs) visitor(object);
@@ -829,6 +856,14 @@ export class Engine {
         cdFrac: def.cooldown ? clamp((held.cd || 0) / def.cooldown, 0, 1) : 0,
       };
     }) : null;
+    const pilotedVehicle = p && (p.vehicle || this.vehicles.find(candidate => candidate.netId === p.vehicleNetId));
+    const vehicle = pilotedVehicle && VEHICLES[pilotedVehicle.type] ? {
+      type: pilotedVehicle.type, name: VEHICLES[pilotedVehicle.type].name, weapon: VEHICLES[pilotedVehicle.type].weaponName,
+      hp: Math.max(0, Math.round(pilotedVehicle.hp)), maxHp: pilotedVehicle.maxHp,
+      cdFrac: clamp((pilotedVehicle.weaponCd || 0) / ITEMS[VEHICLES[pilotedVehicle.type].projectile].cooldown, 0, 1),
+      time: Math.max(0, Math.ceil(pilotedVehicle.timeLeft || 0)),
+      timeFrac: clamp((pilotedVehicle.timeLeft || 0) / VEHICLES[pilotedVehicle.type].duration, 0, 1),
+    } : null;
     this.onHud({
       hp: p ? p.hp : 0, maxHp: p ? p.maxHp : 1,
       level: p ? p.level : 1, xp: p ? Math.round(p.xp) : 0, xpNeed: p ? xpNeed(p.level) : 1,
@@ -837,7 +872,7 @@ export class Engine {
       kills: this.kills, dead: this.dead, paused: this.paused, pendingEvolve: pendingEvolution, evolveMode: this.mp ? 'normal' : this.evolveMode,
       choices: this.mp ? mpChoices.slice() : this.choices.slice(), muted: this.sfx.muted,
       abilities: abils, shield: p ? Math.round(p.shield) : 0, shieldMax: p ? p.shieldMax : 0,
-      items,
+      items, vehicle, funVehicles: this.mp ? !!this.mp.funItems : !!this.funItems,
       perks: this.perks.list.map(x => ({ id: x.id, name: x.name, icon: x.icon, color: x.color, blurb: x.blurb })),
       achievement: this.achievement,
       // stage / map

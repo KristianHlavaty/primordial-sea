@@ -82,7 +82,7 @@ function HostPanel({ profile, onCreate, onCancel }) {
         </label>
         <label className=${'roomToggle funItemsRoomToggle' + (!items ? ' disabled' : '')}>
           <input type="checkbox" disabled=${!items} checked=${items && funItems} onChange=${e => setFunItems(e.target.checked)}/>
-          <span><b>Fun mode items</b><small>Expands collectible weapons with AK-47s, grenades, shotguns, rocket launchers and orbital strikes</small></span>
+          <span><b>Fun weapons & vehicles</b><small>Adds modern weapons, submarines in water and attack helicopters on land</small></span>
         </label>
         <label className="roomToggle cheatRoomToggle">
           <input type="checkbox" checked=${cheats} onChange=${e => setCheats(e.target.checked)}/>
@@ -115,7 +115,7 @@ function RoomView({ room, connId, onSetSpecies, onLeave, onStart }) {
     room.evolution && ['Same-stage evolution', 'evolution'],
     room.bosses && ['Bosses', 'bosses'],
     room.mapTransitions && ['Adjacent-map travel', 'maps'],
-    room.items !== false && room.funItems && ['Fun mode items', 'funitems'],
+    room.items !== false && room.funItems && ['Fun weapons & vehicles', 'funitems'],
     room.cheats && ['Testing cheats', 'cheats'],
   ].filter(Boolean);
 

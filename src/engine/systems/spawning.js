@@ -10,6 +10,7 @@ import { OBSTACLE_SETS, OBSTACLE_R } from '../../data/obstacles.js';
 import { BOSSES } from '../../data/bosses.js';
 import { TAU, rand } from '../../core/math.js';
 import { spawnMapItems } from './items.js';
+import { spawnMapVehicles } from './vehicles.js';
 
 export function creatureTarget(era) { return Math.min(26 + era * 4, 54); }
 
@@ -122,6 +123,7 @@ export function spawnInitial(game) {
   const spawnBosses = !game.mp || (game.mp.role === 'host' && game.mp.bosses);
   if (spawnBosses) for (const k of (MAPS[game.mapId].bosses || [])) if (!game.bossesDefeated.has(k)) game.creatures.push(new Boss(k, game));
   spawnMapItems(game);
+  spawnMapVehicles(game);
 }
 
 /* Runs every half second of sim time: top up creatures, easy prey and

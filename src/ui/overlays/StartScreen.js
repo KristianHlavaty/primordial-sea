@@ -65,7 +65,7 @@ export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onE
         Enable collectible items <small>(adds item drops and the Q/E/F inventory slots)</small>
       </label>
       <label className=${'funItemsToggle' + (!items ? ' disabled' : '')}><input type="checkbox" disabled=${!items} checked=${items && funItems} onChange=${e => setFunItems(e.target.checked)}/>
-        Enable fun weapons <small>(adds AK-47s, grenades, shotguns, rocket launchers and orbital strikes)</small>
+        Enable fun weapons & vehicles <small>(adds modern weapons, submarines in water and attack helicopters on land)</small>
       </label>
       <label className="cheatsToggle"><input type="checkbox" checked=${cheats} onChange=${e => setCheats(e.target.checked)}/> Cheats <small>(show testing controls in game)</small></label>
       <button className="bigbtn" onClick=${() => onBegin({ fantasyEvolution, items, funItems: items && funItems, cheats })}>BEGIN LIFE</button>

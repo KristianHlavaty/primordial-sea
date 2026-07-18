@@ -9,6 +9,7 @@ import { drawCreature } from './drawCreature.js';
 import { drawPlant } from './drawPlant.js';
 import { drawObstacle } from './drawObstacle.js';
 import { drawWorldItem, drawItemProjectile } from './drawItem.js';
+import { drawVehicle } from './drawVehicle.js';
 import { SPECIES } from '../data/species.js';
 import { MAPS } from '../data/maps.js';
 
@@ -278,7 +279,7 @@ function drawRemotePlayers(E) {
     ctx.strokeStyle = withA(rp.color || '#8affd0', 0.55); ctx.lineWidth = 2;
     ctx.setLineDash([4, 6]); ctx.lineDashOffset = -E.time * 12;
     ctx.beginPath(); ctx.arc(sx, sy, r + 6, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
-    drawEntity(E, rp);
+    if (!rp.vehicleType) drawEntity(E, rp);
     if ((rp.biteAnim || 0) > 0) {
       ctx.save(); ctx.translate(sx, sy); ctx.rotate(rp.angle);
       ctx.strokeStyle = withA('#e6ffff', rp.biteAnim * 2.2); ctx.lineWidth = 3;
@@ -292,7 +293,9 @@ function drawPlayerTags(E) {
   const ctx = E.ctx;
   ctx.textAlign = 'center'; ctx.font = '800 12px "Segoe UI",sans-serif';
   const tag = (pl, name, color) => {
-    const sx = pl.x - E.cam.x, sy = pl.y - E.cam.y - (pl.radius || 16) - 16;
+    const vehicle = E.vehicles && E.vehicles.find(candidate => candidate.netId === pl.vehicleNetId);
+    const radius = vehicle ? vehicle.radius : (pl.radius || 16);
+    const sx = pl.x - E.cam.x, sy = pl.y - E.cam.y - radius - 16;
     if (sx < -80 || sx > E.vw + 80 || sy < -20 || sy > E.vh + 20) return;
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.strokeText(name, sx, sy);
     ctx.fillStyle = color || '#eaf4ff'; ctx.fillText(name, sx, sy);
@@ -355,6 +358,7 @@ export function renderWorld(E) {
 
   // collectible weapons and their shared/authoritative attack visuals
   for (const item of E.worldItems) drawWorldItem(E, item);
+  for (const vehicle of E.vehicles) drawVehicle(E, vehicle);
   for (const projectile of E.itemProjectiles) drawItemProjectile(E, projectile);
 
   // eggs (laid when an evolution is pending)
@@ -462,7 +466,7 @@ export function renderWorld(E) {
       ctx.fillStyle = shade(pa, -0.05);
       for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); ctx.lineTo(Math.cos(a) * (r + 6), Math.sin(a) * (r + 6)); ctx.lineTo(Math.cos(a + 0.22) * r, Math.sin(a + 0.22) * r); ctx.closePath(); ctx.fill(); }
       ctx.restore();
-    } else drawEntity(E, PL);
+    } else if (!PL.vehicleType) drawEntity(E, PL);
     ctx.globalAlpha = 1;
     if (PL.withdrawT > 0) {
       // shell plates closing around the body
@@ -496,7 +500,7 @@ export function renderWorld(E) {
 
   // player bite arc
   const p = E.player;
-  if (p.biteT > 0) {
+  if (p.biteT > 0 && !p.vehicleType) {
     const r = p.radius + p.species.stats.reach;
     ctx.save(); ctx.translate(p.x - E.cam.x, p.y - E.cam.y); ctx.rotate(p.angle);
     ctx.strokeStyle = withA('#e6ffff', p.biteT * 2.5); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, r + 4, -0.7, 0.7); ctx.stroke(); ctx.restore();
