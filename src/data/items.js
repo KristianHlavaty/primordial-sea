@@ -34,6 +34,11 @@ export const ITEMS = {
     name: 'Rocket Launcher', icon: 'rocket', color: '#ff6575', modern: true, uses: 2, cooldown: 1.7,
     desc: 'Launches an impact rocket with an enormous fiery shockwave.', kind: 'rocket', damage: 225, speed: 760, life: 1.9, blast: 285, radius: 11, shockRadius: 410, shockwave: 880,
   },
+  orbital_strike: {
+    name: 'Orbital Strike', icon: 'orbital', color: '#ff58e6', modern: true, uses: 1, cooldown: 2.5,
+    desc: 'Marks the ground for a delayed orbital laser with catastrophic impact.', kind: 'orbital', damage: 480, range: 620,
+    delay: 1.45, beamLife: 1.05, blast: 340, shockRadius: 520, shockwave: 1200,
+  },
 };
 
 export const NATURAL_ITEMS = Object.keys(ITEMS).filter(id => !ITEMS[id].modern);

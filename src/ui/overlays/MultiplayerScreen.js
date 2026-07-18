@@ -82,7 +82,7 @@ function HostPanel({ profile, onCreate, onCancel }) {
         </label>
         <label className=${'roomToggle funItemsRoomToggle' + (!items ? ' disabled' : '')}>
           <input type="checkbox" disabled=${!items} checked=${items && funItems} onChange=${e => setFunItems(e.target.checked)}/>
-          <span><b>Fun mode items</b><small>Expands collectible weapons with AK-47s, grenades, shotguns and rocket launchers</small></span>
+          <span><b>Fun mode items</b><small>Expands collectible weapons with AK-47s, grenades, shotguns, rocket launchers and orbital strikes</small></span>
         </label>
         <label className="roomToggle cheatRoomToggle">
           <input type="checkbox" checked=${cheats} onChange=${e => setCheats(e.target.checked)}/>

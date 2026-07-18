@@ -106,6 +106,25 @@ function explode(game, projectile) {
   game.shake = Math.min(22, game.shake + shake); game.sfx.play(conventional ? 'explosion' : 'power');
 }
 
+function fireOrbitalStrike(game, marker) {
+  const def = ITEMS[marker.type], R = def.blast, shockRadius = def.shockRadius || R;
+  for (const target of targets(game, marker.owner)) {
+    const d = hyp(target.x - marker.x, target.y - marker.y);
+    if (d <= R + target.radius) {
+      const falloff = Math.max(0.45, 1 - d / (R + target.radius));
+      damageTarget(game, marker.owner, target, def.damage * falloff, marker.x, marker.y);
+    }
+    pushShockwave(target, marker.x, marker.y, d, shockRadius, def.shockwave);
+  }
+  burst(game, marker.x, marker.y, '#fff4ff', 72, 620);
+  burst(game, marker.x, marker.y, def.color, 44, 460);
+  addVisual(game, 'orbital_beam', {
+    type: marker.type, x: marker.x, y: marker.y, radius: shockRadius, color: def.color,
+    life: def.beamLife, seed: marker.seed,
+  });
+  game.shake = Math.min(22, game.shake + 22); game.sfx.play('orbital_strike');
+}
+
 function fireItem(game, actor, held, def) {
   const angle = actor.angle, fx = Math.cos(angle), fy = Math.sin(angle);
   if (def.kind === 'melee' || def.kind === 'cone') {
@@ -149,6 +168,15 @@ function fireItem(game, actor, held, def) {
     }
     addVisual(game, 'pulse', { type: held.id, x: actor.x, y: actor.y, radius: shockRadius, color: def.color, life: 0.72, seed: Math.floor(rand(1, 100000)) });
     burst(game, actor.x, actor.y, def.color, 38, 360); game.shake = Math.min(22, game.shake + 9); game.sfx.play('power');
+  } else if (def.kind === 'orbital') {
+    const margin = def.blast + 35;
+    const x = clamp(actor.x + fx * def.range, margin, game.W - margin);
+    const y = clamp(actor.y + fy * def.range, margin, game.H - margin);
+    game.itemProjectiles.push({
+      type: held.id, visual: 'orbital_marker', owner: actor, ownerConn: actorConn(game, actor),
+      x, y, angle, radius: def.blast, life: def.delay, maxLife: def.delay, seed: Math.floor(rand(1, 100000)),
+    });
+    game.shake = Math.min(22, game.shake + 2); game.sfx.play('orbital_lock');
   } else {
     const start = actor.radius + 18;
     game.itemProjectiles.push({
@@ -220,6 +248,10 @@ function projectileHit(game, projectile) {
 function updateProjectiles(game, dt) {
   for (let i = game.itemProjectiles.length - 1; i >= 0; i--) {
     const p = game.itemProjectiles[i]; p.life -= dt;
+    if (p.visual === 'orbital_marker') {
+      if (p.life <= 0) { fireOrbitalStrike(game, p); game.itemProjectiles.splice(i, 1); }
+      continue;
+    }
     if (p.visual !== 'projectile') { if (p.life <= 0) game.itemProjectiles.splice(i, 1); continue; }
     p.x += p.vx * dt; p.y += p.vy * dt;
     if (p.timed) { p.vx *= Math.exp(-dt * 1.8); p.vy *= Math.exp(-dt * 1.8); }

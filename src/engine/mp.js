@@ -541,7 +541,11 @@ function applySnapshot(engine, s) {
       angle: projectileData.a, radius: projectileData.r, life: projectileData.l, maxLife: projectileData.ml,
       length: projectileData.len, spread: projectileData.sp, color: projectileData.c, seed: projectileData.sd,
     });
-    if (fresh && projectile.visual === 'blast') {
+    if (fresh && projectile.visual === 'orbital_beam') {
+      engine.shake = Math.min(22, engine.shake + 22); engine.sfx.play('orbital_strike');
+    } else if (fresh && projectile.visual === 'orbital_marker') {
+      engine.sfx.play('orbital_lock');
+    } else if (fresh && projectile.visual === 'blast') {
       engine.shake = Math.min(22, engine.shake + (projectile.type === 'rocket_launcher' ? 17 : projectile.type === 'grenade' ? 14 : 10));
       engine.sfx.play(projectile.type === 'grenade' || projectile.type === 'rocket_launcher' ? 'explosion' : 'power');
     } else if (fresh && projectile.visual === 'pulse') {

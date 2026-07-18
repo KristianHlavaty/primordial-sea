@@ -33,6 +33,11 @@ export function drawItemIcon(ctx, id, size) {
     ctx.rotate(-.35); ctx.beginPath(); ctx.roundRect(-r, -r * .3, r * 1.65, r * .6, r * .18); ctx.fill(); ctx.stroke();
     ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r * .6, -r * .45); ctx.lineTo(r * .6, r * .45); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(-r * .62, -r * .48); ctx.lineTo(-r * .62, r * .48); ctx.closePath(); ctx.fill();
+  } else if (id === 'orbital_strike') {
+    ctx.beginPath(); ctx.arc(0, r * .18, r * .78, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, r * .18, r * .36, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r, r * .18); ctx.lineTo(-r * .46, r * .18); ctx.moveTo(r * .46, r * .18); ctx.lineTo(r, r * .18); ctx.stroke();
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(-r * .18, -r * 1.05); ctx.lineTo(r * .18, -r * 1.05); ctx.lineTo(r * .34, r * .08); ctx.lineTo(0, r * .48); ctx.lineTo(-r * .34, r * .08); ctx.closePath(); ctx.fill();
   }
   ctx.restore();
 }
@@ -183,11 +188,109 @@ function drawExplosion(ctx, x, y, projectile, def, color, frac) {
   ctx.restore();
 }
 
+function drawOrbitalMarker(E, ctx, x, y, projectile, def, color, frac) {
+  const R = (def && def.blast) || projectile.radius || 320;
+  const shockR = (def && def.shockRadius) || R * 1.45;
+  const lock = 1 - frac, pulse = .5 + .5 * Math.sin(E.time * (8 + lock * 10));
+  const top = -120;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+
+  const ground = ctx.createRadialGradient(x, y, 0, x, y, R);
+  ground.addColorStop(0, withA('#ffffff', .08 + lock * .12));
+  ground.addColorStop(.28, withA(color, .1 + pulse * .08)); ground.addColorStop(1, withA(color, 0));
+  ctx.fillStyle = ground; ctx.beginPath(); ctx.arc(x, y, R, 0, TAU); ctx.fill();
+
+  // A thin acquisition ray makes it clear that the threat is coming from above.
+  const guide = ctx.createLinearGradient(x, top, x, y);
+  guide.addColorStop(0, withA(color, 0)); guide.addColorStop(.55, withA(color, .12 + lock * .18)); guide.addColorStop(1, withA('#ffffff', .45 + lock * .45));
+  ctx.strokeStyle = guide; ctx.lineWidth = 2 + lock * 4; ctx.shadowColor = color; ctx.shadowBlur = 14;
+  ctx.setLineDash([8, 11]); ctx.lineDashOffset = -E.time * (34 + lock * 45);
+  ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, y); ctx.stroke(); ctx.setLineDash([]);
+
+  ctx.strokeStyle = withA(color, .24 + lock * .5); ctx.lineWidth = 2.5; ctx.setLineDash([12, 9]); ctx.lineDashOffset = E.time * 28;
+  ctx.beginPath(); ctx.arc(x, y, shockR, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = withA('#fff4ff', .45 + pulse * .45); ctx.lineWidth = 3 + lock * 4; ctx.shadowBlur = 18;
+  ctx.beginPath(); ctx.arc(x, y, R, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = withA(color, .65 + pulse * .25); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, R * .55, 0, TAU); ctx.stroke();
+
+  ctx.translate(x, y); ctx.rotate(E.time * (1.5 + lock * 2));
+  for (let i = 0; i < 4; i++) {
+    ctx.rotate(Math.PI / 2); ctx.strokeStyle = withA(i % 2 ? '#ffffff' : color, .65 + lock * .3); ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(0, 0, R * .78, -.5, .5); ctx.stroke();
+  }
+  ctx.rotate(-E.time * (1.5 + lock * 2));
+  ctx.strokeStyle = withA('#ffffff', .72 + lock * .25); ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(-R * 1.05, 0); ctx.lineTo(-R * .68, 0); ctx.moveTo(R * .68, 0); ctx.lineTo(R * 1.05, 0);
+  ctx.moveTo(0, -R * 1.05); ctx.lineTo(0, -R * .68); ctx.moveTo(0, R * .68); ctx.lineTo(0, R * 1.05); ctx.stroke();
+  ctx.fillStyle = withA('#ffffff', .75 + pulse * .25); ctx.beginPath(); ctx.arc(0, 0, 6 + pulse * 5, 0, TAU); ctx.fill();
+  ctx.restore();
+
+  ctx.save(); ctx.textAlign = 'center'; ctx.font = '900 12px "Segoe UI",sans-serif'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(15,0,18,.85)';
+  const text = `ORBITAL LOCK  ${Math.max(0, projectile.life).toFixed(1)}s`;
+  ctx.strokeText(text, x, y - R - 18); ctx.fillStyle = color; ctx.fillText(text, x, y - R - 18); ctx.restore();
+}
+
+function drawOrbitalBeam(E, ctx, x, y, projectile, def, color, frac) {
+  const progress = 1 - frac, eased = 1 - (1 - progress) ** 3;
+  const shockR = projectile.radius || (def && def.shockRadius) || 500;
+  const blastR = (def && def.blast) || shockR * .66;
+  const alpha = Math.pow(frac, .48), top = -180, seed = projectile.seed || 1;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+
+  // Wide atmospheric bloom surrounding an intensely white laser core.
+  const cone = ctx.createLinearGradient(x, top, x, y);
+  cone.addColorStop(0, withA(color, 0)); cone.addColorStop(.35, withA(color, alpha * .18));
+  cone.addColorStop(.78, withA(color, alpha * .5)); cone.addColorStop(1, withA('#ffffff', alpha * .82));
+  ctx.fillStyle = cone; ctx.beginPath(); ctx.moveTo(x - 24, top); ctx.lineTo(x + 24, top); ctx.lineTo(x + 82, y); ctx.lineTo(x - 82, y); ctx.closePath(); ctx.fill();
+
+  const beam = ctx.createLinearGradient(x - 90, y, x + 90, y);
+  beam.addColorStop(0, withA(color, 0)); beam.addColorStop(.22, withA(color, alpha * .5));
+  beam.addColorStop(.43, withA('#ffffff', alpha * .96)); beam.addColorStop(.57, withA('#ffffff', alpha * .96));
+  beam.addColorStop(.78, withA(color, alpha * .5)); beam.addColorStop(1, withA(color, 0));
+  ctx.strokeStyle = beam; ctx.lineWidth = 112; ctx.shadowColor = color; ctx.shadowBlur = 42;
+  ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, y); ctx.stroke();
+  ctx.strokeStyle = withA('#ffffff', alpha); ctx.lineWidth = 18 + frac * 10; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 24;
+  ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, y); ctx.stroke();
+
+  // Satellite-energy filaments corkscrew around the main column.
+  for (let i = 0; i < 9; i++) {
+    const offset = (seeded(seed, i) - .5) * 150, sway = Math.sin(E.time * 18 + i * 2.3) * 18;
+    ctx.strokeStyle = withA(i % 3 ? color : '#ffffff', alpha * (.28 + seeded(seed, i + 20) * .35));
+    ctx.lineWidth = 1.5 + seeded(seed, i + 30) * 2.5; ctx.beginPath(); ctx.moveTo(x + offset * .2, top);
+    ctx.quadraticCurveTo(x + offset + sway, (top + y) * .52, x + offset * .28, y); ctx.stroke();
+  }
+
+  const impactR = blastR * (.35 + eased * .85), impact = ctx.createRadialGradient(x, y, 0, x, y, impactR);
+  impact.addColorStop(0, withA('#ffffff', alpha)); impact.addColorStop(.12, withA('#fff0ff', alpha * .96));
+  impact.addColorStop(.42, withA(color, alpha * .7)); impact.addColorStop(1, withA(color, 0));
+  ctx.fillStyle = impact; ctx.beginPath(); ctx.arc(x, y, impactR, 0, TAU); ctx.fill();
+
+  const ringR = shockR * (.06 + eased * .94);
+  ctx.strokeStyle = withA('#ffffff', frac * .78); ctx.lineWidth = 3 + frac * 12; ctx.shadowColor = color; ctx.shadowBlur = 22;
+  ctx.beginPath(); ctx.arc(x, y, ringR, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = withA(color, frac * .72); ctx.lineWidth = 8 + frac * 18;
+  ctx.beginPath(); ctx.arc(x, y, ringR * .94, 0, TAU); ctx.stroke();
+
+  // Radial ionized fragments race along the ground after impact.
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 28; i++) {
+    const a = seeded(seed, i + 60) * TAU, outer = shockR * progress * (.3 + seeded(seed, i + 90) * .7);
+    const inner = Math.max(4, outer - 24 - seeded(seed, i + 120) * 54);
+    ctx.strokeStyle = withA(i % 4 ? color : '#ffffff', frac * (.45 + seeded(seed, i + 150) * .5));
+    ctx.lineWidth = i % 4 ? 2 : 4; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * inner, y + Math.sin(a) * inner); ctx.lineTo(x + Math.cos(a) * outer, y + Math.sin(a) * outer); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 export function drawItemProjectile(E, projectile) {
   const ctx = E.ctx, def = ITEMS[projectile.type], color = projectile.color || (def && def.color) || '#fff';
   const x = projectile.x - E.cam.x, y = projectile.y - E.cam.y;
   const frac = projectile.maxLife ? clamp(projectile.life / projectile.maxLife, 0, 1) : 1;
-  if (projectile.visual === 'tracer') {
+  if (projectile.visual === 'orbital_marker') {
+    drawOrbitalMarker(E, ctx, x, y, projectile, def, color, frac);
+  } else if (projectile.visual === 'orbital_beam') {
+    drawOrbitalBeam(E, ctx, x, y, projectile, def, color, frac);
+  } else if (projectile.visual === 'tracer') {
     drawTracer(ctx, x, y, projectile, color, frac);
   } else if (projectile.visual === 'muzzle') {
     drawMuzzle(ctx, x, y, projectile, color, frac);
