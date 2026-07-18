@@ -59,7 +59,7 @@ export function ItemBar({ items, engine }) {
       <div className="itembar">
         ${items.map(item => html`
           <div key=${item.slot} draggable=${!item.empty}
-            className=${'itemslot' + (item.empty ? ' empty' : '') + (item.modern ? ' modern' : '')}
+            className=${'itemslot' + (item.empty ? ' empty' : '') + (item.modern ? ' modern' : '') + (item.rare ? ' rare' : '')}
             style=${item.empty ? null : { '--ic': item.color }}
             title=${item.empty ? 'Empty item slot' : item.name + ' — ' + item.desc + ' (drag or × to drop)'}
             onClick=${() => item.empty ? null : engine.useItem(item.slot)}
@@ -70,7 +70,7 @@ export function ItemBar({ items, engine }) {
               <button className="itemdiscard" draggable=${false} title=${'Drop ' + item.name} aria-label=${'Drop ' + item.name}
                 onMouseDown=${event => event.stopPropagation()} onDragStart=${event => { event.preventDefault(); event.stopPropagation(); }}
                 onClick=${event => discard(event, item.slot)}>×</button>
-              ${item.modern && html`<span className="modernBadge">FUN</span>`}
+              ${item.modern && html`<span className="modernBadge">${item.rare ? 'RARE' : 'FUN'}</span>`}
               ${item.cdFrac > 0 && html`<div className="itemcd" style=${{ height: item.cdFrac * 100 + '%' }}></div>`}`}
           </div>`) }
       </div>

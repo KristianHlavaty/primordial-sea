@@ -16,7 +16,7 @@ export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects, o
           ${hud.shield > 0 && html`
             <div className="bar shield">
               <div className="fill" style=${{ transform: `scaleX(${clamp(hud.shield / (hud.shieldMax || 1), 0, 1)})` }}/>
-              <div className="lab"><span>SHIELD</span><span>${Math.round(hud.shield)}</span></div>
+              <div className="lab"><span>${hud.forceFieldTime > 0 ? 'FORCE FIELD' : 'SHIELD'}</span><span>${Math.round(hud.shield)}${hud.forceFieldTime > 0 ? ' · ' + hud.forceFieldTime + 's' : ''}</span></div>
             </div>`}
           <div className="bar hp">
             <div className="fill" style=${{ transform: `scaleX(${clamp(hud.hp / hud.maxHp, 0, 1)})` }}/>

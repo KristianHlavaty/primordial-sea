@@ -12,6 +12,18 @@ const worldCap = game => funItemsEnabled(game) ? 20 : 14;
 const itemPool = game => funItemsEnabled(game) ? NATURAL_ITEMS.concat(MODERN_ITEMS) : NATURAL_ITEMS;
 const heldItem = (type, uses) => ({ id: type, uses: uses == null ? ITEMS[type].uses : uses, cd: 0 });
 
+function randomItemType(game) {
+  const pool = itemPool(game);
+  let total = 0;
+  for (const type of pool) total += ITEMS[type].spawnWeight == null ? 1 : ITEMS[type].spawnWeight;
+  let roll = Math.random() * total;
+  for (const type of pool) {
+    roll -= ITEMS[type].spawnWeight == null ? 1 : ITEMS[type].spawnWeight;
+    if (roll <= 0) return type;
+  }
+  return pool[pool.length - 1];
+}
+
 function spawnPoint(game) {
   for (let attempt = 0; attempt < 30; attempt++) {
     const x = rand(140, game.W - 140), y = rand(140, game.H - 140);
@@ -31,8 +43,18 @@ function addWorldItem(game, type, x, y, uses, pickupDelay = 0) {
 export function spawnMapItems(game) {
   game.worldItems.length = 0; game.itemProjectiles.length = 0; game.itemSpawnT = 12;
   if (!isAuthority(game) || !itemsEnabled(game)) return;
-  const pool = itemPool(game), count = worldCap(game);
-  for (let i = 0; i < count; i++) addWorldItem(game, pool[i % pool.length]);
+  const count = worldCap(game);
+  if (!funItemsEnabled(game)) {
+    const pool = itemPool(game);
+    for (let i = 0; i < count; i++) addWorldItem(game, pool[i % pool.length]);
+  } else {
+    // Keep the broad fun arsenal available on a fresh map, then use weighted
+    // rolls for the remaining slots. Rare items are never guaranteed.
+    const common = itemPool(game).filter(type => !ITEMS[type].rare);
+    let i = 0;
+    for (; i < count && i < common.length; i++) addWorldItem(game, common[i]);
+    for (; i < count; i++) addWorldItem(game, randomItemType(game));
+  }
 }
 
 const actorConn = (game, actor) => !game.mp ? null : actor === game.player ? game.mp.self : actor.connId;
@@ -131,9 +153,56 @@ function fireOrbitalStrike(game, marker) {
   game.shake = Math.min(22, game.shake + 22); game.sfx.play('orbital_strike');
 }
 
+function activateBlackHole(game, projectile) {
+  const def = ITEMS[projectile.type];
+  projectile.visual = 'black_hole'; projectile.vx = 0; projectile.vy = 0;
+  projectile.radius = def.field; projectile.life = def.duration; projectile.maxLife = def.duration;
+  projectile.damageTick = 0; projectile.angle = 0;
+  burst(game, projectile.x, projectile.y, '#f4e6ff', 32, 260);
+  burst(game, projectile.x, projectile.y, def.color, 30, 360);
+  game.shake = Math.min(22, game.shake + 10); game.sfx.play('black_hole');
+  if (game.mp) game.mp.sendAcc = 1;
+}
+
+function updateBlackHole(game, hole, dt) {
+  const def = ITEMS[hole.type], radius = hole.radius || def.field;
+  hole.damageTick -= dt;
+  const dealsDamage = hole.damageTick <= 0;
+  if (dealsDamage) hole.damageTick += 0.4;
+  for (const target of targets(game, hole.owner)) {
+    const dx = hole.x - target.x, dy = hole.y - target.y, distance = hyp(dx, dy);
+    if (distance > radius + target.radius) continue;
+    const falloff = clamp(1 - distance / (radius + target.radius), 0, 1);
+    const resistance = target.boss ? 0.28 : isPlayer(target) ? 0.78 : 1;
+    const force = def.pull * (0.18 + falloff * 0.82) * resistance * dt;
+    const body = target.vehicle || target, length = distance || 1;
+    body.vx += dx / length * force; body.vy += dy / length * force;
+    if (dealsDamage) {
+      // Damage APIs normally knock away from their source. Put the virtual
+      // impact behind the victim so that hit impulse also points inward.
+      const sourceX = target.x - dx, sourceY = target.y - dy;
+      damageTarget(game, hole.owner, target, def.damage * 0.4 * (0.3 + falloff * 0.7), sourceX, sourceY);
+    }
+  }
+  if (game.particles.length < 300 && Math.random() < dt * 12) {
+    const angle = rand(0, Math.PI * 2), distance = rand(radius * 0.25, radius * 0.9);
+    game.particles.push({
+      x: hole.x + Math.cos(angle) * distance, y: hole.y + Math.sin(angle) * distance,
+      vx: -Math.cos(angle) * rand(45, 120), vy: -Math.sin(angle) * rand(45, 120),
+      life: 0.65, max: 0.65, size: rand(1.5, 3.5), color: 'rgba(200,145,255,0.8)',
+    });
+  }
+}
+
 function fireItem(game, actor, held, def) {
   const angle = actor.angle, fx = Math.cos(angle), fy = Math.sin(angle);
-  if (def.kind === 'melee' || def.kind === 'cone') {
+  if (def.kind === 'shield') {
+    actor.shieldMax = Math.max(1, Math.round(actor.maxHp * def.shieldPct));
+    actor.shield = actor.shieldMax; actor.shieldT = def.duration; actor.forceFieldT = def.duration;
+    burst(game, actor.x, actor.y, '#dffaff', 24, 220);
+    addVisual(game, 'force_field_burst', { type: held.id, x: actor.x, y: actor.y, radius: actor.radius + 46, color: def.color, life: 0.65 });
+    game.sfx.play('force_field');
+  } else if (def.kind === 'melee' || def.kind === 'cone') {
     const range = def.range, spread = def.spread;
     for (const target of targets(game, actor)) {
       const dx = target.x - actor.x, dy = target.y - actor.y, d = hyp(dx, dy); if (d > range + target.radius) continue;
@@ -183,6 +252,14 @@ function fireItem(game, actor, held, def) {
       x, y, angle, radius: def.blast, life: def.delay, maxLife: def.delay, seed: Math.floor(rand(1, 100000)),
     });
     game.shake = Math.min(22, game.shake + 2); game.sfx.play('orbital_lock');
+  } else if (def.kind === 'black_hole') {
+    const start = actor.radius + 18;
+    game.itemProjectiles.push({
+      type: held.id, visual: 'projectile', owner: actor, ownerConn: actorConn(game, actor), blackHoleCharge: true,
+      x: actor.x + fx * start, y: actor.y + fy * start, vx: fx * def.speed, vy: fy * def.speed,
+      angle, radius: def.radius, life: def.delay, maxLife: def.delay, timed: true, seed: Math.floor(rand(1, 100000)),
+    });
+    game.sfx.play('black_hole_charge');
   } else {
     const start = actor.radius + 18;
     game.itemProjectiles.push({
@@ -259,6 +336,14 @@ function updateProjectiles(game, dt) {
       if (p.life <= 0) { fireOrbitalStrike(game, p); game.itemProjectiles.splice(i, 1); }
       continue;
     }
+    if (p.visual === 'black_hole') {
+      updateBlackHole(game, p, dt);
+      if (p.life <= 0) {
+        burst(game, p.x, p.y, ITEMS[p.type].color, 22, 180);
+        game.itemProjectiles.splice(i, 1);
+      }
+      continue;
+    }
     if (p.visual !== 'projectile') { if (p.life <= 0) game.itemProjectiles.splice(i, 1); continue; }
     p.x += p.vx * dt; p.y += p.vy * dt;
     if (p.timed) { p.vx *= Math.exp(-dt * 1.8); p.vy *= Math.exp(-dt * 1.8); }
@@ -273,6 +358,9 @@ function updateProjectiles(game, dt) {
     if (hit && !p.timed) {
       if (p.impactBlast) explode(game, p); else damageTarget(game, p.owner, hit, p.damage, p.x, p.y, p.knockback || 280);
       game.itemProjectiles.splice(i, 1); continue;
+    }
+    if (p.life <= 0 && p.blackHoleCharge) {
+      activateBlackHole(game, p); continue;
     }
     if (p.life <= 0 || (!p.timed && (out || blocked))) {
       if (p.blast) explode(game, p);
@@ -291,6 +379,6 @@ export function updateItems(game, dt) {
     game.itemSpawnT = 12;
     let total = game.worldItems.length;
     for (const actor of game.allPlayers()) total += actor.items.filter(Boolean).length;
-    if (total < worldCap(game)) { const pool = itemPool(game); addWorldItem(game, pool[Math.floor(Math.random() * pool.length)]); }
+    if (total < worldCap(game)) addWorldItem(game, randomItemType(game));
   }
 }

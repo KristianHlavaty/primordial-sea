@@ -267,6 +267,50 @@ function drawEntity(E, e) {
   ctx.restore();
 }
 
+function drawPlayerShield(E, player, sx, sy, creatureRadius) {
+  if (!(player.shield > 0)) return;
+  const ctx = E.ctx, frac = clamp(player.shield / (player.shieldMax || 1), 0, 1);
+  const pulse = .5 + .5 * Math.sin(E.time * 5), forceField = player.forceFieldT > 0;
+  const R = creatureRadius + (forceField ? 18 : 7);
+  ctx.save(); ctx.translate(sx, sy);
+  if (forceField) {
+    const glow = ctx.createRadialGradient(-R * .28, -R * .35, R * .08, 0, 0, R * 1.24);
+    glow.addColorStop(0, withA('#eaffff', .16 + pulse * .06));
+    glow.addColorStop(.48, withA('#55ccff', .1 + frac * .08)); glow.addColorStop(1, withA('#1678ff', 0));
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, R * 1.24, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = '#56dcff'; ctx.shadowBlur = 14;
+    for (let ring = 0; ring < 2; ring++) {
+      const rr = R * (ring ? .68 : 1), sides = ring ? 6 : 12;
+      ctx.strokeStyle = withA(ring ? '#d9fbff' : '#4fc9ff', (.22 + pulse * .24) * (0.55 + frac * .45));
+      ctx.lineWidth = ring ? 1.3 : 2.4; ctx.beginPath();
+      for (let i = 0; i <= sides; i++) {
+        const a = i / sides * TAU - Math.PI / 2 + (ring ? E.time * .16 : 0);
+        const x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.closePath(); ctx.stroke();
+    }
+    // Short bright panel seams suggest the hexagonal facets of a sci-fi dome.
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * TAU + E.time * .08, inner = R * .71, outer = R * .96;
+      ctx.strokeStyle = withA(i % 3 ? '#54d7ff' : '#f0ffff', .22 + pulse * .28); ctx.lineWidth = i % 3 ? 1.1 : 1.8;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner); ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer); ctx.stroke();
+    }
+    ctx.strokeStyle = withA('#f4ffff', .9); ctx.lineWidth = 3.2; ctx.beginPath();
+    ctx.arc(0, 0, R + 4, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
+  } else {
+    ctx.strokeStyle = withA('#7fd8ff', 0.35 + 0.3 * pulse); ctx.lineWidth = 2.5; ctx.beginPath();
+    for (let i = 0; i <= 6; i++) {
+      const a = i / 6 * TAU - Math.PI / 2, x = Math.cos(a) * R, y = Math.sin(a) * R;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath(); ctx.stroke();
+    ctx.strokeStyle = withA('#e6feff', 0.85); ctx.lineWidth = 3; ctx.beginPath();
+    ctx.arc(0, 0, R + 3, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 /* Other players (multiplayer): the creature plus a dashed presence ring in the
    player's chosen colour. Their bite arc shows when they lunge. */
 function drawRemotePlayers(E) {
@@ -280,6 +324,7 @@ function drawRemotePlayers(E) {
     ctx.setLineDash([4, 6]); ctx.lineDashOffset = -E.time * 12;
     ctx.beginPath(); ctx.arc(sx, sy, r + 6, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
     if (!rp.vehicleType) drawEntity(E, rp);
+    if (!rp.vehicleType) drawPlayerShield(E, rp, sx, sy, r);
     if ((rp.biteAnim || 0) > 0) {
       ctx.save(); ctx.translate(sx, sy); ctx.rotate(rp.angle);
       ctx.strokeStyle = withA('#e6ffff', rp.biteAnim * 2.2); ctx.lineWidth = 3;
@@ -356,7 +401,7 @@ export function renderWorld(E) {
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, f.r, 0, TAU); ctx.fill();
   }
 
-  // collectible weapons and their shared/authoritative attack visuals
+  // collectible items and their shared/authoritative attack visuals
   for (const item of E.worldItems) drawWorldItem(E, item);
   for (const vehicle of E.vehicles) drawVehicle(E, vehicle);
   for (const projectile of E.itemProjectiles) drawItemProjectile(E, projectile);
@@ -487,15 +532,7 @@ export function renderWorld(E) {
       for (let i = 0; i < n; i++) { const a = i / n * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * pr, Math.sin(a) * pr); ctx.quadraticCurveTo(Math.cos(a + 0.3) * RR * 0.7, Math.sin(a + 0.3) * RR * 0.7, Math.cos(a) * RR, Math.sin(a) * RR); ctx.stroke(); }
       ctx.restore();
     }
-    if (PL.shield > 0) {
-      const frac = clamp(PL.shield / (PL.shieldMax || 1), 0, 1), sp2 = 0.5 + 0.5 * Math.sin(E.time * 4); const R = pr + 7;
-      ctx.save(); ctx.translate(gx, gy);
-      ctx.strokeStyle = withA('#7fd8ff', 0.35 + 0.3 * sp2); ctx.lineWidth = 2.5; ctx.beginPath();
-      for (let i = 0; i <= 6; i++) { const a = i / 6 * TAU - Math.PI / 2; const x = Math.cos(a) * R, y = Math.sin(a) * R; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
-      ctx.closePath(); ctx.stroke();
-      ctx.strokeStyle = withA('#e6feff', 0.85); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, R + 3, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
-      ctx.restore();
-    }
+    if (!PL.vehicleType) drawPlayerShield(E, PL, gx, gy, pr);
   }
 
   // player bite arc

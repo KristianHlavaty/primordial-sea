@@ -14,7 +14,7 @@ export function activateAbility(game, idx, actor) {
   if ((p.acd[id] || 0) > 0) return;
 
   if (id === 'harden') {
-    p.shieldMax = Math.round(p.maxHp * 0.6); p.shield = p.shieldMax; p.shieldT = ab.dur;
+    p.shieldMax = Math.round(p.maxHp * 0.6); p.shield = p.shieldMax; p.shieldT = ab.dur; p.forceFieldT = 0;
     burst(game, p.x, p.y, '#bfeaff', 12, 120);
   }
   else if (id === 'enroll') {

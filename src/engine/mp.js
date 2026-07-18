@@ -343,6 +343,7 @@ function buildSnapshot(engine) {
       c, s: pl.speciesId, x: Math.round(pl.x), y: Math.round(pl.y), a: roundTo(pl.angle, 2),
       hp: Math.round(pl.hp), mhp: Math.round(pl.maxHp), lv: pl.level, xp: Math.round(pl.xp || 0),
       b: roundTo(pl.biteAnim || 0, 2), sh: Math.round(pl.shield || 0), sm: Math.round(pl.shieldMax || 0),
+      ff: Math.ceil((pl.forceFieldT || 0) * 10),
       ab: abilityState, k: pl.kills || 0, d: Math.ceil(pl.deadT || 0),
       ev: pl.mpEvolveChoices && pl.mpEvolveChoices.length ? pl.mpEvolveChoices : undefined,
       iv: pl.mpInvincible ? 1 : 0,
@@ -419,6 +420,7 @@ function makeRenderPlayer(engine, pd) {
     plan: sp.plan, radius: sp.stats.radius, scale: 1, animOff: (pd.c * 13) % 100,
     vx: 0, vy: 0, mouth: 0, hurt: 0, x: pd.x, y: pd.y, angle: pd.a, gx: pd.x, gy: pd.y, ga: pd.a,
     hp: pd.hp, maxHp: pd.mhp, level: pd.lv, xp: pd.xp || 0, shield: pd.sh, shieldMax: pd.sm || 0,
+    forceFieldT: (pd.ff || 0) / 10,
     abilities: (ABILITY_SETS[pd.s] || []).slice(), acd: {}, biteAnim: pd.b, kills: pd.k || 0, deadT: pd.d || 0,
     mpInvincible: !!pd.iv, items: Array(ITEM_SLOT_COUNT).fill(null),
     vehicle: null, vehicleType: pd.vt || null, vehicleNetId: pd.vh || null,
@@ -480,7 +482,7 @@ function applySnapshot(engine, s) {
       if (engine.player.speciesId !== pd.s && SPECIES[pd.s]) engine.makePlayer(pd.s);
       const pl = engine.player;
       pl.gx = pd.x; pl.gy = pd.y; pl.ga = pd.a; pl.hp = pd.hp; pl.maxHp = pd.mhp; pl.level = pd.lv; pl.xp = pd.xp || 0;
-      pl.shield = pd.sh; pl.shieldMax = pd.sm || 0; applyAbilityState(pl, pd.ab);
+      pl.shield = pd.sh; pl.shieldMax = pd.sm || 0; pl.forceFieldT = (pd.ff || 0) / 10; applyAbilityState(pl, pd.ab);
       applyItemState(pl, pd.it);
       pl.kills = pd.k || 0; pl.deadT = pd.d || 0;
       pl.mpInvincible = !!pd.iv;
@@ -501,7 +503,7 @@ function applySnapshot(engine, s) {
       rp.abilities = (ABILITY_SETS[pd.s] || []).slice(); rp.acd = {};
     }
     rp.gx = pd.x; rp.gy = pd.y; rp.ga = pd.a; rp.hp = pd.hp; rp.maxHp = pd.mhp; rp.level = pd.lv; rp.xp = pd.xp || 0;
-    rp.shield = pd.sh; rp.shieldMax = pd.sm || 0; applyAbilityState(rp, pd.ab);
+    rp.shield = pd.sh; rp.shieldMax = pd.sm || 0; rp.forceFieldT = (pd.ff || 0) / 10; applyAbilityState(rp, pd.ab);
     applyItemState(rp, pd.it);
     rp.kills = pd.k || 0; rp.deadT = pd.d || 0; rp.mpInvincible = !!pd.iv;
     rp.vehicle = null; rp.vehicleType = pd.vt || null; rp.vehicleNetId = pd.vh || null;
@@ -576,6 +578,7 @@ function applySnapshot(engine, s) {
     seenP.add(projectileData.n);
     let projectile = mp.projectileById.get(projectileData.n);
     const fresh = !projectile;
+    const previousVisual = projectile && projectile.visual;
     if (!projectile) {
       projectile = { netId: projectileData.n, x: projectileData.x, y: projectileData.y, gx: projectileData.x, gy: projectileData.y };
       mp.projectileById.set(projectileData.n, projectile);
@@ -585,7 +588,13 @@ function applySnapshot(engine, s) {
       angle: projectileData.a, radius: projectileData.r, life: projectileData.l, maxLife: projectileData.ml,
       length: projectileData.len, spread: projectileData.sp, color: projectileData.c, seed: projectileData.sd,
     });
-    if (fresh && projectile.visual === 'orbital_beam') {
+    if (projectile.visual === 'black_hole' && previousVisual !== 'black_hole') {
+      engine.shake = Math.min(22, engine.shake + 10); engine.sfx.play('black_hole');
+    } else if (fresh && projectile.visual === 'force_field_burst') {
+      engine.sfx.play('force_field');
+    } else if (fresh && projectile.visual === 'projectile' && projectile.type === 'black_hole_generator') {
+      engine.sfx.play('black_hole_charge');
+    } else if (fresh && projectile.visual === 'orbital_beam') {
       engine.shake = Math.min(22, engine.shake + 22); engine.sfx.play('orbital_strike');
     } else if (fresh && projectile.visual === 'orbital_marker') {
       engine.sfx.play('orbital_lock');
@@ -635,6 +644,7 @@ export function mpClientUpdate(engine, dt) {
   };
   const decay = e => {
     e.biteAnim = Math.max(0, (e.biteAnim || 0) - dt * 3); e.mouth = e.biteAnim; e.hurt = Math.max(0, (e.hurt || 0) - dt * 3);
+    e.forceFieldT = Math.max(0, (e.forceFieldT || 0) - dt);
     for (const id of (e.abilities || [])) {
       if (e.acd && e.acd[id] > 0) e.acd[id] = Math.max(0, e.acd[id] - dt);
       const timer = ACTIVE_TIMER[id]; if (timer && e[timer] > 0) e[timer] = Math.max(0, e[timer] - dt);

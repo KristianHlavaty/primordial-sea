@@ -26,7 +26,7 @@ export class Player extends Entity {
     this.items = prev && Array.isArray(prev.items)
       ? prev.items.map(item => item ? { ...item } : null)
       : Array(ITEM_SLOT_COUNT).fill(null);
-    this.shield = 0; this.shieldMax = 0; this.shieldT = 0;
+    this.shield = 0; this.shieldMax = 0; this.shieldT = 0; this.forceFieldT = 0;
     this.enrollT = 0; this.burstT = 0; this.frenzyT = 0; this.bloomT = 0; this.bloomTick = 0;
     this.withdrawT = 0; this.stealthT = 0; this.ramT = 0; this.jetT = 0; this.ramHit = null;
     this.vortexT = 0; this.vortexTick = 0;
@@ -60,7 +60,7 @@ export class Player extends Entity {
 
   /* Multiplayer FFA: pop back in at a random spot with brief spawn immunity. */
   respawn(game) {
-    this.hp = this.maxHp; this.shield = 0; this.shieldT = 0; this.vx = 0; this.vy = 0;
+    this.hp = this.maxHp; this.shield = 0; this.shieldT = 0; this.forceFieldT = 0; this.vx = 0; this.vy = 0;
     this.biteT = 0; this.cd = 0; this.hitSet = null;
     this.enrollT = this.burstT = this.frenzyT = this.withdrawT = this.stealthT = 0;
     this.ramT = this.jetT = this.bloomT = this.vortexT = this.burrowT = this.sprintT = 0;
@@ -207,7 +207,8 @@ export class Player extends Entity {
     this.knockbackFrom(fromx, fromy, 130);
     if (this.shield > 0) {
       this.shield -= dmg;
-      if (this.shield < 0) { dmg = -this.shield; this.shield = 0; } else dmg = 0;
+      if (this.shield < 0) { dmg = -this.shield; this.shield = 0; this.forceFieldT = 0; } else dmg = 0;
+      if (this.shield <= 0) this.forceFieldT = 0;
       burst(game, this.x, this.y, '#9fe6ff', 6, 100); game.sfx.play('shieldhit');
     }
     if (dmg > 0) {
@@ -266,7 +267,10 @@ export class Player extends Entity {
     if (this.spawnProtT > 0) this.spawnProtT = Math.max(0, this.spawnProtT - dt);
     const st = this.species.stats;
     for (const id in this.acd) { if (this.acd[id] > 0) this.acd[id] = Math.max(0, this.acd[id] - dt); }
-    if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) { this.shieldT = 0; this.shield = 0; } }
+    if (this.shieldT > 0) {
+      this.shieldT -= dt; this.forceFieldT = Math.min(this.forceFieldT, Math.max(0, this.shieldT));
+      if (this.shieldT <= 0) { this.shieldT = 0; this.shield = 0; this.forceFieldT = 0; }
+    }
     this.enrollT = Math.max(0, this.enrollT - dt); this.burstT = Math.max(0, this.burstT - dt);
     this.frenzyT = Math.max(0, this.frenzyT - dt); this.bloomT = Math.max(0, this.bloomT - dt);
     this.withdrawT = Math.max(0, this.withdrawT - dt); this.stealthT = Math.max(0, this.stealthT - dt);

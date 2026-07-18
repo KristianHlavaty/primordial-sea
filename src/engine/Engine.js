@@ -297,7 +297,7 @@ export class Engine {
   mpPlayerDied(victim, attacker) {
     if (!this.mp || victim.deadT > 0) return;
     if (victim.vehicle) exitVehicle(this, victim, true);
-    victim.deadT = 3.5; victim.deaths = (victim.deaths || 0) + 1; victim.shield = 0;
+    victim.deadT = 3.5; victim.deaths = (victim.deaths || 0) + 1; victim.shield = 0; victim.forceFieldT = 0;
     const killer = (attacker && attacker !== victim && this.allPlayers().includes(attacker)) ? attacker : null;
     if (killer) killer.kills = (killer.kills || 0) + 1;
     const text = killer ? (this.mpNameOf(killer) + ' ate ' + this.mpNameOf(victim)) : (this.mpNameOf(victim) + ' was eaten');
@@ -852,7 +852,7 @@ export class Engine {
       if (!def) return { slot, key, empty: true };
       return {
         slot, key, id: held.id, name: def.name, icon: def.icon, color: def.color, desc: def.desc,
-        modern: !!def.modern, uses: held.uses, maxUses: def.uses, cd: held.cd || 0,
+        modern: !!def.modern, rare: !!def.rare, uses: held.uses, maxUses: def.uses, cd: held.cd || 0,
         cdFrac: def.cooldown ? clamp((held.cd || 0) / def.cooldown, 0, 1) : 0,
       };
     }) : null;
@@ -872,6 +872,7 @@ export class Engine {
       kills: this.kills, dead: this.dead, paused: this.paused, pendingEvolve: pendingEvolution, evolveMode: this.mp ? 'normal' : this.evolveMode,
       choices: this.mp ? mpChoices.slice() : this.choices.slice(), muted: this.sfx.muted,
       abilities: abils, shield: p ? Math.round(p.shield) : 0, shieldMax: p ? p.shieldMax : 0,
+      forceFieldTime: p ? Math.max(0, Math.ceil(p.forceFieldT || 0)) : 0,
       items, vehicle, funVehicles: this.mp ? !!this.mp.funItems : !!this.funItems,
       perks: this.perks.list.map(x => ({ id: x.id, name: x.name, icon: x.icon, color: x.color, blurb: x.blurb })),
       achievement: this.achievement,

@@ -38,6 +38,26 @@ export function drawItemIcon(ctx, id, size) {
     ctx.beginPath(); ctx.arc(0, r * .18, r * .36, 0, TAU); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-r, r * .18); ctx.lineTo(-r * .46, r * .18); ctx.moveTo(r * .46, r * .18); ctx.lineTo(r, r * .18); ctx.stroke();
     ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(-r * .18, -r * 1.05); ctx.lineTo(r * .18, -r * 1.05); ctx.lineTo(r * .34, r * .08); ctx.lineTo(0, r * .48); ctx.lineTo(-r * .34, r * .08); ctx.closePath(); ctx.fill();
+  } else if (id === 'shield_generator') {
+    ctx.fillStyle = withA(color, .12); ctx.beginPath(); ctx.arc(0, 0, r * .92, 0, TAU); ctx.fill();
+    ctx.strokeStyle = color; ctx.lineWidth = Math.max(1.5, size * .045);
+    for (let ring = 0; ring < 2; ring++) {
+      const rr = r * (.48 + ring * .4); ctx.beginPath();
+      for (let i = 0; i <= 6; i++) {
+        const a = i / 6 * TAU - Math.PI / 2, x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.closePath(); ctx.stroke();
+    }
+    ctx.fillStyle = '#e9fdff'; ctx.beginPath(); ctx.arc(0, 0, r * .18, 0, TAU); ctx.fill();
+  } else if (id === 'black_hole_generator') {
+    ctx.fillStyle = '#06020d'; ctx.beginPath(); ctx.arc(0, 0, r * .48, 0, TAU); ctx.fill();
+    ctx.strokeStyle = color; ctx.shadowColor = color; ctx.shadowBlur = r * .7;
+    ctx.beginPath(); ctx.ellipse(0, 0, r * .92, r * .42, -.35, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = '#f1dcff'; ctx.lineWidth = Math.max(1.2, size * .035);
+    ctx.beginPath(); ctx.arc(0, 0, r * .62, .2, Math.PI * 1.22); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.fillStyle = color;
+    for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; ctx.beginPath(); ctx.arc(Math.cos(a) * r * .78, Math.sin(a) * r * .42, r * .1, 0, TAU); ctx.fill(); }
   } else if (id === 'vehicle_torpedo') {
     ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(r, 0); ctx.quadraticCurveTo(r * .58, -r * .42, -r * .58, -r * .36); ctx.lineTo(-r * .9, 0); ctx.lineTo(-r * .58, r * .36); ctx.quadraticCurveTo(r * .58, r * .42, r, 0); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-r * .52, -r * .25); ctx.lineTo(-r * .92, -r * .65); ctx.lineTo(-r * .8, -.05); ctx.lineTo(-r * .92, r * .65); ctx.lineTo(-r * .52, r * .25); ctx.fill();
@@ -289,6 +309,42 @@ function drawOrbitalBeam(E, ctx, x, y, projectile, def, color, frac) {
   ctx.restore();
 }
 
+function drawBlackHole(E, ctx, x, y, projectile, def, color, frac) {
+  const R = projectile.radius || (def && def.field) || 400;
+  const progress = 1 - frac, grow = clamp(progress * 7, 0, 1), fade = clamp(frac * 6, 0, 1);
+  const alpha = grow * fade, coreR = Math.max(22, R * .085), seed = projectile.seed || 1;
+  ctx.save(); ctx.translate(x, y); ctx.globalAlpha = alpha;
+
+  const distortion = ctx.createRadialGradient(0, 0, coreR * .4, 0, 0, R);
+  distortion.addColorStop(0, 'rgba(0,0,0,.98)'); distortion.addColorStop(.1, withA('#30105c', .72));
+  distortion.addColorStop(.32, withA(color, .19)); distortion.addColorStop(.72, withA(color, .055)); distortion.addColorStop(1, withA(color, 0));
+  ctx.fillStyle = distortion; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+
+  // Curved accretion streams make the surrounding space visibly flow inward.
+  ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  for (let i = 0; i < 24; i++) {
+    const lane = seeded(seed, i), radius = coreR * 1.25 + (R - coreR) * lane;
+    const a = seeded(seed, i + 35) * TAU - E.time * (1.1 + (1 - lane) * 3.4);
+    const arc = .12 + (1 - lane) * .5;
+    ctx.strokeStyle = withA(i % 5 ? color : '#f5e8ff', (.1 + (1 - lane) * .5) * alpha);
+    ctx.lineWidth = 1 + (1 - lane) * 3.2; ctx.beginPath(); ctx.arc(0, 0, radius, a, a + arc); ctx.stroke();
+  }
+  for (let i = 0; i < 6; i++) {
+    const rr = coreR * (1.25 + i * .34), squash = .34 + i * .025;
+    ctx.save(); ctx.rotate(-.28 + E.time * (i % 2 ? -.16 : .12));
+    ctx.strokeStyle = withA(i % 2 ? '#ffffff' : color, alpha * (.26 + (5 - i) * .07)); ctx.lineWidth = 2 + (5 - i) * .45;
+    ctx.beginPath(); ctx.ellipse(0, 0, rr * 1.7, rr * squash, 0, 0, TAU); ctx.stroke(); ctx.restore();
+  }
+
+  // Event horizon: completely dark center with a hot, asymmetric photon ring.
+  ctx.globalCompositeOperation = 'source-over'; ctx.shadowColor = color; ctx.shadowBlur = 26;
+  ctx.fillStyle = '#010004'; ctx.beginPath(); ctx.arc(0, 0, coreR, 0, TAU); ctx.fill();
+  ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = withA('#f7eaff', alpha * .95); ctx.lineWidth = 3.5;
+  ctx.beginPath(); ctx.arc(0, 0, coreR * 1.05, -.55, Math.PI * .9); ctx.stroke();
+  ctx.strokeStyle = withA(color, alpha * .8); ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(0, 0, coreR * 1.18, Math.PI * .82, TAU - .35); ctx.stroke();
+  ctx.restore();
+}
+
 export function drawItemProjectile(E, projectile) {
   const ctx = E.ctx, def = ITEMS[projectile.type], color = projectile.color || (def && def.color) || '#fff';
   const x = projectile.x - E.cam.x, y = projectile.y - E.cam.y;
@@ -297,6 +353,8 @@ export function drawItemProjectile(E, projectile) {
     drawOrbitalMarker(E, ctx, x, y, projectile, def, color, frac);
   } else if (projectile.visual === 'orbital_beam') {
     drawOrbitalBeam(E, ctx, x, y, projectile, def, color, frac);
+  } else if (projectile.visual === 'black_hole') {
+    drawBlackHole(E, ctx, x, y, projectile, def, color, frac);
   } else if (projectile.visual === 'tracer') {
     drawTracer(ctx, x, y, projectile, color, frac);
   } else if (projectile.visual === 'muzzle') {
@@ -310,6 +368,8 @@ export function drawItemProjectile(E, projectile) {
     ctx.strokeStyle = withA('#ffffff', .7); ctx.lineWidth = 2.2; ctx.shadowBlur = 3;
     ctx.beginPath(); ctx.arc(x, y, projectile.radius * .94, projectile.angle - (projectile.spread || .8), projectile.angle + (projectile.spread || .8)); ctx.stroke(); ctx.restore();
   } else if (projectile.visual === 'pulse') {
+    drawPulse(ctx, x, y, projectile, color, frac);
+  } else if (projectile.visual === 'force_field_burst') {
     drawPulse(ctx, x, y, projectile, color, frac);
   } else if (projectile.visual === 'blast') {
     drawExplosion(ctx, x, y, projectile, def, color, frac);
@@ -331,6 +391,12 @@ export function drawItemProjectile(E, projectile) {
       ctx.strokeStyle = withA(color, .62); ctx.lineWidth = 4; ctx.shadowColor = color; ctx.shadowBlur = 10; ctx.beginPath(); ctx.moveTo(-48, 0); ctx.lineTo(-8, 0); ctx.stroke();
     } else if (projectile.type === 'venom_pod') {
       ctx.fillStyle = withA(color, .18); ctx.beginPath(); ctx.arc(0, 0, 25, 0, TAU); ctx.fill();
+    } else if (projectile.type === 'black_hole_generator') {
+      const pulse = .55 + .45 * Math.sin(E.time * 14);
+      ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = withA(color, .45 + pulse * .45); ctx.lineWidth = 2.5;
+      ctx.shadowColor = color; ctx.shadowBlur = 14; ctx.beginPath(); ctx.arc(0, 0, 21 + pulse * 5, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = withA('#ffffff', .35 + pulse * .5); ctx.setLineDash([4, 5]); ctx.lineDashOffset = -E.time * 22;
+      ctx.beginPath(); ctx.arc(0, 0, 29, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.globalCompositeOperation = 'source-over';
     }
     ctx.translate(-14, -14); drawItemIcon(ctx, projectile.type, 28);
     if (projectile.type === 'grenade') {

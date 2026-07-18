@@ -1,4 +1,4 @@
-/* Collectible weapons. The base pool fits the prehistoric world; fun mode adds
+/* Collectible items and weapons. The base pool fits the prehistoric world; fun mode adds
    deliberately anachronistic modern weapons. Combat logic
    lives in engine/systems/items.js and both HUD/world art read this catalog. */
 export const ITEMS = {
@@ -38,6 +38,16 @@ export const ITEMS = {
     name: 'Orbital Strike', icon: 'orbital', color: '#ff58e6', modern: true, uses: 1, cooldown: 2.5,
     desc: 'Marks the ground for a delayed orbital laser with catastrophic impact.', kind: 'orbital', damage: 480, range: 620,
     delay: 1.45, beamLife: 1.05, blast: 340, shockRadius: 520, shockwave: 1200,
+  },
+  shield_generator: {
+    name: 'Force Field', icon: 'shield', color: '#62d9ff', modern: true, uses: 1, cooldown: 1,
+    desc: 'Projects a powerful energy shield until it breaks or 20 seconds pass.', kind: 'shield',
+    duration: 20, shieldPct: 1.15, spawnWeight: 1.25,
+  },
+  black_hole_generator: {
+    name: 'Black Hole', icon: 'blackhole', color: '#b66cff', modern: true, rare: true, uses: 1, cooldown: 2.5,
+    desc: 'Throws a rare generator that arms, collapses space and drags enemies into a damaging singularity.', kind: 'black_hole',
+    speed: 500, delay: 1.8, duration: 6, radius: 12, field: 430, damage: 36, pull: 980, spawnWeight: 0.6,
   },
   vehicle_torpedo: {
     name: 'Torpedo', icon: 'torpedo', color: '#72e7ff', modern: true, vehicleOnly: true, uses: 0, cooldown: 0.82,
