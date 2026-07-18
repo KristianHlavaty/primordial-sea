@@ -462,6 +462,8 @@ function buildSnapshot(engine, recipientConn) {
       ab: abilityState, k: pl.kills || 0, d: Math.ceil(pl.deadT || 0),
       ev: pl.mpEvolveChoices && pl.mpEvolveChoices.length ? pl.mpEvolveChoices : undefined,
       iv: pl.mpInvincible ? 1 : 0,
+      sq: pl.cameraShakeSeq || 0, sk: pl.cameraShakePower || 0,
+      ca: pl.castT > 0 ? pl.castAbility : undefined, cq: pl.castSeq || 0, ct: Math.ceil((pl.castT || 0) * 10),
       vh: pl.vehicle ? pl.vehicle.netId : 0, vt: pl.vehicle ? pl.vehicle.type : undefined,
       it: (pl.items || []).map(item => item ? [item.id, item.uses, Math.ceil((item.cd || 0) * 10)] : 0),
     });
@@ -542,6 +544,8 @@ function makeRenderPlayer(engine, pd) {
     forceFieldT: (pd.ff || 0) / 10,
     abilities: (ABILITY_SETS[pd.s] || []).slice(), acd: {}, biteAnim: pd.b, kills: pd.k || 0, deadT: pd.d || 0,
     mpInvincible: !!pd.iv, items: Array(ITEM_SLOT_COUNT).fill(null),
+    castAbility: pd.ca || null, castT: (pd.ct || 0) / 10, castSeq: pd.cq || 0,
+    cameraShakeSeq: pd.sq || 0, cameraShakePower: pd.sk || 0,
     vehicle: null, vehicleType: pd.vt || null, vehicleNetId: pd.vh || null,
   };
   applyAbilityState(player, pd.ab);
@@ -599,6 +603,8 @@ function applySnapshot(engine, s) {
     if (pd.c === mp.self) {
       const hadChoices = !!(engine.player.mpEvolveChoices && engine.player.mpEvolveChoices.length);
       const previousVehicleType = engine.player.vehicleType;
+      const shakeSeen = engine.player._cameraShakeSeen || 0;
+      const castSeen = engine.player._castSeen || 0;
       if (engine.player.speciesId !== pd.s && SPECIES[pd.s]) engine.makePlayer(pd.s);
       const pl = engine.player;
       pl.gx = pd.x; pl.gy = pd.y; pl.ga = pd.a; pl.hp = pd.hp; pl.maxHp = pd.mhp; pl.level = pd.lv; pl.xp = pd.xp || 0;
@@ -606,6 +612,17 @@ function applySnapshot(engine, s) {
       applyItemState(pl, pd.it);
       pl.kills = pd.k || 0; pl.deadT = pd.d || 0;
       pl.mpInvincible = !!pd.iv;
+      pl.castAbility = pd.ca || null; pl.castT = (pd.ct || 0) / 10; pl.castSeq = pd.cq || 0; pl._castSeen = castSeen;
+      if (pl.castSeq > pl._castSeen) {
+        engine.sfx.play(pl.castAbility === 'frenzy' ? 'frenzy' : pl.castAbility === 'ram' ? 'ram' : 'power');
+      }
+      pl._castSeen = pl.castSeq;
+      pl.cameraShakeSeq = pd.sq || 0; pl.cameraShakePower = pd.sk || 0; pl._cameraShakeSeen = shakeSeen;
+      if (pl.cameraShakeSeq > pl._cameraShakeSeen) {
+        engine.shake = Math.min(22, engine.shake + pl.cameraShakePower);
+        engine.sfx.play('ram_hit');
+      }
+      pl._cameraShakeSeen = pl.cameraShakeSeq;
       pl.vehicle = null; pl.vehicleType = pd.vt || null; pl.vehicleNetId = pd.vh || null;
       if (!previousVehicleType && pl.vehicleType) engine.sfx.play('vehicle_enter');
       else if (previousVehicleType && !pl.vehicleType) engine.sfx.play('vehicle_exit');
@@ -626,6 +643,7 @@ function applySnapshot(engine, s) {
     rp.shield = pd.sh; rp.shieldMax = pd.sm || 0; rp.forceFieldT = (pd.ff || 0) / 10; applyAbilityState(rp, pd.ab);
     applyItemState(rp, pd.it);
     rp.kills = pd.k || 0; rp.deadT = pd.d || 0; rp.mpInvincible = !!pd.iv;
+    rp.castAbility = pd.ca || null; rp.castT = (pd.ct || 0) / 10; rp.castSeq = pd.cq || 0;
     rp.vehicle = null; rp.vehicleType = pd.vt || null; rp.vehicleNetId = pd.vh || null;
     if (pd.b > (rp.biteAnim || 0)) rp.biteAnim = pd.b;
   }
@@ -767,6 +785,7 @@ export function mpClientUpdate(engine, dt) {
   const decay = e => {
     e.biteAnim = Math.max(0, (e.biteAnim || 0) - dt * 3); e.mouth = e.biteAnim; e.hurt = Math.max(0, (e.hurt || 0) - dt * 3);
     e.forceFieldT = Math.max(0, (e.forceFieldT || 0) - dt);
+    e.castT = Math.max(0, (e.castT || 0) - dt);
     for (const id of (e.abilities || [])) {
       if (e.acd && e.acd[id] > 0) e.acd[id] = Math.max(0, e.acd[id] - dt);
       const timer = ACTIVE_TIMER[id]; if (timer && e[timer] > 0) e[timer] = Math.max(0, e[timer] - dt);

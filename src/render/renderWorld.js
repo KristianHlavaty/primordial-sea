@@ -11,6 +11,7 @@ import { drawObstacle } from './drawObstacle.js';
 import { drawWorldItem, drawItemProjectile } from './drawItem.js';
 import { drawVehicle } from './drawVehicle.js';
 import { SPECIES } from '../data/species.js';
+import { ABILITIES } from '../data/abilities.js';
 import { MAPS } from '../data/maps.js';
 
 /* Ground palettes for the land themes (top-down dirt/moss). */
@@ -261,9 +262,56 @@ function drawEntity(E, e) {
   const ctx = E.ctx;
   ctx.save(); ctx.translate(e.x - E.cam.x, e.y - E.cam.y); ctx.rotate(e.angle);
   if (Math.cos(e.angle) < 0) ctx.scale(1, -1);
-  const sc = e.scale || 1; ctx.scale(sc, sc);
+  const frenzy = e.frenzyT > 0, ramming = e.ramT > 0;
+  const sc = (e.scale || 1) * (frenzy ? 1.28 : 1);
+  ctx.scale(sc * (ramming ? 1.16 : 1), sc * (ramming ? .84 : 1));
+  if (e.stealthT > 0) ctx.globalAlpha *= .45;
   const speed = hyp(e.vx, e.vy);
-  drawCreature(ctx, Object.assign({ t: E.time * (2 + speed / 120) + e.animOff, mouth: e.mouth, hurt: e.hurt }, e.plan));
+  const plan = frenzy ? { ...e.plan, body: '#b32238', accent: '#ff665c', glow: '#ff3048' } : e.plan;
+  drawCreature(ctx, Object.assign({ t: E.time * (2 + speed / 120) + e.animOff, mouth: e.mouth, hurt: e.hurt }, plan));
+  ctx.restore();
+}
+
+function drawPlayerPowerState(E, player, sx, sy, radius) {
+  const ctx = E.ctx, pulse = .5 + .5 * Math.sin(E.time * 12);
+  ctx.save();
+  if (player.castT > 0 && player.castAbility && ABILITIES[player.castAbility]) {
+    const color = ABILITIES[player.castAbility].color, life = clamp(player.castT / .75, 0, 1);
+    ctx.strokeStyle = withA(color, .25 + life * .65); ctx.lineWidth = 2 + life * 4;
+    ctx.beginPath(); ctx.arc(sx, sy, radius + (1 - life) * 70, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = withA('#ffffff', life * .48); ctx.lineWidth = 1.5;
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * TAU + E.time * 2, inner = radius + 8, outer = inner + 18 + (1 - life) * 25;
+      ctx.beginPath(); ctx.moveTo(sx + Math.cos(a) * inner, sy + Math.sin(a) * inner); ctx.lineTo(sx + Math.cos(a) * outer, sy + Math.sin(a) * outer); ctx.stroke();
+    }
+  }
+  if (player.frenzyT > 0) {
+    const glow = ctx.createRadialGradient(sx, sy, radius * .35, sx, sy, radius * 2.1);
+    glow.addColorStop(0, withA('#ff253f', .22 + pulse * .12)); glow.addColorStop(.58, withA('#d80f2d', .12)); glow.addColorStop(1, withA('#b00020', 0));
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(sx, sy, radius * 2.1, 0, TAU); ctx.fill();
+    ctx.strokeStyle = withA('#ff4058', .48 + pulse * .4); ctx.lineWidth = 3.5;
+    for (let i = 0; i < 10; i++) {
+      const a = i / 10 * TAU - E.time * .8, inner = radius + 7, outer = inner + 7 + pulse * 9;
+      ctx.beginPath(); ctx.moveTo(sx + Math.cos(a) * inner, sy + Math.sin(a) * inner); ctx.lineTo(sx + Math.cos(a) * outer, sy + Math.sin(a) * outer); ctx.stroke();
+    }
+  }
+  if (player.ramT > 0) {
+    ctx.translate(sx, sy); ctx.rotate(player.angle);
+    const trail = ctx.createLinearGradient(-radius * 4.8, 0, radius, 0);
+    trail.addColorStop(0, withA('#ff8a3d', 0)); trail.addColorStop(.58, withA('#ffb36a', .16 + pulse * .12)); trail.addColorStop(1, withA('#fff0ce', .58));
+    ctx.fillStyle = trail; ctx.beginPath(); ctx.moveTo(radius * .65, 0); ctx.lineTo(-radius * 4.8, -radius * 1.25); ctx.lineTo(-radius * 3.6, 0); ctx.lineTo(-radius * 4.8, radius * 1.25); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = withA('#ffe0aa', .55 + pulse * .4); ctx.lineWidth = 3;
+    for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-radius * 1.1, i * radius * .55); ctx.lineTo(-radius * (3.1 + pulse), i * radius * .9); ctx.stroke(); }
+    ctx.strokeStyle = withA('#fff7e5', .72 + pulse * .25); ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(radius * 1.05, 0, radius * (.72 + pulse * .08), -1.25, 1.25); ctx.stroke();
+  } else if (player.burstT > 0 || player.sprintT > 0) {
+    ctx.translate(sx, sy); ctx.rotate(player.angle);
+    const color = player.sprintT > 0 ? '#9ce0a0' : '#5ee0f2';
+    ctx.strokeStyle = withA(color, .3 + pulse * .35); ctx.lineWidth = 2.5;
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath(); ctx.moveTo(-radius * 1.1, i * radius * .32); ctx.lineTo(-radius * (2.1 + pulse * .8), i * radius * .48); ctx.stroke();
+    }
+  }
   ctx.restore();
 }
 
@@ -320,7 +368,8 @@ function drawRemotePlayers(E) {
     if (rp.deadT > 0) continue;   // dead & respawning — not drawn
     const sx = rp.x - E.cam.x, sy = rp.y - E.cam.y;
     if (sx < -90 || sx > E.vw + 90 || sy < -90 || sy > E.vh + 90) continue;
-    const r = rp.radius || 16;
+    const r = (rp.radius || 16) * (rp.frenzyT > 0 ? 1.28 : 1);
+    drawPlayerPowerState(E, rp, sx, sy, r);
     ctx.strokeStyle = withA(rp.color || '#8affd0', 0.55); ctx.lineWidth = 2;
     ctx.setLineDash([4, 6]); ctx.lineDashOffset = -E.time * 12;
     ctx.beginPath(); ctx.arc(sx, sy, r + 6, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
@@ -340,7 +389,7 @@ function drawPlayerTags(E) {
   ctx.textAlign = 'center'; ctx.font = '800 12px "Segoe UI",sans-serif';
   const tag = (pl, name, color) => {
     const vehicle = E.vehicles && E.vehicles.find(candidate => candidate.netId === pl.vehicleNetId);
-    const radius = vehicle ? vehicle.radius : (pl.radius || 16);
+    const radius = vehicle ? vehicle.radius : (pl.radius || 16) * (pl.frenzyT > 0 ? 1.28 : 1);
     const sx = pl.x - E.cam.x, sy = pl.y - E.cam.y - radius - 16;
     if (sx < -80 || sx > E.vw + 80 || sy < -20 || sy > E.vh + 20) return;
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.strokeText(name, sx, sy);
@@ -484,14 +533,14 @@ export function renderWorld(E) {
 
   // player indicator + power visuals (hidden while dead/respawning in multiplayer)
   if (!(E.player.deadT > 0)) {
-    const PL = E.player, gx = PL.x - E.cam.x, gy = PL.y - E.cam.y, pr = PL.radius, pc = PL.plan.body, pa = PL.plan.accent, pulse = 0.5 + 0.5 * Math.sin(E.time * 3);
+    const PL = E.player, gx = PL.x - E.cam.x, gy = PL.y - E.cam.y, pr = PL.radius * (PL.frenzyT > 0 ? 1.28 : 1), pc = PL.plan.body, pa = PL.plan.accent, pulse = 0.5 + 0.5 * Math.sin(E.time * 3);
     const gg = ctx.createRadialGradient(gx, gy, pr * 0.7, gx, gy, pr * 2.6);
     gg.addColorStop(0, 'rgba(126,255,224,0)'); gg.addColorStop(0.72, withA('#7affe0', 0.10 + 0.06 * pulse)); gg.addColorStop(1, 'rgba(126,255,224,0)');
     ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(gx, gy, pr * 2.6, 0, TAU); ctx.fill();
     ctx.strokeStyle = withA('#aefff0', 0.4 + 0.15 * pulse); ctx.lineWidth = 1.5; ctx.setLineDash([4, 6]); ctx.lineDashOffset = -E.time * 12;
     ctx.beginPath(); ctx.arc(gx, gy, pr + 7, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    drawPlayerPowerState(E, PL, gx, gy, pr);
     if (PL.frenzyT > 0) { const fp = 0.5 + 0.5 * Math.sin(E.time * 12); ctx.strokeStyle = withA('#ff6a7a', 0.25 + 0.4 * fp); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(gx, gy, pr + 11, 0, TAU); ctx.stroke(); }
-    if (PL.stealthT > 0) ctx.globalAlpha = 0.45;   // half-vanished in the ink cloud
     if (PL.burrowT > 0) {
       // underground: only a dirt mound and dust show where you are
       ctx.save(); ctx.translate(gx, gy);
@@ -540,7 +589,7 @@ export function renderWorld(E) {
   // player bite arc
   const p = E.player;
   if (p.biteT > 0 && !p.vehicleType) {
-    const r = p.radius + p.species.stats.reach;
+    const r = p.radius * (p.frenzyT > 0 ? 1.28 : 1) + p.species.stats.reach * (p.frenzyT > 0 ? 1.15 : 1);
     ctx.save(); ctx.translate(p.x - E.cam.x, p.y - E.cam.y); ctx.rotate(p.angle);
     ctx.strokeStyle = withA('#e6ffff', p.biteT * 2.5); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, r + 4, -0.7, 0.7); ctx.stroke(); ctx.restore();
   }

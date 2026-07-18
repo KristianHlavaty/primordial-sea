@@ -8,7 +8,7 @@ import { ITEM_SLOT_COUNT } from '../../data/items.js';
 import { MAX_LEVEL, XP_MULT, xpNeed } from '../../data/progression.js';
 import { TAU, hyp, rand, angLerp } from '../../core/math.js';
 import { withA } from '../../core/color.js';
-import { burst, addFloater } from '../systems/effects.js';
+import { burst, addFloater, shakeForPlayer } from '../systems/effects.js';
 import { updatePilotedVehicle, damageOccupiedVehicle } from '../systems/vehicles.js';
 
 export class Player extends Entity {
@@ -28,8 +28,10 @@ export class Player extends Entity {
       : Array(ITEM_SLOT_COUNT).fill(null);
     this.shield = 0; this.shieldMax = 0; this.shieldT = 0; this.forceFieldT = 0;
     this.enrollT = 0; this.burstT = 0; this.frenzyT = 0; this.bloomT = 0; this.bloomTick = 0;
-    this.withdrawT = 0; this.stealthT = 0; this.ramT = 0; this.jetT = 0; this.ramHit = null;
+    this.withdrawT = 0; this.stealthT = 0; this.ramT = 0; this.jetT = 0; this.ramHit = null; this.ramAngle = 0;
     this.vortexT = 0; this.vortexTick = 0;
+    this.castAbility = null; this.castT = 0; this.castSeq = 0; this._castSeen = 0;
+    this.cameraShakeSeq = 0; this.cameraShakePower = 0; this._cameraShakeSeen = 0;
     this.shockEchoT = 0; this.shockEchoX = 0; this.shockEchoY = 0;
     this.burrowT = 0; this.sprintT = 0;   // land: Burrow (invuln dig), Sprint (haste)
     this.rebirthUsed = false;   // Colony Rebirth fires once per life
@@ -64,6 +66,7 @@ export class Player extends Entity {
     this.biteT = 0; this.cd = 0; this.hitSet = null;
     this.enrollT = this.burstT = this.frenzyT = this.withdrawT = this.stealthT = 0;
     this.ramT = this.jetT = this.bloomT = this.vortexT = this.burrowT = this.sprintT = 0;
+    this.castAbility = null; this.castT = 0; this.ramHit = null;
     this.rebirthUsed = false;
     this.vehicle = null; this.vehicleType = null; this.vehicleNetId = null; this.vehicleCreatureRadius = null;
     this.x = game.W * (0.2 + Math.random() * 0.6);
@@ -104,8 +107,9 @@ export class Player extends Entity {
   bite(game) {
     if (this.cd > 0) return;
     const st = this.species.stats;
-    this.cd = st.dashCd * (this.frenzyT > 0 ? 0.5 : 1) * (game.talentBonus ? game.talentBonus.dashCdMul : 1); this.biteT = 0.28; this.biteAnim = 1; this.hitSet = new Set();
-    this.vx += Math.cos(this.angle) * st.dashPow; this.vy += Math.sin(this.angle) * st.dashPow;
+    const frenzy = this.frenzyT > 0;
+    this.cd = st.dashCd * (frenzy ? 0.38 : 1) * (game.talentBonus ? game.talentBonus.dashCdMul : 1); this.biteT = 0.28; this.biteAnim = 1; this.hitSet = new Set();
+    this.vx += Math.cos(this.angle) * st.dashPow * (frenzy ? 1.18 : 1); this.vy += Math.sin(this.angle) * st.dashPow * (frenzy ? 1.18 : 1);
     const mx = this.x + Math.cos(this.angle) * this.radius, my = this.y + Math.sin(this.angle) * this.radius;
     burst(game, mx, my, '#bfefff', 5, 90);
   }
@@ -115,8 +119,9 @@ export class Player extends Entity {
   resolveBite(game) {
     if (this.biteT <= 0) return;
     const st = this.species.stats;
-    const hooked = this.hasAbility('hookarms');
-    const reach = this.radius + st.reach * (hooked ? 1.45 : 1), dmg = st.dmg * this.atkMul * (this.frenzyT > 0 ? 1.6 : 1) * (hooked ? 1.18 : 1);
+    const hooked = this.hasAbility('hookarms'), frenzy = this.frenzyT > 0;
+    const reach = this.radius * (frenzy ? 1.28 : 1) + st.reach * (hooked ? 1.45 : 1) * (frenzy ? 1.15 : 1);
+    const dmg = st.dmg * this.atkMul * (frenzy ? 1.9 : 1) * (hooked ? 1.18 : 1);
     const fx = Math.cos(this.angle), fy = Math.sin(this.angle);
     const hasBloodscent = this.hasAbility('bloodscent'), strongVenom = this.hasAbility('hypervenom'), hasVenom = this.hasAbility('venom') || strongVenom;
     for (const c of game.creatures) {
@@ -276,6 +281,7 @@ export class Player extends Entity {
     this.withdrawT = Math.max(0, this.withdrawT - dt); this.stealthT = Math.max(0, this.stealthT - dt);
     this.ramT = Math.max(0, this.ramT - dt); this.jetT = Math.max(0, this.jetT - dt);
     this.vortexT = Math.max(0, this.vortexT - dt);
+    this.castT = Math.max(0, this.castT - dt);
     if (this.shockEchoT > 0) { this.shockEchoT -= dt; if (this.shockEchoT <= 0) { this.shockEchoT = 0; this.releaseShockAfterglow(game); } }
     this.burrowT = Math.max(0, this.burrowT - dt); this.sprintT = Math.max(0, this.sprintT - dt);
     if (this.vehicle) {
@@ -283,24 +289,31 @@ export class Player extends Entity {
       this.cd = Math.max(0, this.cd - dt); this.biteT = Math.max(0, this.biteT - dt);
       return;
     }
-    const enrolled = this.enrollT > 0, withdrawn = this.withdrawT > 0, burrowed = this.burrowT > 0;
+    const enrolled = this.enrollT > 0, withdrawn = this.withdrawT > 0, burrowed = this.burrowT > 0, ramming = this.ramT > 0, frenzy = this.frenzyT > 0;
     const hasted = this.burstT > 0 || this.sprintT > 0;   // Burst (aquatic) or Sprint (land)
     const accMul = enrolled ? 0.25 : withdrawn ? 0.35 : burrowed ? 1.5 : (hasted ? 1.6 : 1);
-    const baseSpd = st.maxSpeed * this.spdMul * (this.hasAbility('sail') ? 1.08 : 1);   // sun-warmed muscles drive harder
+    const baseSpd = st.maxSpeed * this.spdMul * (this.hasAbility('sail') ? 1.08 : 1) * (frenzy ? 1.12 : 1);   // sun-warmed muscles drive harder
     const spdCap = enrolled ? baseSpd * 0.5 : withdrawn ? baseSpd * 0.55 : burrowed ? baseSpd * 1.5 : (hasted ? baseSpd * 1.8 : baseSpd);
     const webRes = Math.min(0.95, (game.perks.webResist || 0) + (game.talentBonus ? game.talentBonus.webResist : 0));
     const webM = 1 - game.webSlowAt(this.x, this.y) * .55 * (1 - webRes);
 
     // steering intent (local: keyboard/mouse; remote: network input)
-    const mv = this.steer(game);
-    if (mv.moving) { this.vx += mv.tx * st.accel * accMul * webM * dt; this.vy += mv.ty * st.accel * accMul * webM * dt; this.faceTarget = Math.atan2(mv.ty, mv.tx); }
-    this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * st.turn * (hasted ? 1.3 : 1)));
+    if (ramming) {
+      const ramSpeed = Math.max(1500, baseSpd * 5.2);
+      this.faceTarget = this.ramAngle; this.angle = angLerp(this.angle, this.ramAngle, 1 - Math.exp(-dt * 24));
+      this.vx = Math.cos(this.ramAngle) * ramSpeed; this.vy = Math.sin(this.ramAngle) * ramSpeed;
+    } else {
+      const mv = this.steer(game);
+      if (mv.moving) { this.vx += mv.tx * st.accel * accMul * webM * dt; this.vy += mv.ty * st.accel * accMul * webM * dt; this.faceTarget = Math.atan2(mv.ty, mv.tx); }
+      this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * st.turn * (hasted ? 1.3 : 1)));
+    }
 
-    if (this.wantsBite(game) && !enrolled && !withdrawn && !burrowed) this.bite(game);
+    if (this.wantsBite(game) && !enrolled && !withdrawn && !burrowed && !ramming) this.bite(game);
     this.cd = Math.max(0, this.cd - dt); this.biteT = Math.max(0, this.biteT - dt);
     this.biteAnim = Math.max(0, this.biteAnim - dt * 3); this.mouth = this.biteAnim; this.hurt = Math.max(0, this.hurt - dt * 3);
     const lunging = this.biteT > 0 || this.jetT > 0 || this.ramT > 0;   // dash windows lift the speed cap
-    this.integrate(game, dt, enrolled ? 3.4 : 2.4, (lunging ? spdCap * 2.4 : spdCap) * webM);
+    const ramSpeedCap = Math.max(1550, baseSpd * 5.5);
+    this.integrate(game, dt, ramming ? .35 : enrolled ? 3.4 : 2.4, (ramming ? ramSpeedCap : lunging ? spdCap * 2.4 : spdCap) * webM);
     this.resolveBite(game);
 
     // Ram — shell-first charge: batter everything hit once per charge
@@ -308,23 +321,31 @@ export class Player extends Entity {
       for (const c of game.creatures.slice()) {
         if (this.ramHit && this.ramHit.has(c)) continue;
         const dx = c.x - this.x, dy = c.y - this.y, d = hyp(dx, dy);
-        if (d < this.radius + c.radius + 4) {
+        if (d < this.radius * 1.25 + c.radius + 8) {
           if (this.ramHit) this.ramHit.add(c);
-          c.takeDamage(game, st.dmg * this.atkMul * 1.5, this.x, this.y, true);
-          c.vx += dx / (d || 1) * 380; c.vy += dy / (d || 1) * 380;
-          game.shake = Math.min(10, game.shake + 2);
+          c.takeDamage(game, st.dmg * this.atkMul * (c.boss ? 2 : 2.5), this.x, this.y, true);
+          c.vx += dx / (d || 1) * 780; c.vy += dy / (d || 1) * 780;
+          if (!c.boss) c.stunT = Math.max(c.stunT || 0, .8);
+          game.fx.push({ x: c.x, y: c.y, t: 0, max: .45, R: this.radius + c.radius + 45, color: '#ffb36a', dir: 'out', width: 6 });
+          burst(game, c.x, c.y, '#ffe0b8', 28, 330);
+          shakeForPlayer(game, this, 12);
+          if (!game.mp || this === game.player) game.sfx.play('ram_hit');
         }
       }
-      if (game.particles.length < 300)
-        game.particles.push({ x: this.x, y: this.y, vx: 0, vy: 0, life: 0.25, max: 0.25, size: this.radius * 0.5, color: withA(this.plan.accent, 0.4) });
+      if (game.particles.length < 300) {
+        const side = rand(-this.radius * .55, this.radius * .55), ca = Math.cos(this.ramAngle), sa = Math.sin(this.ramAngle);
+        game.particles.push({ x: this.x - ca * this.radius + -sa * side, y: this.y - sa * this.radius + ca * side, vx: -ca * rand(180, 360), vy: -sa * rand(180, 360), life: .38, max: .38, size: rand(3, 7), color: 'rgba(255,190,115,.72)' });
+      }
     }
 
     // Withdraw — mend inside the shell
-    if (withdrawn) this.hp = Math.min(this.maxHp, this.hp + 8 * dt);
+    if (withdrawn) this.hp = Math.min(this.maxHp, this.hp + 14 * dt);
 
     // burst-swim / sprint wake
     if (hasted && game.particles.length < 300)
       game.particles.push({ x: this.x, y: this.y, vx: 0, vy: 0, life: 0.3, max: 0.3, size: this.radius * 0.55, color: withA(this.plan.accent, 0.35) });
+    if (frenzy && game.particles.length < 300)
+      game.particles.push({ x: this.x + rand(-this.radius, this.radius), y: this.y + rand(-this.radius, this.radius), vx: rand(-35, 35), vy: rand(-55, 20), life: .35, max: .35, size: rand(2, 5), color: 'rgba(255,55,75,.72)' });
 
     // Tentacle Bloom — periodic AoE sting + shove
     if (this.bloomT > 0) {
@@ -335,7 +356,7 @@ export class Player extends Entity {
           if (c.stunT > 0 && !c.boss) continue;
           const d = hyp(c.x - this.x, c.y - this.y);
           if (d < R + c.radius) {
-            c.takeDamage(game, 6, this.x, this.y, true);
+            c.takeDamage(game, Math.max(7, st.dmg * this.atkMul * .24), this.x, this.y, true);
             const k = 1 - d / (R + c.radius);
             c.vx += (c.x - this.x) / (d || 1) * 180 * k; c.vy += (c.y - this.y) / (d || 1) * 180 * k;
           }

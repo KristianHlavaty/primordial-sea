@@ -6,22 +6,22 @@
    The effects themselves live in engine/systems/abilities.js. */
 
 export const ABILITIES = {
-  harden:  { name: 'Harden',  passive: false, cd: 12, dur: 6,   color: '#7fd8ff', desc: 'Stiffen the carapace into a shield that soaks damage before your health.' },
+  harden:  { name: 'Harden',  passive: false, cd: 12, dur: 7,   color: '#7fd8ff', desc: 'Flash-harden the carapace into a heavy shield and blast nearby animals away.' },
   enroll:  { name: 'Enroll',  passive: false, cd: 11, dur: 2.2, color: '#ffcf6a', desc: 'Curl into an armored ball — briefly invulnerable, shoving nearby attackers back.' },
   barbs:   { name: 'Barbs',   passive: true,  cd: 0,  dur: 0,   color: '#ff9a5e', desc: 'Defensive spines reflect part of every bite back at the attacker.' },
-  burst:   { name: 'Burst',   passive: false, cd: 9,  dur: 3,   color: '#5ee0f2', desc: 'A surge of burst-swimming — much greater speed and acceleration.' },
-  frenzy:  { name: 'Frenzy',  passive: false, cd: 12, dur: 4,   color: '#f0637a', desc: 'Feeding frenzy — heavier bites and far faster attacks.' },
+  burst:   { name: 'Burst',   passive: false, cd: 9,  dur: 3.5, color: '#5ee0f2', desc: 'Explode forward in a streaming wake, then keep greatly increased speed and acceleration.' },
+  frenzy:  { name: 'Frenzy',  passive: false, cd: 12, dur: 5,   color: '#f0637a', desc: 'Swell into a crimson feeding frenzy with wider, heavier bites and much faster attacks.' },
   evasion: { name: 'Evasion', passive: true,  cd: 0,  dur: 0,   color: '#8affd0', desc: 'Agile reflexes — a chance to completely dodge an incoming bite.' },
-  engulf:  { name: 'Engulf',  passive: false, cd: 6,  dur: 0,   color: '#8fe6c8', desc: 'A ciliary feeding current — draws in nearby food and tiny prey, and mends a little.' },
+  engulf:  { name: 'Engulf',  passive: false, cd: 6,  dur: 0,   color: '#8fe6c8', desc: 'Collapse a powerful feeding current inward, dragging food and small prey close while mending wounds.' },
   bloom:   { name: 'Tentacle Bloom', passive: false, cd: 9, dur: 3, color: '#c79bff', desc: 'Sprout stinging tentacles that lash and shove everything around you.' },
   shock:   { name: 'Shock',   passive: false, cd: 16, dur: 0,   color: '#9fdcff', desc: 'A paralytic nerve-discharge: stuns nearby animals for a few seconds (minor damage). Minibosses are only slowed.' },
   nettle:  { name: 'Nettle',  passive: true,  cd: 0,  dur: 0,   color: '#b9a0ff', desc: 'Venomous skin — anything that bites you is stung and briefly slowed.' },
   // --- mollusc / expansion powers ---
-  jet:        { name: 'Jet',            passive: false, cd: 7,  dur: 0,   color: '#7fe6d8', desc: 'Fire the siphon — a violent jet of water hurls you forward.' },
+  jet:        { name: 'Jet',            passive: false, cd: 7,  dur: 0,   color: '#7fe6d8', desc: 'Detonate the siphon in a brilliant wake that violently launches you forward.' },
   withdraw:   { name: 'Withdraw',       passive: false, cd: 14, dur: 4,   color: '#e8c98a', desc: 'Pull into the shell — take a fraction of damage and slowly mend, but you cannot bite.' },
   ink:        { name: 'Ink Cloud',      passive: false, cd: 12, dur: 3.5, color: '#8a93b8', desc: 'Vanish in a cloud of ink — prey and hunters alike lose all track of you while it lingers.' },
   grasp:      { name: 'Grasp',          passive: false, cd: 10, dur: 0,   color: '#c98ae0', desc: 'Lash out an arm — seize the nearest animal, drag it close, crush it and leave it reeling.' },
-  ram:        { name: 'Ram',            passive: false, cd: 9,  dur: 0.55,color: '#ffb36a', desc: 'A shell-first charge that batters everything in your path aside.' },
+  ram:        { name: 'Ram',            passive: false, cd: 9,  dur: 0.95,color: '#ffb36a', desc: 'Lock your heading and become a living torpedo; impacts crush, launch and shake your view.' },
   filter:     { name: 'Filter Feed',    passive: true,  cd: 0,  dur: 0,   color: '#9fe0b0', desc: 'Ciliary filter feeding — food drifts to you from much farther away and nourishes you more.' },
   impale:     { name: 'Impale',         passive: false, cd: 11, dur: 0,   color: '#ffd27a', desc: 'A skewering lunge of the claws — heavy damage that leaves prey reeling.' },
   crush:      { name: 'Crush',          passive: false, cd: 12, dur: 0,   color: '#ff8a5e', desc: 'The guillotine bite — one devastating shear in front of you that staggers even the great.' },
