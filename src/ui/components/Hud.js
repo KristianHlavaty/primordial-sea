@@ -54,15 +54,15 @@ export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects, o
         <button className="advanceBtn" onClick=${() => engine.openAdvance()} title="Continue into the Carboniferous">◆ Carboniferous</button>`}
       ${hud.landDeadEnd && html`
         <div className="deadEndNote">🌊 <b>Dead end.</b> This lineage has no real land descendants — it can't crawl ashore. Start a new run with <b>Fantasy Evolution</b> on to give it a speculative land path.</div>`}
-      ${hud.nearEdge && html`<div className=${'edgePrompt' + (hud.mpRole ? ' withItems' : '')}>▸ crossing to <b>${hud.nearEdge}</b>…</div>`}
-      <div className="hint">Steer <b>mouse</b>/<b>WASD</b> · <b>Click / Space</b> bite & dash · Powers <b>1 2 3</b>${hud.mpRole ? html` · Items <b>Q E F</b>` : ''} · Eat to <b>level up</b> — reach <b>Lv 10</b> to evolve</div>
+      ${hud.nearEdge && html`<div className=${'edgePrompt' + (hud.items ? ' withItems' : '')}>▸ crossing to <b>${hud.nearEdge}</b>…</div>`}
+      <div className="hint">Steer <b>mouse</b>/<b>WASD</b> · <b>Click / Space</b> bite & dash · Powers <b>1 2 3</b>${hud.items ? html` · Items <b>Q E F</b>` : ''} · Eat to <b>level up</b> — reach <b>Lv 10</b> to evolve</div>
       ${hud.cheatsEnabled && html`
         <div className="cheatPanel">
           <div className="cheatTitle">CHEATS</div>
           <button className=${hud.invincible ? 'active' : ''} onClick=${() => engine.toggleInvincible()}>${hud.invincible ? '◆' : '◇'} Invincibility</button>
           <button onClick=${() => engine.cheatLevelUp()} disabled=${hud.level >= 10 || hud.pendingEvolve}>＋ Level up</button>
         </div>`}
-      ${hud.mpRole && html`<${ItemBar} items=${hud.items} engine=${engine}/>`}
+      ${hud.items && html`<${ItemBar} items=${hud.items} engine=${engine}/>`}
       <${AbilityBar} abilities=${hud.abilities} engine=${engine}/>
     </div>`;
 }

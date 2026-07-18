@@ -1,4 +1,4 @@
-/* Three multiplayer collectible slots. Click or Q/E/F uses an item; dragging a
+/* Three collectible slots. Click or Q/E/F uses an item; dragging a
    filled slot onto the world drops it beside the player's creature. */
 import { html, useState, Fragment } from '../react.js';
 import { ItemIcon } from './ItemIcon.js';

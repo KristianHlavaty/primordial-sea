@@ -1,5 +1,5 @@
-/* Multiplayer collectible weapons. The base pool fits the prehistoric world;
-   fun-mode rooms add deliberately anachronistic modern weapons. Combat logic
+/* Collectible weapons. The base pool fits the prehistoric world; fun mode adds
+   deliberately anachronistic modern weapons. Combat logic
    lives in engine/systems/items.js and both HUD/world art read this catalog. */
 export const ITEMS = {
   bone_club: {

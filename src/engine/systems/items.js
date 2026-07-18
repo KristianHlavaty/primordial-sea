@@ -1,12 +1,14 @@
-/* Host-authoritative multiplayer collectibles and weapon combat. Clients only
-   request slot actions and render snapshots; every pickup, hit and drop is
-   validated and simulated here by the host. */
+/* Collectible items and weapon combat. Single-player simulates these locally;
+   multiplayer remains host-authoritative, with clients only requesting slot
+   actions and rendering snapshots. */
 import { ITEMS, NATURAL_ITEMS, MODERN_ITEMS, ITEM_SLOT_COUNT } from '../../data/items.js';
 import { clamp, hyp, rand } from '../../core/math.js';
 import { burst } from './effects.js';
 
-const worldCap = game => game.mp && game.mp.funItems ? 20 : 14;
-const itemPool = game => game.mp && game.mp.funItems ? NATURAL_ITEMS.concat(MODERN_ITEMS) : NATURAL_ITEMS;
+const isAuthority = game => !game.mp || game.mp.role === 'host';
+const funItemsEnabled = game => game.mp ? !!game.mp.funItems : !!game.funItems;
+const worldCap = game => funItemsEnabled(game) ? 20 : 14;
+const itemPool = game => funItemsEnabled(game) ? NATURAL_ITEMS.concat(MODERN_ITEMS) : NATURAL_ITEMS;
 const heldItem = (type, uses) => ({ id: type, uses: uses == null ? ITEMS[type].uses : uses, cd: 0 });
 
 function spawnPoint(game) {
@@ -26,12 +28,12 @@ function addWorldItem(game, type, x, y, uses) {
 
 export function spawnMapItems(game) {
   game.worldItems.length = 0; game.itemProjectiles.length = 0; game.itemSpawnT = 12;
-  if (!game.mp || game.mp.role !== 'host') return;
+  if (!isAuthority(game)) return;
   const pool = itemPool(game), count = worldCap(game);
   for (let i = 0; i < count; i++) addWorldItem(game, pool[i % pool.length]);
 }
 
-const actorConn = (game, actor) => actor === game.player ? game.mp.self : actor.connId;
+const actorConn = (game, actor) => !game.mp ? null : actor === game.player ? game.mp.self : actor.connId;
 const targets = (game, actor) => {
   const out = game.creatures.slice();
   for (const player of game.allPlayers()) if (player !== actor && player.deadT <= 0) out.push(player);
@@ -127,16 +129,17 @@ function fireItem(game, actor, held, def) {
 }
 
 export function useHeldItem(game, actor, slot) {
-  if (!game.mp || game.mp.role !== 'host' || !actor || actor.deadT > 0 || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
+  if (!isAuthority(game) || !actor || actor.deadT > 0 || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
   const held = actor.items[slot], def = held && ITEMS[held.id];
   if (!def || held.uses <= 0 || held.cd > 0 || (actor.mpEvolveChoices && actor.mpEvolveChoices.length)) return false;
   held.cd = def.cooldown; fireItem(game, actor, held, def);
   if (held.uses <= 0) actor.items[slot] = null;
-  game.mp.sendAcc = 1; game.pushHud(true); return true;
+  if (game.mp) game.mp.sendAcc = 1;
+  game.pushHud(true); return true;
 }
 
 export function dropHeldItem(game, actor, slot) {
-  if (!game.mp || game.mp.role !== 'host' || !actor || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
+  if (!isAuthority(game) || !actor || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
   const held = actor.items[slot]; if (!held || !ITEMS[held.id]) return false;
   const distance = actor.radius + 95;
   let x = clamp(actor.x + Math.cos(actor.angle) * distance, 24, game.W - 24);
@@ -148,7 +151,9 @@ export function dropHeldItem(game, actor, slot) {
     y = clamp(actor.y - Math.sin(actor.angle) * distance, 24, game.H - 24);
   }
   addWorldItem(game, held.id, x, y, held.uses);
-  actor.items[slot] = null; game.mp.sendAcc = 1; game.pushHud(true); return true;
+  actor.items[slot] = null;
+  if (game.mp) game.mp.sendAcc = 1;
+  game.pushHud(true); return true;
 }
 
 function pickupItems(game) {
@@ -162,7 +167,8 @@ function pickupItems(game) {
     }
     if (best < 0) continue;
     const item = game.worldItems[best]; actor.items[slot] = heldItem(item.type, item.uses); game.worldItems.splice(best, 1);
-    burst(game, actor.x, actor.y, ITEMS[item.type].color, 12, 130); game.sfx.play('eat'); game.mp.sendAcc = 1;
+    burst(game, actor.x, actor.y, ITEMS[item.type].color, 12, 130); game.sfx.play('eat');
+    if (game.mp) game.mp.sendAcc = 1;
   }
 }
 
@@ -199,7 +205,7 @@ function updateProjectiles(game, dt) {
 }
 
 export function updateItems(game, dt) {
-  if (!game.mp || game.mp.role !== 'host') return;
+  if (!isAuthority(game)) return;
   for (const actor of game.allPlayers()) for (const held of actor.items) if (held && held.cd > 0) held.cd = Math.max(0, held.cd - dt);
   pickupItems(game); updateProjectiles(game, dt);
   game.itemSpawnT -= dt;

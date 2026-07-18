@@ -41,8 +41,8 @@ export function App() {
 
   const begin = options => { engineRef.current.start(options); setMpMenuOpen(false); setPhase('play'); };
   const skipToLand = (id, options) => { engineRef.current.startAt(id, options); setMpMenuOpen(false); setPhase('play'); };
-  // "Evolve again" from the death screen — keep the run's Fantasy/Cheats settings
-  const restartRun = () => { const e = engineRef.current; e.start({ fantasyEvolution: e.fantasyEvolution, cheats: e.cheatsEnabled }); setPhase('play'); };
+  // "Evolve again" from the death screen — keep the run's gameplay settings
+  const restartRun = () => { const e = engineRef.current; e.start({ fantasyEvolution: e.fantasyEvolution, funItems: e.funItems, cheats: e.cheatsEnabled }); setPhase('play'); };
   const blockForContent = blocked => {
     const e = engineRef.current; if (!e) return;
     if (e.mp) e.setInputSuppressed(blocked); else e.setPaused(blocked);

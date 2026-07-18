@@ -27,7 +27,7 @@ import { clamp, lerp, hyp } from '../core/math.js';
 import { spawnInitial, spawnMaintain, spawnRandomNpc } from './systems/spawning.js';
 import { activateAbility } from './systems/abilities.js';
 import { burst } from './systems/effects.js';
-import { updateItems } from './systems/items.js';
+import { updateItems, useHeldItem, dropHeldItem } from './systems/items.js';
 import { renderWorld } from '../render/renderWorld.js';
 import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpMinimap, mpMaybeCrossMap, mpQueueEvolution, mpChooseEvolution, mpUseCheat, mpUseItem, mpDropItem } from './mp.js';
 import { Sfx } from './audio.js';
@@ -109,6 +109,7 @@ export class Engine {
     // UI-facing bits
     this.showLevels = true;
     this.fantasyEvolution = false;
+    this.funItems = false;
     this.cheatsEnabled = false; this.invincible = false;
     this.previewCanvas = {};   // evolve-modal preview canvases, keyed by species id
 
@@ -148,6 +149,7 @@ export class Engine {
   start(options = {}) {
     this.resetRun();
     this.fantasyEvolution = !!options.fantasyEvolution;
+    this.funItems = !!options.funItems;
     this.cheatsEnabled = !!options.cheats; this.invincible = false;
     this.player = null; this.makePlayer('protocell');
     this.loadMap('sea_shallows');
@@ -160,6 +162,7 @@ export class Engine {
   startAt(speciesId, options = {}) {
     this.resetRun();
     this.fantasyEvolution = !!options.fantasyEvolution;
+    this.funItems = !!options.funItems;
     this.cheatsEnabled = !!options.cheats; this.invincible = false;
     const stage = speciesStage(speciesId);
     this.era = stage === 'carboniferous' ? 8 : 4;   // NPCs scale to the skipped-to depth
@@ -313,8 +316,14 @@ export class Engine {
     if (this.pendingEvolve || this.player.level >= MAX_LEVEL) return;
     this.player.addXp(this, xpNeed(this.player.level) / 2); this.pushHud(true);
   }
-  useItem(slot) { if (this.mp) mpUseItem(this, slot); }
-  dropItem(slot) { if (this.mp) mpDropItem(this, slot); }
+  useItem(slot) {
+    if (!this.playing || this.dead || this.paused || this.inputSuppressed || (!this.mp && this.pendingEvolve)) return;
+    if (this.mp) mpUseItem(this, slot); else useHeldItem(this, this.player, slot);
+  }
+  dropItem(slot) {
+    if (!this.playing || this.dead || this.paused || this.inputSuppressed || (!this.mp && this.pendingEvolve)) return;
+    if (this.mp) mpDropItem(this, slot); else dropHeldItem(this, this.player, slot);
+  }
 
   /* ---------------- talents ---------------- */
 
@@ -807,7 +816,7 @@ export class Engine {
         cd: Math.ceil(cd), cdFrac: ab.cd ? clamp(cd / ab.cd, 0, 1) : 0, ready: cd <= 0, active, activeFrac
       };
     }) : [];
-    const items = this.mp && p ? ITEM_KEYS.map((key, slot) => {
+    const items = p ? ITEM_KEYS.map((key, slot) => {
       const held = p.items && p.items[slot], def = held && ITEMS[held.id];
       if (!def) return { slot, key, empty: true };
       return {
