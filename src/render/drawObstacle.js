@@ -12,6 +12,32 @@ export function drawObstacle(ctx, o, time) {
   ctx.beginPath(); ctx.ellipse(4, 6, r, r * 0.78, 0, 0, TAU); ctx.fill();
 
   switch (o.kind) {
+    case 'sea_rock': {
+      // Ancient, algae-streaked submarine formations used as solid cover in
+      // the Fangwall arena. The pale facets stay readable in the abyss.
+      ctx.save(); ctx.rotate(o.angle);
+      const g = ctx.createRadialGradient(-r * .32, -r * .38, r * .08, 0, 0, r * 1.12);
+      g.addColorStop(0, '#688a88'); g.addColorStop(.42, '#365d62'); g.addColorStop(1, '#142f3a');
+      ctx.fillStyle = g; ctx.strokeStyle = '#0a202b'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      const n = 10;
+      for (let i = 0; i <= n; i++) {
+        const a = i / n * TAU, rr = r * (.8 + .2 * Math.sin(o.seed + i * 2.13));
+        const x = Math.cos(a) * rr, y = Math.sin(a) * rr * .88;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(130,213,201,.3)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-r * .58, -r * .1); ctx.lineTo(-r * .12, r * .28); ctx.lineTo(r * .15, r * .08);
+      ctx.moveTo(r * .05, -r * .5); ctx.lineTo(r * .35, -r * .08); ctx.lineTo(r * .62, r * .12); ctx.stroke();
+      ctx.fillStyle = 'rgba(110,206,174,.28)';
+      for (let i = 0; i < 7; i++) {
+        const a = o.seed + i * 1.37, rr = r * (.35 + (i % 3) * .18);
+        ctx.beginPath(); ctx.arc(Math.cos(a) * rr, Math.sin(a) * rr * .78, 2 + i % 2, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+      break;
+    }
     case 'lyco_log': {
       // a fallen lycopsid trunk — green photosynthetic bark, diamond leaf-scars
       ctx.save(); ctx.rotate(o.angle);

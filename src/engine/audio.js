@@ -48,6 +48,11 @@ export class Sfx {
       else if (type === 'mine_deploy') { beep(205, 0.2, 0.045, 'sine', 92); beep(520, 0.08, 0.022, 'triangle', 210); }
       else if (type === 'mine_arm') { beep(460, 0.18, 0.04, 'sine', 820); beep(920, 0.1, 0.03, 'square', 1120); }
       else if (type === 'mine_explosion') { beep(68, 0.72, 0.13, 'sine', 22); beep(245, 0.24, 0.065, 'square', 48); beep(880, 0.12, 0.035, 'triangle', 120); }
+      else if (type === 'panderodus_scream') { beep(118, 1.05, 0.1, 'sawtooth', 42); beep(360, .72, .055, 'square', 82); beep(760, .38, .03, 'triangle', 170); }
+      else if (type === 'panderodus_pass') { beep(82, .72, .075, 'sine', 34); beep(290, .32, .035, 'sawtooth', 75); }
+      else if (type === 'panderodus_crash') { beep(62, .82, .13, 'sawtooth', 22); beep(440, .2, .07, 'square', 55); beep(1250, .12, .045, 'triangle', 180); }
+      else if (type === 'panderodus_latch') { beep(155, .35, .075, 'sawtooth', 52); beep(520, .16, .04, 'square', 95); }
+      else if (type === 'panderodus_drain') { beep(210, .22, .05, 'sine', 72); beep(92, .3, .055, 'triangle', 38); }
       else if (type === 'vehicle_enter') { beep(220, 0.18, 0.04, 'square', 440); beep(520, 0.22, 0.035, 'triangle', 760); }
       else if (type === 'vehicle_exit') beep(480, 0.18, 0.035, 'triangle', 190);
       else if (type === 'vehicle_hit') { beep(115, 0.16, 0.055, 'square', 62); beep(540, 0.08, 0.025, 'sawtooth', 170); }

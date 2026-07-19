@@ -771,7 +771,9 @@ export class Engine {
     if (!this.backgrounded) {
       for (let i = this.particles.length - 1; i >= 0; i--) {
         const q = this.particles[i]; q.life -= dt; q.vx *= Math.exp(-dt * 3); q.vy *= Math.exp(-dt * 3);
-        q.x += q.vx * dt; q.y += q.vy * dt; if (q.life <= 0) this.particles.splice(i, 1);
+        q.x += q.vx * dt; q.y += q.vy * dt; q.angle = (q.angle || 0) + (q.spin || 0) * dt;
+        if (q.shape === 'tooth') q.vy += 150 * dt;
+        if (q.life <= 0) this.particles.splice(i, 1);
       }
       for (let i = this.fx.length - 1; i >= 0; i--) { this.fx[i].t += dt; if (this.fx[i].t >= this.fx[i].max) this.fx.splice(i, 1); }
       for (let i = this.floaters.length - 1; i >= 0; i--) {

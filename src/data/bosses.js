@@ -13,6 +13,7 @@ export const PERKS = {
   mireblood: { name: 'Mireblood', icon: 'regen', color: '#9bd47a', dmgReduce: 0.05, blurb: '+5% damage resistance' },
   webwalker: { name: 'Web Walker', icon: 'websnare', color: '#e8d9df', webResist: 0.5, blurb: '+50% resistance to web slowing' },
   afterglow: { name: 'Afterglow', icon: 'shock', color: '#82f7ff', shockAfterglow: 1, blurb: 'Shock blooms again after a short delay, damaging and repelling nearby enemies' },
+  fangguard: { name: 'Fang Guard', icon: 'thickhide', color: '#ef6b64', dmgReduce: 0.07, blurb: '+7% damage resistance' },
 };
 
 export const BOSSES = {
@@ -31,6 +32,11 @@ export const BOSSES = {
     title: 'Lumenara, the Abyssal Crown', short: 'Abyssal Crown', kind: 'jelly', at: { x: 0.5, y: 0.58 },
     radius: 72, scale: 1.45, hp: 1280, dmg: 44, accel: 480, maxSpeed: 125, sense: 880, leash: 1250, perk: 'afterglow', meat: 175,
     plan: P({ kind: 'jelly', len: 82, wid: 70, body: '#214b88', accent: '#a6fbff', glow: '#49eaff', tentacles: 14, crown: 7, colonyNodes: 9 })
+  },
+  panderodus: {
+    title: 'Panderodus, the Fang Tyrant', short: 'Fang Tyrant', kind: 'panderodus', at: { x: 0.68, y: 0.5 },
+    radius: 94, scale: 1.55, hp: 2500, dmg: 62, accel: 760, maxSpeed: 215, sense: 1450, leash: 3400, perk: 'fangguard', meat: 240,
+    plan: P({ kind: 'panderodus', len: 100, wid: 31, body: '#254d5a', accent: '#d9eee1', glow: '#69d8d0', teeth: true, tail: 1.7, bodyStripes: 9 })
   },
 
   // --- land: The Tidal Coast ---

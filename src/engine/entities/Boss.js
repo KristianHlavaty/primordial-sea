@@ -3,8 +3,22 @@
    meat payout and grants a permanent perk trophy. */
 import { Creature } from './Creature.js';
 import { BOSSES } from '../../data/bosses.js';
+import { MAPS } from '../../data/maps.js';
 import { hyp, rand, angLerp } from '../../core/math.js';
 import { burst } from '../systems/effects.js';
+
+const livingPlayers = game => (game.mp ? game.allPlayers() : [game.player]).filter(p => p && p.hp > 0 && p.deadT <= 0);
+
+function sweptCircleT(x1, y1, x2, y2, cx, cy, radius) {
+  const dx = x2 - x1, dy = y2 - y1, fx = x1 - cx, fy = y1 - cy;
+  const c = fx * fx + fy * fy - radius * radius;
+  if (c <= 0) return 0;
+  const a = dx * dx + dy * dy; if (a < .0001) return null;
+  const b = 2 * (fx * dx + fy * dy), disc = b * b - 4 * a * c;
+  if (disc < 0) return null;
+  const t = (-b - Math.sqrt(disc)) / (2 * a);
+  return t >= 0 && t <= 1 ? t : null;
+}
 
 /* A cocoon is a real damageable combat target. If ignored, it hatches into a
    short-lived pack which relentlessly chases the player regardless of size. */
@@ -122,11 +136,17 @@ export class Boss extends Creature {
       telegraph: null, specialCount: 0,
       wanderT: 1e9, wx: 0, wy: 0, animOff: rand(0, 10),
     });
+    if (kind === 'panderodus') Object.assign(this, {
+      panderodusMode: 'hunt', stateT: 0, passIndex: 0, passDirection: 1, passY: this.y, passPauseT: 0, passHitSet: new Set(),
+      chargeAngle: 0, latchTarget: null, latchConn: 0, latchT: 0, drainTick: 0,
+      screamT: 0, tailSlapCd: 3, tailSlapT: 0, impactT: 0, impactX: 0, impactY: 0, impactAngle: 0, impactSeq: 0,
+    });
   }
 
   act(game, dt) {
     const p = (game.mp && game.nearestPlayer(this.x, this.y)) || (game.worldPlayer ? game.worldPlayer() : game.player);
     if (!p) return;
+    if (this.bossKind === 'panderodus') { this.actPanderodus(game, dt, p); return; }
     this.abilT -= dt;
     if (this.hardenT > 0) this.hardenT -= dt;
     if (this.dashT > 0) this.dashT -= dt;
@@ -153,6 +173,233 @@ export class Boss extends Creature {
     this.vx += bx * this.accel * bs * slowM * dt; this.vy += by * this.accel * bs * slowM * dt;
     this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * 6 * slowM));
     this.integrate(game, dt, 2.0, (this.dashT > 0 ? this.maxSpeed * 3 : this.maxSpeed) * slowM);
+  }
+
+  actPanderodus(game, dt, p) {
+    this.abilT -= dt;
+    this.tailSlapCd = Math.max(0, this.tailSlapCd - dt);
+    this.tailSlapT = Math.max(0, this.tailSlapT - dt);
+    this.impactT = Math.max(0, this.impactT - dt);
+    if (this.hardenT > 0) this.hardenT -= dt;
+    if (this.panderodusMode === 'pass') { this.updatePanderodusPass(game, dt); return; }
+    if (this.panderodusMode === 'charge') { this.updatePanderodusCharge(game, dt); return; }
+    if (this.panderodusMode === 'latched') { this.updatePanderodusLatch(game, dt); return; }
+    if (this.panderodusMode === 'stunned') {
+      this.stateT -= dt; this.vx = 0; this.vy = 0; this.mouth = Math.max(this.mouth, .45);
+      if (this.stateT <= 0) { this.panderodusMode = 'hunt'; this.abilT = this.panderodusCooldown(); }
+      return;
+    }
+
+    const home = this.home, dh = hyp(this.x - home.x, this.y - home.y);
+    const dx = p.x - this.x, dy = p.y - this.y, distance = hyp(dx, dy);
+    const aggro = (distance < this.sense || this.engaged) && dh < this.leash && p.hp > 0;
+    if (!aggro) {
+      this.engaged = false; this.telegraph = null; this.screamT = 0;
+      if (dh > 28) {
+        this.faceTarget = Math.atan2(home.y - this.y, home.x - this.x);
+        this.vx += Math.cos(this.faceTarget) * this.accel * .5 * dt;
+        this.vy += Math.sin(this.faceTarget) * this.accel * .5 * dt;
+      }
+      if (this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * .045 * dt);
+      this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * 4));
+      this.integrate(game, dt, 2, this.maxSpeed * .7); return;
+    }
+
+    this.engaged = true;
+    if (this.telegraph) {
+      this.telegraph.t -= dt; this.faceTarget = this.telegraph.angle;
+      this.vx *= Math.exp(-dt * 5); this.vy *= Math.exp(-dt * 5);
+      if (this.telegraph.special === 'fangCharge') {
+        this.screamT = Math.max(0, this.telegraph.t);
+        this.mouth = .58 + .42 * Math.sin(game.time * 18) ** 2;
+      } else this.screamT = 0;
+      this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * 8));
+      if (this.telegraph.t <= 0) this.resolvePanderodusSpecial(game);
+      return;
+    }
+
+    this.screamT = 0;
+    if (this.tailSlapCd <= 0 && distance < this.radius + p.radius + 190) {
+      this.beginPanderodusTail(game); return;
+    }
+    if (this.abilT <= 0) { this.beginPanderodusSpecial(game, p); return; }
+
+    this.faceTarget = Math.atan2(dy, dx);
+    const slowM = this.slowT > 0 ? .45 : 1;
+    this.vx += dx / (distance || 1) * this.accel * .72 * slowM * dt;
+    this.vy += dy / (distance || 1) * this.accel * .72 * slowM * dt;
+    this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * 4.5 * slowM));
+    this.integrate(game, dt, 2, this.maxSpeed * slowM);
+    if (distance < this.radius + p.radius + 18 && this.biteCd <= 0) {
+      this.biteCd = .95; this.mouth = 1; p.takeHit(game, this.dmg * .8, this.x, this.y, this); game.danger = 1;
+    }
+  }
+
+  panderodusCooldown() { return (this.hp < this.maxHp * .45 ? 4.2 : 5.8); }
+
+  beginPanderodusSpecial(game, target) {
+    const color = this.hp < this.maxHp * .45 ? '#ff5362' : this.plan.glow;
+    if (this.specialCount % 2 === 0) {
+      const lanes = MAPS[game.mapId].bossLanes || [.28, .5, .72];
+      let lane = lanes[0];
+      for (const candidate of lanes) if (Math.abs(target.y - game.H * candidate) < Math.abs(target.y - game.H * lane)) lane = candidate;
+      const y = game.H * lane;
+      this.telegraph = {
+        special: 'edgePass', shape: 'lane', x: game.W * .5, y, ox: 0, oy: y, angle: 0,
+        length: game.W, width: this.radius * 2.15, passes: 3, t: 1.65, max: 1.65, color,
+      };
+    } else {
+      const angle = Math.atan2(target.y - this.y, target.x - this.x);
+      const ca = Math.cos(angle), sa = Math.sin(angle);
+      const tx = ca > 0 ? (game.W - this.x) / ca : ca < 0 ? -this.x / ca : Infinity;
+      const ty = sa > 0 ? (game.H - this.y) / sa : sa < 0 ? -this.y / sa : Infinity;
+      const length = Math.max(800, Math.min(tx, ty));
+      this.telegraph = {
+        special: 'fangCharge', shape: 'lane', x: target.x, y: target.y, ox: this.x, oy: this.y, angle,
+        length, width: this.radius * 1.35, t: 1.75, max: 1.75, color,
+      };
+      this.screamT = 1.75; game.sfx.play('panderodus_scream');
+    }
+    this.faceTarget = this.telegraph.angle; this.specialCount++;
+  }
+
+  beginPanderodusTail(game) {
+    const color = this.hp < this.maxHp * .45 ? '#ff5362' : this.plan.glow;
+    this.telegraph = {
+      special: 'panderTail', shape: 'circle', x: this.x, y: this.y, ox: this.x, oy: this.y,
+      angle: this.angle, r: 275, t: .62, max: .62, color,
+    };
+    this.tailSlapCd = this.hp < this.maxHp * .45 ? 2.7 : 3.8;
+  }
+
+  resolvePanderodusSpecial(game) {
+    const q = this.telegraph; if (!q) return;
+    this.telegraph = null; this.screamT = 0;
+    if (q.special === 'edgePass') {
+      this.panderodusMode = 'pass'; this.passIndex = 0; this.passDirection = 1; this.passY = q.y;
+      this.passPauseT = .32; this.passHitSet = new Set(); this.x = -this.radius * 1.8; this.y = q.y;
+      this.vx = 0; this.vy = 0; this.angle = 0; game.sfx.play('panderodus_pass'); return;
+    }
+    if (q.special === 'fangCharge') {
+      this.panderodusMode = 'charge'; this.chargeAngle = q.angle; this.stateT = 3.4;
+      this.angle = q.angle; this.vx = 0; this.vy = 0; this.mouth = .35; return;
+    }
+    if (q.special === 'panderTail') {
+      for (const player of livingPlayers(game)) {
+        const dx = player.x - this.x, dy = player.y - this.y, d = hyp(dx, dy);
+        if (d > q.r + player.radius) continue;
+        player.takeHit(game, this.dmg * .95, this.x, this.y, this);
+        player.vx += dx / (d || 1) * 760; player.vy += dy / (d || 1) * 760; game.danger = 1;
+      }
+      this.tailSlapT = .55;
+      burst(game, this.x - Math.cos(this.angle) * this.radius, this.y - Math.sin(this.angle) * this.radius, q.color, 32, 330);
+      game.fx.push({ x: this.x, y: this.y, t: 0, max: .55, R: q.r, color: q.color, dir: 'out', width: 8 });
+      game.shake = Math.min(18, game.shake + 10); game.sfx.play('swing');
+    }
+  }
+
+  updatePanderodusPass(game, dt) {
+    this.engaged = true; this.y = this.passY; this.faceTarget = this.passDirection > 0 ? 0 : Math.PI; this.angle = this.faceTarget;
+    if (this.passPauseT > 0) { this.passPauseT -= dt; this.vx = 0; this.vy = 0; return; }
+    const speed = this.hp < this.maxHp * .45 ? 2200 : 1850;
+    this.vx = this.passDirection * speed; this.vy = 0; this.x += this.vx * dt;
+    const targets = livingPlayers(game).concat(game.creatures.filter(c => c !== this && !c.boss && c.hp > 0));
+    for (const target of targets) {
+      if (this.passHitSet.has(target) || hyp(target.x - this.x, target.y - this.y) > this.radius + target.radius) continue;
+      this.passHitSet.add(target);
+      if (target.speciesId) {
+        target.takeHit(game, this.dmg * 1.55, this.x - this.passDirection * this.radius, this.y, this);
+        target.vx += this.passDirection * 920; target.vy += (target.y < this.y ? -1 : 1) * 240; game.danger = 1;
+      } else target.takeDamage(game, this.dmg * 1.9, this.x - this.passDirection * this.radius, this.y, false);
+    }
+    const crossed = this.passDirection > 0 ? this.x > game.W + this.radius * 1.8 : this.x < -this.radius * 1.8;
+    if (!crossed) return;
+    this.passIndex++;
+    if (this.passIndex >= 3) {
+      this.panderodusMode = 'hunt'; this.x = game.W - this.radius - 4; this.y = this.passY;
+      this.vx = this.maxSpeed * .35; this.vy = 0; this.passHitSet.clear(); this.abilT = this.panderodusCooldown(); return;
+    }
+    this.passDirection *= -1; this.passPauseT = .55; this.passHitSet = new Set();
+    game.sfx.play('panderodus_pass');
+  }
+
+  updatePanderodusCharge(game, dt) {
+    this.engaged = true; this.stateT -= dt; this.faceTarget = this.chargeAngle; this.angle = this.chargeAngle;
+    const speed = this.hp < this.maxHp * .45 ? 1500 : 1250, dx = Math.cos(this.chargeAngle), dy = Math.sin(this.chargeAngle);
+    const nx = this.x + dx * speed * dt, ny = this.y + dy * speed * dt;
+    const headOffset = this.radius * .72;
+    const hx1 = this.x + dx * headOffset, hy1 = this.y + dy * headOffset;
+    const hx2 = nx + dx * headOffset, hy2 = ny + dy * headOffset;
+    let firstT = 2, hitObstacle = null, hitPlayer = null;
+    for (const obstacle of game.obstacles) {
+      const t = sweptCircleT(hx1, hy1, hx2, hy2, obstacle.x, obstacle.y, obstacle.r + this.radius * .44);
+      if (t != null && t < firstT) { firstT = t; hitObstacle = obstacle; hitPlayer = null; }
+    }
+    for (const player of livingPlayers(game)) {
+      const t = sweptCircleT(hx1, hy1, hx2, hy2, player.x, player.y, player.radius + this.radius * .48);
+      if (t != null && t < firstT) { firstT = t; hitPlayer = player; hitObstacle = null; }
+    }
+    this.x += (nx - this.x) * Math.min(firstT, 1); this.y += (ny - this.y) * Math.min(firstT, 1);
+    this.vx = dx * speed; this.vy = dy * speed;
+    if (hitObstacle) { this.crashPanderodusIntoRock(game, hitObstacle); return; }
+    if (hitPlayer) { this.latchPanderodusOnto(game, hitPlayer); return; }
+    if (this.stateT <= 0 || this.x < this.radius || this.x > game.W - this.radius || this.y < this.radius || this.y > game.H - this.radius) {
+      this.x = Math.max(this.radius, Math.min(game.W - this.radius, this.x));
+      this.y = Math.max(this.radius, Math.min(game.H - this.radius, this.y));
+      this.panderodusMode = 'hunt'; this.vx *= .2; this.vy *= .2; this.abilT = this.panderodusCooldown();
+    }
+  }
+
+  crashPanderodusIntoRock(game, obstacle) {
+    const dx = Math.cos(this.chargeAngle), dy = Math.sin(this.chargeAngle);
+    this.panderodusMode = 'stunned'; this.stateT = 1.45; this.vx = 0; this.vy = 0; this.mouth = 1;
+    this.impactT = .9; this.impactX = this.x + dx * this.radius * .9; this.impactY = this.y + dy * this.radius * .9;
+    this.impactAngle = this.chargeAngle; this.impactSeq++; this.vulnerableT = Math.max(this.vulnerableT || 0, 2.8);
+    for (let i = 0; i < 11; i++) {
+      const a = this.chargeAngle + Math.PI + rand(-1.15, 1.15), force = rand(190, 520);
+      game.particles.push({
+        shape: 'tooth', x: this.impactX + rand(-10, 10), y: this.impactY + rand(-10, 10),
+        vx: Math.cos(a) * force, vy: Math.sin(a) * force, life: 1.15, max: 1.15,
+        size: rand(6, 11), color: '#f4ead3', angle: rand(0, Math.PI * 2), spin: rand(-10, 10),
+      });
+    }
+    burst(game, this.impactX, this.impactY, '#d8e7de', 34, 360);
+    burst(game, obstacle.x, obstacle.y, '#56777a', 26, 260);
+    game.fx.push({ x: this.impactX, y: this.impactY, t: 0, max: .6, R: 190, color: '#f4ead3', dir: 'out', width: 8 });
+    game.floaters.push({ x: this.impactX, y: this.impactY - 55, vx: 0, vy: -34, text: 'FANGS SHATTERED', life: 1.3, max: 1.3, color: '#f4ead3', size: 16 });
+    game.shake = Math.min(22, game.shake + 18); game.sfx.play('panderodus_crash');
+  }
+
+  latchPanderodusOnto(game, player) {
+    this.panderodusMode = 'latched'; this.latchTarget = player; this.latchT = 2.65; this.drainTick = .08;
+    this.latchConn = game.mp ? (player === game.player ? game.mp.self : player.connId) : 1;
+    this.vx = 0; this.vy = 0; this.mouth = 1; game.sfx.play('panderodus_latch');
+  }
+
+  updatePanderodusLatch(game, dt) {
+    const player = this.latchTarget;
+    if (!player || player.hp <= 0 || player.deadT > 0) { this.releasePanderodusLatch(); return; }
+    this.engaged = true; this.latchT -= dt; this.drainTick -= dt; this.mouth = .78 + .22 * Math.sin(game.time * 20) ** 2;
+    const dx = Math.cos(this.angle), dy = Math.sin(this.angle);
+    player.x = this.x + dx * this.radius * .9; player.y = this.y + dy * this.radius * .9;
+    player.vx = 0; player.vy = 0; player.stunT = Math.max(player.stunT || 0, .22);
+    if (this.drainTick <= 0) {
+      this.drainTick += .42;
+      const damage = Math.max(28, this.dmg * .62);
+      player.takeHit(game, damage, this.x, this.y, this); game.danger = 1;
+      if (this.hp > 0) this.hp = Math.min(this.maxHp, this.hp + damage * .24);
+      burst(game, player.x, player.y, '#ff5f6c', 12, 145); game.sfx.play('panderodus_drain');
+    }
+    if (this.latchT <= 0 || player.hp <= 0 || this.hp <= 0) this.releasePanderodusLatch();
+  }
+
+  releasePanderodusLatch() {
+    const player = this.latchTarget;
+    if (player && player.hp > 0) {
+      player.vx += Math.cos(this.angle) * 620; player.vy += Math.sin(this.angle) * 620;
+    }
+    this.latchTarget = null; this.latchConn = 0; this.latchT = 0;
+    this.panderodusMode = 'hunt'; this.mouth = .2; this.abilT = this.panderodusCooldown();
   }
 
   beginSpecial(game, target) {

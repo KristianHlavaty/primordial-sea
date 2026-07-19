@@ -27,6 +27,7 @@ const SPECIAL_NAMES = {
   tidalSweep: 'TIDAL SWEEP', undertow: 'UNDERTOW', stomp: 'CRUSHING STOMP', fissure: 'EARTH FISSURE',
   webBurst: 'SILK PRISON', cocoon: 'BROOD COCOON', mire: 'MIASMA POOL', tongueLash: 'TONGUE LASH',
   radiantNova: 'RADIANT NOVA', starMotes: 'LIVING CONSTELLATION', abyssBeam: 'ABYSSAL BEAM',
+  edgePass: 'THREEFOLD CROSSING', fangCharge: 'FANG-LINE CHARGE', panderTail: 'TYRANT TAIL SLAP',
 };
 
 function drawWebFields(E) {
@@ -85,7 +86,10 @@ function drawBossTelegraphs(E) {
       ctx.beginPath(); ctx.moveTo(ox, oy); ctx.arc(ox, oy, q.length, q.angle - q.spread, q.angle + q.spread); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.strokeStyle = withA('#ffffff', .3 + .3 * pulse); ctx.beginPath(); ctx.arc(ox, oy, q.length * progress, q.angle - q.spread, q.angle + q.spread); ctx.stroke();
     }
-    const labelX = q.shape === 'lane' ? q.length * .5 : q.shape === 'cone' ? ox + Math.cos(q.angle) * q.length * .58 : x;
+    const laneLabelX = q.special === 'edgePass'
+      ? clamp(E.cam.x + E.vw * .5 - q.ox, 70, q.length - 70)
+      : q.length * .5;
+    const labelX = q.shape === 'lane' ? laneLabelX : q.shape === 'cone' ? ox + Math.cos(q.angle) * q.length * .58 : x;
     const labelY = q.shape === 'lane' ? 0 : q.shape === 'cone' ? oy + Math.sin(q.angle) * q.length * .58 : y;
     ctx.font = '900 11px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.strokeText(SPECIAL_NAMES[q.special] || 'SPECIAL ATTACK', labelX, labelY);
@@ -121,10 +125,11 @@ function drawLumenOrb(E, c, sx, sy) {
 function drawBossGlow(E, c, sx, sy) {
   if (!c.plan.glow) return;
   const ctx = E.ctx, pulse = .5 + .5 * Math.sin(E.time * 2.6), R = c.radius * (3.1 + pulse * .35);
+  const glowColor = c.bossKind === 'panderodus' && c.hp < c.maxHp * .45 ? '#ff3048' : c.plan.glow;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const gg = ctx.createRadialGradient(sx, sy, c.radius * .25, sx, sy, R); gg.addColorStop(0, withA(c.plan.glow, .28 + pulse * .12)); gg.addColorStop(.38, withA(c.plan.glow, .12)); gg.addColorStop(1, 'rgba(0,0,0,0)');
+  const gg = ctx.createRadialGradient(sx, sy, c.radius * .25, sx, sy, R); gg.addColorStop(0, withA(glowColor, .28 + pulse * .12)); gg.addColorStop(.38, withA(glowColor, .12)); gg.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(sx, sy, R, 0, TAU); ctx.fill();
-  for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + E.time * (i % 2 ? .16 : -.12), rr = c.radius * (1.45 + (i % 3) * .25); ctx.fillStyle = withA(i % 2 ? '#a6fbff' : c.plan.glow, .32 + pulse * .3); ctx.beginPath(); ctx.arc(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr, 2 + i % 3, 0, TAU); ctx.fill(); }
+  for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + E.time * (i % 2 ? .16 : -.12), rr = c.radius * (1.45 + (i % 3) * .25); ctx.fillStyle = withA(i % 2 ? (glowColor === '#ff3048' ? '#ffb0ad' : '#a6fbff') : glowColor, .32 + pulse * .3); ctx.beginPath(); ctx.arc(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr, 2 + i % 3, 0, TAU); ctx.fill(); }
   ctx.restore();
 }
 
@@ -254,6 +259,32 @@ function drawTopSeaPassage(E) {
   ctx.fillText('▲  ASCEND TO THE PRIMORDIAL SEA  ▲', center, 28); ctx.textAlign = 'left';
 }
 
+function drawSideSeaPassages(E) {
+  const map = MAPS[E.mapId], ctx = E.ctx;
+  for (const side of ['left', 'right']) {
+    const passage = map.passages && map.passages[side], targetId = map.neighbors && map.neighbors[side];
+    if (!passage || !targetId) continue;
+    const edgeX = side === 'left' ? -E.cam.x : E.W - E.cam.x;
+    if (edgeX < -100 || edgeX > E.vw + 100) continue;
+    const centerY = E.H * passage.center - E.cam.y;
+    if (centerY < -passage.width || centerY > E.vh + passage.width) continue;
+    const pulse = .5 + .5 * Math.sin(E.time * 3.2);
+    const glow = ctx.createRadialGradient(edgeX, centerY, 10, edgeX, centerY, passage.width * .48);
+    glow.addColorStop(0, withA('#78f2ff', .2 + pulse * .08)); glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(edgeX, centerY, passage.width * .48, 0, TAU); ctx.fill();
+    const dir = side === 'left' ? -1 : 1, labelX = edgeX - dir * 92;
+    ctx.textAlign = 'center'; ctx.font = '900 11px "Segoe UI",sans-serif'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.75)';
+    const label = `${side === 'left' ? '◀' : '▶'}  ${MAPS[targetId].name.toUpperCase()}`;
+    ctx.strokeText(label, labelX, centerY - 18); ctx.fillStyle = withA('#c9fcff', .75 + pulse * .2); ctx.fillText(label, labelX, centerY - 18);
+    ctx.font = '900 25px "Segoe UI",sans-serif';
+    for (let i = 0; i < 3; i++) {
+      ctx.globalAlpha = .25 + .22 * ((i + E.time * 2) % 3);
+      ctx.fillText(side === 'left' ? '◀' : '▶', edgeX - dir * (38 + i * 25), centerY + 14);
+    }
+    ctx.globalAlpha = 1; ctx.textAlign = 'left';
+  }
+}
+
 function drawEnrolled(E, player, sx, sy, radius) {
   const ctx = E.ctx, body = player.plan.body, accent = player.plan.accent, speed = hyp(player.vx || 0, player.vy || 0);
   ctx.save(); ctx.translate(sx, sy); ctx.rotate(E.time * (5.2 + Math.min(4, speed / 170))); const r = radius * 1.12;
@@ -266,6 +297,51 @@ function drawEnrolled(E, player, sx, sy, radius) {
   ctx.fillStyle = shade(accent, -.05);
   for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); ctx.lineTo(Math.cos(a) * (r + 6), Math.sin(a) * (r + 6)); ctx.lineTo(Math.cos(a + .22) * r, Math.sin(a + .22) * r); ctx.closePath(); ctx.fill(); }
   ctx.restore();
+}
+
+function drawPanderodusEffects(E, c, sx, sy) {
+  if (c.bossKind !== 'panderodus') return;
+  const ctx = E.ctx, angle = c.angle || 0, dx = Math.cos(angle), dy = Math.sin(angle);
+  const scream = c.screamT > 0 || (c.telegraph && c.telegraph.special === 'fangCharge');
+  if (scream) {
+    const q = c.telegraph, progress = q && q.max ? 1 - q.t / q.max : 0;
+    const hx = sx + dx * c.radius * 1.18, hy = sy + dy * c.radius * 1.18;
+    ctx.save(); ctx.translate(hx, hy); ctx.rotate(angle); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 4; i++) {
+      const reach = 34 + i * 31 + progress * 30, alpha = .18 + (3 - i) * .1;
+      ctx.strokeStyle = withA(c.hp < c.maxHp * .45 ? '#ff4b5d' : '#d9eee1', alpha);
+      ctx.lineWidth = 5 - i * .65; ctx.beginPath(); ctx.arc(0, 0, reach, -.58, .58); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  if (c.panderodusMode === 'pass') {
+    const dir = c.passDirection || (Math.cos(angle) >= 0 ? 1 : -1);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    for (let i = 0; i < 7; i++) {
+      const off = (i - 3) * c.radius * .28, len = c.radius * (1.25 + (i % 3) * .34);
+      ctx.strokeStyle = withA(c.hp < c.maxHp * .45 ? '#ff5060' : '#69d8d0', .12 + (i % 3) * .07); ctx.lineWidth = 3 + (i % 2) * 2;
+      ctx.beginPath(); ctx.moveTo(sx - dir * c.radius * .4, sy + off); ctx.lineTo(sx - dir * len, sy + off * .65); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  if (c.panderodusMode === 'latched' || c.latchT > 0) {
+    const hx = sx + dx * c.radius * .95, hy = sy + dy * c.radius * .95, pulse = .5 + .5 * Math.sin(E.time * 15);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const drain = ctx.createRadialGradient(hx, hy, 3, hx, hy, c.radius * (.6 + pulse * .25));
+    drain.addColorStop(0, withA('#ffffff', .42)); drain.addColorStop(.25, withA('#ff4055', .36 + pulse * .2)); drain.addColorStop(1, withA('#ff4055', 0));
+    ctx.fillStyle = drain; ctx.beginPath(); ctx.arc(hx, hy, c.radius * (.6 + pulse * .25), 0, TAU); ctx.fill(); ctx.restore();
+  }
+  if (c.impactT > 0) {
+    const progress = 1 - c.impactT / .9, ix = c.impactX - E.cam.x, iy = c.impactY - E.cam.y;
+    ctx.save(); ctx.fillStyle = '#f4ead3'; ctx.strokeStyle = '#88765e'; ctx.lineWidth = 1;
+    for (let i = 0; i < 11; i++) {
+      const a = (c.impactAngle || angle) + Math.PI + (i / 10 - .5) * 2.1;
+      const distance = progress * (55 + (i * 37 % 115)), size = 5 + i % 4;
+      ctx.save(); ctx.translate(ix + Math.cos(a) * distance, iy + Math.sin(a) * distance + progress * progress * 55); ctx.rotate(a + progress * (i % 2 ? 8 : -8));
+      ctx.globalAlpha = clamp(c.impactT / .35, 0, 1); ctx.beginPath(); ctx.moveTo(size, 0); ctx.lineTo(-size * .65, -size * .48); ctx.lineTo(-size * .25, size * .52); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+    }
+    ctx.restore();
+  }
 }
 
 /* Draw a creature/player at its world position (screen-space transform,
@@ -282,8 +358,13 @@ function drawEntity(E, e) {
   if (e.stealthT > 0) ctx.globalAlpha *= .45;
   if (e.camoCharge > 0) ctx.globalAlpha *= 1 - e.camoCharge * .38;
   const speed = hyp(e.vx, e.vy);
-  const plan = frenzy ? { ...e.plan, body: '#b32238', accent: '#ff665c', glow: '#ff3048' } : e.plan;
-  drawCreature(ctx, Object.assign({ t: E.time * (2 + speed / 120) + e.animOff, mouth: e.mouth, hurt: e.hurt }, plan));
+  const panderodusEnraged = e.bossKind === 'panderodus' && e.hp < e.maxHp * .45;
+  const plan = frenzy ? { ...e.plan, body: '#b32238', accent: '#ff665c', glow: '#ff3048' }
+    : panderodusEnraged ? { ...e.plan, body: '#821b2b', accent: '#ff8d82', glow: '#ff3048' } : e.plan;
+  drawCreature(ctx, Object.assign({
+    t: E.time * (2 + speed / 120) + e.animOff, mouth: e.mouth, hurt: e.hurt,
+    scream: e.screamT > 0, tailSlap: clamp((e.tailSlapT || 0) / .55, 0, 1), enraged: panderodusEnraged,
+  }, plan));
   ctx.restore();
 }
 
@@ -577,7 +658,7 @@ export function renderWorld(E) {
   ctx.save(); ctx.translate(shX, shY);
 
   // sea floor and the marked passages between connected ocean maps
-  if (E.stage === 'sea') { drawSeaFloor(E); drawTopSeaPassage(E); }
+  if (E.stage === 'sea') { drawSeaFloor(E); drawTopSeaPassage(E); drawSideSeaPassages(E); }
 
   drawWebFields(E);
   drawBossTelegraphs(E);
@@ -624,6 +705,7 @@ export function renderWorld(E) {
     if (sx < -90 || sx > E.vw + 90 || sy < -90 || sy > E.vh + 90) continue;
     if (c.boss) drawBossGlow(E, c, sx, sy);
     if (c.cocoon) drawCocoon(E, c, sx, sy); else if (c.lumenOrb) drawLumenOrb(E, c, sx, sy); else drawEntity(E, c);
+    drawPanderodusEffects(E, c, sx, sy);
     if (c.stunT > 0 || c.slowT > 0) {
       ctx.strokeStyle = withA('#bfe6ff', 0.85); ctx.lineWidth = 2;
       for (let i = 0; i < 3; i++) { const a = E.time * 9 + i / 3 * TAU; ctx.beginPath(); ctx.arc(sx + Math.cos(a) * (c.radius + 7), sy + Math.sin(a) * (c.radius + 7), 2.4, 0, TAU); ctx.stroke(); }
@@ -663,7 +745,7 @@ export function renderWorld(E) {
     const sx = c.x - E.cam.x, sy = c.y - E.cam.y;
     if (sx < -260 || sx > E.vw + 260 || sy < -260 || sy > E.vh + 260) continue;
     const bpulse = 0.5 + 0.5 * Math.sin(E.time * 3);
-    const auraColor = c.plan.glow || '#ff2a3a';
+    const auraColor = c.bossKind === 'panderodus' && c.hp < c.maxHp * .45 ? '#ff3048' : c.plan.glow || '#ff2a3a';
     ctx.strokeStyle = withA(auraColor, c.plan.glow ? .4 + .3 * bpulse : .12 + .1 * bpulse); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, c.radius + 12, 0, TAU); ctx.stroke();
     if (c.hp < c.maxHp * .45) {
       ctx.strokeStyle = withA('#ff4055', .38 + .4 * Math.sin(E.time * 9) ** 2); ctx.lineWidth = 5;
@@ -744,7 +826,10 @@ export function renderWorld(E) {
   // particles
   for (const q of E.particles) {
     const a = clamp(q.life / q.max, 0, 1); ctx.globalAlpha = a; ctx.fillStyle = q.color;
-    ctx.beginPath(); ctx.arc(q.x - E.cam.x, q.y - E.cam.y, q.size, 0, TAU); ctx.fill();
+    if (q.shape === 'tooth') {
+      ctx.save(); ctx.translate(q.x - E.cam.x, q.y - E.cam.y); ctx.rotate(q.angle || 0);
+      ctx.strokeStyle = '#88765e'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(q.size, 0); ctx.lineTo(-q.size * .65, -q.size * .5); ctx.lineTo(-q.size * .25, q.size * .55); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+    } else { ctx.beginPath(); ctx.arc(q.x - E.cam.x, q.y - E.cam.y, q.size, 0, TAU); ctx.fill(); }
   }
   ctx.globalAlpha = 1;
 

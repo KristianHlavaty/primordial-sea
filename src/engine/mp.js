@@ -514,11 +514,18 @@ function buildSnapshot(engine, recipientConn) {
   const npcs = [];
   for (const c of engine.creatures) {
     if (c.netId == null) c.netId = mp.nextNet++;
-    const npc = { n: c.netId, k: c.key, x: Math.round(c.x), y: Math.round(c.y), a: roundTo(c.angle, 2), hp: Math.round(c.hp), mhp: Math.round(c.maxHp), r: Math.round(c.radius), lv: c.level || 1, st: c.stunT > 0 ? 1 : 0,
+    const npc = { n: c.netId, k: c.key, x: Math.round(c.x), y: Math.round(c.y), a: roundTo(c.angle, 2), hp: Math.round(c.hp), mhp: Math.round(c.maxHp), r: Math.round(c.radius), lv: c.level || 1, st: c.stunT > 0 ? 1 : 0, mo: Math.ceil((c.mouth || 0) * 100),
       ar: Math.ceil((c.armorBreakT || 0) * 10), vu: Math.ceil((c.vulnerableT || 0) * 10), vs: c.venomStacks || 0, vm: Math.ceil((c.venomMarkT || 0) * 10) };
     if (c.boss) {
       npc.bk = c.bossKind; npc.h = Math.ceil((c.hardenT || 0) * 10); npc.e = c.engaged ? 1 : 0;
       npc.tg = c.telegraph ? { ...c.telegraph, t: roundTo(c.telegraph.t, 2), max: roundTo(c.telegraph.max, 2) } : undefined;
+      if (c.bossKind === 'panderodus') npc.ps = {
+        m: c.panderodusMode, st: roundTo(c.stateT || 0, 2), pi: c.passIndex || 0, pd: c.passDirection || 1,
+        py: Math.round(c.passY || 0), pp: roundTo(c.passPauseT || 0, 2), sc: roundTo(c.screamT || 0, 2),
+        tt: roundTo(c.tailSlapT || 0, 2), it: roundTo(c.impactT || 0, 2), ix: Math.round(c.impactX || 0),
+        iy: Math.round(c.impactY || 0), ia: roundTo(c.impactAngle || 0, 2), is: c.impactSeq || 0,
+        lt: roundTo(c.latchT || 0, 2), lc: c.latchConn || 0,
+      };
     } else if (!NPCS[c.key]) {
       npc.pl = c.plan; npc.co = c.cocoon ? 1 : 0; npc.lo = c.lumenOrb ? 1 : 0;
       if (c.hatchT != null) npc.ht = roundTo(c.hatchT, 1);
@@ -604,9 +611,15 @@ function makeRenderNpc(nd) {
   if (boss) return {
     netId: nd.n, key: nd.bk, bossKind: nd.bk, kind: boss.kind, title: boss.title, short: boss.short,
     plan: { ...boss.plan }, boss: true, role: 'predator', scale: boss.scale || 1, animOff: (nd.n * 7) % 100,
-    vx: 0, vy: 0, mouth: 0, hurt: 0, hpBarT: 0, stunT: 0, slowT: 0, hardenT: (nd.h || 0) / 10,
+    vx: 0, vy: 0, mouth: (nd.mo || 0) / 100, hurt: 0, hpBarT: 0, stunT: 0, slowT: 0, hardenT: (nd.h || 0) / 10,
     armorBreakT: (nd.ar || 0) / 10, vulnerableT: (nd.vu || 0) / 10, venomStacks: nd.vs || 0, venomMarkT: (nd.vm || 0) / 10,
     engaged: !!nd.e, telegraph: nd.tg || null,
+    panderodusMode: nd.ps ? nd.ps.m : 'hunt', stateT: nd.ps ? nd.ps.st || 0 : 0,
+    passIndex: nd.ps ? nd.ps.pi || 0 : 0, passDirection: nd.ps ? nd.ps.pd || 1 : 1, passY: nd.ps ? nd.ps.py || 0 : 0,
+    passPauseT: nd.ps ? nd.ps.pp || 0 : 0, screamT: nd.ps ? nd.ps.sc || 0 : 0, tailSlapT: nd.ps ? nd.ps.tt || 0 : 0,
+    impactT: nd.ps ? nd.ps.it || 0 : 0, impactX: nd.ps ? nd.ps.ix || 0 : 0, impactY: nd.ps ? nd.ps.iy || 0 : 0,
+    impactAngle: nd.ps ? nd.ps.ia || 0 : 0, impactSeq: nd.ps ? nd.ps.is || 0 : 0,
+    latchT: nd.ps ? nd.ps.lt || 0 : 0, latchConn: nd.ps ? nd.ps.lc || 0 : 0,
     x: nd.x, y: nd.y, angle: nd.a, gx: nd.x, gy: nd.y, ga: nd.a,
     hp: nd.hp, maxHp: nd.mhp, radius: nd.r, level: nd.lv,
   };
@@ -710,11 +723,34 @@ function applySnapshot(engine, s) {
   for (const nd of s.npcs) {
     seenN.add(nd.n);
     let c = mp.npcById.get(nd.n);
+    const fresh = !c;
     if (!c) { c = makeRenderNpc(nd); mp.npcById.set(nd.n, c); }
+    const previousSpecial = c.telegraph && c.telegraph.special;
+    const previousMode = c.panderodusMode, previousPassIndex = c.passIndex || 0, previousImpactSeq = c.impactSeq || 0;
     c.gx = nd.x; c.gy = nd.y; c.ga = nd.a; c.hp = nd.hp; c.maxHp = nd.mhp; c.radius = nd.r; c.level = nd.lv;
+    c.mouth = Math.max(c.mouth || 0, (nd.mo || 0) / 100);
     c.stunT = nd.st ? 0.4 : 0; c.hpBarT = nd.hp < nd.mhp ? 1.2 : c.hpBarT;
     c.armorBreakT = (nd.ar || 0) / 10; c.vulnerableT = (nd.vu || 0) / 10; c.venomStacks = nd.vs || 0; c.venomMarkT = (nd.vm || 0) / 10;
-    if (c.boss) { c.hardenT = (nd.h || 0) / 10; c.engaged = !!nd.e; c.telegraph = nd.tg || null; }
+    if (c.boss) {
+      c.hardenT = (nd.h || 0) / 10; c.engaged = !!nd.e; c.telegraph = nd.tg || null;
+      if (c.bossKind === 'panderodus' && nd.ps) {
+        Object.assign(c, {
+          panderodusMode: nd.ps.m || 'hunt', stateT: nd.ps.st || 0, passIndex: nd.ps.pi || 0,
+          passDirection: nd.ps.pd || 1, passY: nd.ps.py || 0, passPauseT: nd.ps.pp || 0,
+          screamT: nd.ps.sc || 0, tailSlapT: nd.ps.tt || 0, impactT: nd.ps.it || 0,
+          impactX: nd.ps.ix || 0, impactY: nd.ps.iy || 0, impactAngle: nd.ps.ia || 0,
+          impactSeq: nd.ps.is || 0, latchT: nd.ps.lt || 0, latchConn: nd.ps.lc || 0,
+        });
+        const special = c.telegraph && c.telegraph.special;
+        if (special === 'fangCharge' && (fresh || previousSpecial !== special)) engine.sfx.play('panderodus_scream');
+        if (c.panderodusMode === 'pass' && (fresh || previousMode !== 'pass' || c.passIndex !== previousPassIndex)) {
+          if (previousMode !== 'pass') { c.x = nd.x; c.y = nd.y; }
+          engine.sfx.play('panderodus_pass');
+        }
+        if (c.panderodusMode === 'latched' && (fresh || previousMode !== 'latched')) engine.sfx.play('panderodus_latch');
+        if (c.impactSeq > previousImpactSeq) { engine.shake = Math.min(22, engine.shake + 18); engine.sfx.play('panderodus_crash'); }
+      }
+    }
     if (c.cocoon && nd.ht != null) c.hatchT = nd.ht;
   }
   for (const [nid] of mp.npcById) if (!seenN.has(nid)) mp.npcById.delete(nid);
@@ -876,6 +912,11 @@ export function mpClientUpdate(engine, dt) {
     if (c.hardenT > 0) c.hardenT = Math.max(0, c.hardenT - dt);
     c.armorBreakT = Math.max(0, (c.armorBreakT || 0) - dt); c.vulnerableT = Math.max(0, (c.vulnerableT || 0) - dt); c.venomMarkT = Math.max(0, (c.venomMarkT || 0) - dt);
     if (c.telegraph && c.telegraph.t > 0) c.telegraph.t = Math.max(0, c.telegraph.t - dt);
+    if (c.bossKind === 'panderodus') {
+      c.screamT = Math.max(0, (c.screamT || 0) - dt); c.tailSlapT = Math.max(0, (c.tailSlapT || 0) - dt);
+      c.impactT = Math.max(0, (c.impactT || 0) - dt); c.latchT = Math.max(0, (c.latchT || 0) - dt);
+      c.stateT = Math.max(0, (c.stateT || 0) - dt); c.passPauseT = Math.max(0, (c.passPauseT || 0) - dt);
+    }
     if (c.cocoon && c.hatchT > 0) c.hatchT = Math.max(0, c.hatchT - dt);
   }
   for (const item of engine.worldItems) smooth(item);

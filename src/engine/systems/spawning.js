@@ -73,6 +73,13 @@ function seedPlant(game) { const s = plantSpot(game); spawnPlant(game, s.x, s.y,
 function genObstacles(game) {
   game.obstacles.length = 0;
   const set = OBSTACLE_SETS[game.mapId]; if (!set) return;
+  if (set.fixed) {
+    for (let i = 0; i < set.fixed.length; i++) {
+      const [nx, ny, r] = set.fixed[i];
+      game.obstacles.push({ kind: set.kind || 'boulder', x: game.W * nx, y: game.H * ny, r, angle: i * 1.71, seed: i * 17.37 });
+    }
+    return;
+  }
   const p = game.worldPlayer ? game.worldPlayer() : game.player;
   const bossSpots = (MAPS[game.mapId].bosses || []).map(bk => BOSSES[bk]).filter(Boolean).map(b => ({ x: game.W * b.at.x, y: game.H * b.at.y }));
   let tries = 0;

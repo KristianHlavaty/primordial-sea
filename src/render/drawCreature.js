@@ -545,6 +545,54 @@ export function drawCreature(ctx, o) {
       for (const s of [-1, 1]) eye(ctx, L * (0.84 + .03 * snout), s * W * 0.42 * hs, Math.max(2.1, W * 0.24 * (o.eyeScale || 1)));
       break;
     }
+    case 'panderodus': {
+      const m = o.mouth || 0, tailSlap = o.tailSlap || 0;
+      const wag = Math.sin(t * 2.7) * W * .5 + Math.sin(t * 13) * W * 2.2 * tailSlap;
+      const tailX = -L * 1.48, tailY = wag;
+      // Long conodont tail and translucent fin, exaggerated to sell the boss's
+      // speed during arena crossings and the close-range slap.
+      ctx.fillStyle = withA(acc, .46); ctx.strokeStyle = withA(shade(body, -.3), .75); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-L * .72, -W * .34 + wag * .25);
+      ctx.quadraticCurveTo(-L * 1.18, -W * .55 + wag * .7, tailX, tailY - W * 1.25);
+      ctx.lineTo(tailX + L * .12, tailY); ctx.lineTo(tailX, tailY + W * 1.25);
+      ctx.quadraticCurveTo(-L * 1.18, W * .55 + wag * .7, -L * .72, W * .34 + wag * .25); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      const g = ctx.createLinearGradient(0, -W, 0, W);
+      g.addColorStop(0, shade(body, .34)); g.addColorStop(.42, body); g.addColorStop(1, shade(body, -.42));
+      ctx.fillStyle = g; ctx.strokeStyle = shade(body, -.5); ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(L * 1.02, 0);
+      ctx.quadraticCurveTo(L * .52, -W * 1.04, -L * .42, -W * .72);
+      ctx.quadraticCurveTo(-L * .9, -W * .35 + wag * .25, tailX + L * .08, tailY);
+      ctx.quadraticCurveTo(-L * .9, W * .35 + wag * .25, -L * .42, W * .72);
+      ctx.quadraticCurveTo(L * .52, W * 1.04, L * 1.02, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      ctx.strokeStyle = withA(acc, .32); ctx.lineWidth = Math.max(2, L * .026);
+      for (let i = 0; i < (o.bodyStripes || 9); i++) {
+        const x = lerp(-L * .72, L * .42, i / Math.max(1, (o.bodyStripes || 9) - 1));
+        ctx.beginPath(); ctx.moveTo(x, -W * .62); ctx.quadraticCurveTo(x - L * .06, 0, x, W * .62); ctx.stroke();
+      }
+      ctx.fillStyle = withA(acc, .4);
+      for (const side of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(L * .05, side * W * .62); ctx.lineTo(-L * .22, side * W * 1.42); ctx.lineTo(L * .34, side * W * .72); ctx.closePath(); ctx.fill();
+      }
+
+      // Cavernous moving jaw. The lower row follows the jaw gap while the
+      // upper fangs chatter during the telegraphed scream.
+      const jawGap = W * (.16 + m * .82), chatter = o.scream ? Math.sin(t * 24) * W * .045 : 0;
+      ctx.fillStyle = '#160d15'; ctx.beginPath(); ctx.moveTo(L * .4, -W * .08);
+      ctx.lineTo(L * 1.05, -W * .03); ctx.lineTo(L * .94, jawGap); ctx.lineTo(L * .4, W * .22); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = shade(body, -.58); ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(L * 1.04, 0); ctx.lineTo(L * .42, -W * .08); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(L * 1.0, jawGap); ctx.lineTo(L * .42, W * .22); ctx.stroke();
+      ctx.fillStyle = '#f4ead3'; ctx.strokeStyle = '#88765e'; ctx.lineWidth = 1;
+      for (let i = 0; i < 7; i++) {
+        const x = lerp(L * .98, L * .45, i / 6), tooth = W * (.22 + (i % 3) * .07);
+        ctx.beginPath(); ctx.moveTo(x + 3, -W * .02 + chatter); ctx.lineTo(x, tooth + chatter); ctx.lineTo(x - 3, -W * .02 + chatter); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + 3, jawGap); ctx.lineTo(x, jawGap - tooth * .78); ctx.lineTo(x - 3, jawGap); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+      eye(ctx, L * .58, -W * .42, Math.max(4, W * .19), o.enraged ? '#ff172f' : '#101b20');
+      break;
+    }
     case 'winged': {
       // griffinfly / early winged insect: slender segmented abdomen (-X), thorax,
       // head with big compound eyes (+X), and two pairs of long translucent wings.

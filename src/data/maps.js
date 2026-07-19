@@ -21,8 +21,8 @@ export const MAPS = {
   sea_shallows: {
     stage: 'sea', name: 'The Primordial Sea', theme: 'sea',
     W: 4400, H: 2700, bosses: ['bulwark', 'render'],
-    neighbors: { bottom: 'starless_bloom' },
-    passages: { bottom: { center: 0.5, width: 680 } },
+    neighbors: { bottom: 'starless_bloom', right: 'fangwall_trench' },
+    passages: { bottom: { center: 0.5, width: 680 }, right: { center: 0.5, width: 760 } },
   },
   starless_bloom: {
     stage: 'sea', name: 'The Starless Bloom', theme: 'abyss',
@@ -30,6 +30,14 @@ export const MAPS = {
     neighbors: { top: 'sea_shallows' },
     passages: { top: { center: 0.5, width: 680 } },
     npcPool: ['abyss_jelly', 'jelly', 'plankton'], creatureCap: 14, preyTarget: 3, starterPrey: 3, plantCap: 6, bubbleCount: 65,
+  },
+  fangwall_trench: {
+    stage: 'sea', name: 'The Fangwall Trench', theme: 'abyss',
+    W: 4800, H: 2800, bosses: ['panderodus'],
+    neighbors: { left: 'sea_shallows' },
+    passages: { left: { center: 0.5, width: 760 } },
+    bossLanes: [0.28, 0.5, 0.72],
+    npcPool: ['silverfish', 'jelly', 'plankton'], creatureCap: 12, preyTarget: 4, starterPrey: 4, plantCap: 5, bubbleCount: 80,
   },
 
   // --- Devonian landfall ---
