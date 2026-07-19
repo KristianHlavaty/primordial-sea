@@ -5,6 +5,7 @@
    mouth (0..1 bite), hurt (0..1 red flash). */
 import { TAU, lerp } from '../core/math.js';
 import { shade, withA } from '../core/color.js';
+import { drawDunkleosteus } from './drawDunkleosteus.js';
 
 export function eye(ctx, x, y, r, dark) {
   ctx.fillStyle = '#f4fbff'; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
@@ -16,6 +17,9 @@ export function drawCreature(ctx, o) {
   const t = o.t || 0, L = o.len, W = o.wid, body = o.body, acc = o.accent;
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   switch (o.kind) {
+    case 'dunkleosteus': {
+      drawDunkleosteus(ctx, o); break;
+    }
     case 'microbe': {
       ctx.strokeStyle = withA(acc, 0.75); ctx.lineWidth = 1.5;
       const N = 16;

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creature Model Lab — Primordial Sea</title>
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/model-lab.css">
+</head>
+<body class="modelLabBody">
+<div class="modelLabShell">
+  <header class="modelLabHeader">
+    <div class="modelLabBrand">
+      <span class="modelLabMark" aria-hidden="true">◇</span>
+      <div><strong>CREATURE MODEL LAB</strong><small>Primordial Sea visual testing surface</small></div>
+    </div>
+    <nav class="collectionTabs" aria-label="Model collection">
+      <button class="collectionTab active" type="button" data-collection="concepts">10 side-view redesigns</button>
+      <button class="collectionTab" type="button" data-collection="species">Current game creatures</button>
+    </nav>
+    <a class="backToGame" href="index.html">← Back to game</a>
+  </header>
+
+  <main class="modelLabWorkspace">
+    <section class="modelInspector" aria-label="Selected model viewer">
+      <div class="modelStage" id="modelStage" data-theme="deep">
+        <canvas id="modelCanvas" aria-label="Animated selected creature model"></canvas>
+        <div class="stageTopline">
+          <span id="stageIndex">CONCEPT 01 / 10</span>
+          <span id="stageAnimation">CRUISE</span>
+        </div>
+        <div class="stageScale"><span></span><small>one body length</small></div>
+      </div>
+
+      <div class="animationPanel">
+        <div class="panelLabel">TRY ANIMATION</div>
+        <div class="animationButtons" role="group" aria-label="Animation state">
+          <button type="button" data-animation="idle"><span>◌</span>Idle<kbd>1</kbd></button>
+          <button class="active" type="button" data-animation="cruise"><span>≈</span>Cruise<kbd>2</kbd></button>
+          <button type="button" data-animation="bite"><span>⋗</span>Bite<kbd>3</kbd></button>
+          <button type="button" data-animation="charge"><span>»</span>Charge<kbd>4</kbd></button>
+          <button type="button" data-animation="hurt"><span>✦</span>Hurt<kbd>5</kbd></button>
+        </div>
+        <div class="viewControls">
+          <button id="pauseButton" type="button" aria-pressed="false">Ⅱ Pause</button>
+          <button id="flipButton" type="button" aria-pressed="false">⇄ Flip direction</button>
+          <label class="zoomControl">Zoom <input id="zoomRange" type="range" min="70" max="145" value="100"><output id="zoomOutput">100%</output></label>
+          <label class="themeControl">Backdrop
+            <select id="themeSelect">
+              <option value="deep">Deep sea</option>
+              <option value="neutral">Neutral test</option>
+              <option value="light">Light test</option>
+            </select>
+          </label>
+          <button id="snapshotButton" type="button">↓ Snapshot PNG</button>
+        </div>
+      </div>
+
+      <article class="modelDescription" aria-live="polite">
+        <div class="descriptionHeading">
+          <div><span id="modelDirection"></span><h1 id="modelName"></h1></div>
+          <div class="variantStepper">
+            <button id="previousModel" type="button" title="Previous model">←</button>
+            <button id="nextModel" type="button" title="Next model">→</button>
+          </div>
+        </div>
+        <p id="modelDescription"></p>
+        <div class="modelTags" id="modelTags"></div>
+        <div class="modelMetrics" id="modelMetrics"></div>
+      </article>
+    </section>
+
+    <section class="modelLibrary" aria-label="Model library">
+      <div class="libraryHeading">
+        <div><span id="libraryEyebrow">REDESIGN STUDY</span><h2 id="libraryTitle">Choose a direction</h2></div>
+        <label class="modelSearch"><span>⌕</span><input id="modelSearch" type="search" placeholder="Filter models…" autocomplete="off"></label>
+      </div>
+      <p class="libraryIntro" id="libraryIntro">Ten new side-profile silhouettes with articulated jaws. Select any card, then stress-test its movement in the viewer.</p>
+      <div class="modelGrid" id="modelGrid"></div>
+      <div class="emptyLibrary" id="emptyLibrary" hidden>No models match this filter.</div>
+    </section>
+  </main>
+</div>
+<script type="module" src="src/modelLab.js"></script>
+</body>
+</html>
