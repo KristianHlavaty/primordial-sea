@@ -8,6 +8,7 @@ import { STAGES } from '../../data/maps.js';
 import { BRANCH_COL, BRANCH_ORDER, BRANCH_LABEL } from '../../data/branches.js';
 import { TreeNode } from './TreeNode.js';
 import { TreeDetail } from './TreeDetail.js';
+import { assignLineageRows } from './treeLayout.js';
 
 const NW = 152, NH = 90, COLW = 182, PADX = 22, PADY = 20;
 const STAGE_IDS = Object.keys(STAGES).sort((a, b) => STAGES[a].order - STAGES[b].order);
@@ -28,19 +29,15 @@ export function TreeModal({ curId, onClose }) {
   const minTier = all.reduce((m, n) => Math.min(m, n.tier), Infinity);
   const maxTier = all.reduce((m, n) => Math.max(m, n.tier), 0);
   const visible = all.filter(n => n.branch === '-' || vis[n.branch]);
-  const byTier = {};
-  visible.forEach(n => { (byTier[n.tier] = byTier[n.tier] || []).push(n); });
-  Object.values(byTier).forEach(l => l.sort((a, b) => (BRANCH_ORDER[a.branch] - BRANCH_ORDER[b.branch]) || a.name.localeCompare(b.name)));
+  const { row, laneCount } = assignLineageRows(visible);
 
-  // the canvas grows with the fullest column so nodes never overlap
-  const maxRow = Object.values(byTier).reduce((m, l) => Math.max(m, l.length), 1);
-  const innerH = Math.max(474, PADY * 2 + maxRow * (NH + 14));
+  // Each terminal lineage owns a stable lane. Parents sit between their
+  // children, and one-child chains remain a clear horizontal line.
+  const rowStep = NH + 14, contentH = laneCount * rowStep;
+  const innerH = Math.max(474, PADY * 2 + contentH), rowTop = (innerH - contentH) / 2;
   const cols = maxTier - minTier;
   const pos = {};
-  for (let t = minTier; t <= maxTier; t++) {
-    const list = byTier[t] || [], n = list.length || 1;
-    list.forEach((node, i) => { pos[node.id] = { x: PADX + (t - minTier) * COLW, yc: PADY + (i + 0.5) * (innerH - PADY * 2) / n }; });
-  }
+  visible.forEach(node => { pos[node.id] = { x: PADX + (node.tier - minTier) * COLW, yc: rowTop + (row[node.id] + .5) * rowStep }; });
   const treeW = PADX * 2 + cols * COLW + NW, treeH = innerH;
   const links = [];
   visible.forEach(n => (n.evolvesTo || []).forEach(cid => { if (pos[cid]) links.push({ from: n.id, to: cid, color: BRANCH_COL[SPECIES[cid].branch] }); }));
