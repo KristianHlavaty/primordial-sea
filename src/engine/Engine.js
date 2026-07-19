@@ -529,8 +529,35 @@ export class Engine {
       const c = this.currentAt(this.cam.x + s.x, this.cam.y + s.y);
       s.px = s.x; s.py = s.y;
       s.x += c.x * dt * 1.8; s.y += c.y * dt * 1.8;
-      if (s.x < -20) { s.x = this.vw + 20; s.px = s.x; } else if (s.x > this.vw + 20) { s.x = -20; s.px = s.x; }
-      if (s.y < -20) { s.y = this.vh + 20; s.py = s.y; } else if (s.y > this.vh + 20) { s.y = -20; s.py = s.y; }
+      let wrappedX = false, wrappedY = false;
+      if (s.x < -20) { s.x = this.vw + 20; s.px = s.x; wrappedX = true; }
+      else if (s.x > this.vw + 20) { s.x = -20; s.px = s.x; wrappedX = true; }
+      if (s.y < -20) { s.y = this.vh + 20; s.py = s.y; wrappedY = true; }
+      else if (s.y > this.vh + 20) { s.y = -20; s.py = s.y; wrappedY = true; }
+      // Screen-edge wrapping is a teleport, not motion. Reset interpolation on
+      // the wrapped axis so high-refresh rendering cannot streak it across the
+      // entire viewport on the next frame.
+      if (wrappedX) { s._renderPrevX = s.x; s._renderPrevPx = s.px; }
+      if (wrappedY) { s._renderPrevY = s.y; s._renderPrevPy = s.py; }
+    }
+  }
+
+  updateBubbles(dt, followCurrent = true) {
+    for (const b of this.bubbles) {
+      b.y -= b.sp * dt; b.x += Math.sin(this.time + b.ph) * 6 * dt;
+      if (followCurrent && this.stage === 'sea') {
+        const current = this.currentAt(this.cam.x + b.x, this.cam.y + b.y);
+        b.x += current.x * dt * 0.5;
+      }
+      let wrappedX = false, wrappedY = false;
+      if (b.y < -4) {
+        b.y = this.vh + 4; b.x = Math.random() * this.vw;
+        wrappedX = true; wrappedY = true;
+      }
+      if (b.x < -12) { b.x = this.vw + 12; wrappedX = true; }
+      else if (b.x > this.vw + 12) { b.x = -12; wrappedX = true; }
+      if (wrappedX) b._renderPrevX = b.x;
+      if (wrappedY) b._renderPrevY = b.y;
     }
   }
 
@@ -792,12 +819,7 @@ export class Engine {
     for (let i = this.webs.length - 1; i >= 0; i--) { const w = this.webs[i]; if (w.life == null) continue; w.life -= dt; if (w.life <= 0) this.webs.splice(i, 1); }
     if (!this.backgrounded) {
       this.updateFlow(dt);
-      for (const b of this.bubbles) {
-        b.y -= b.sp * dt; b.x += Math.sin(this.time + b.ph) * 6 * dt;
-        if (this.stage === 'sea') { const c = this.currentAt(this.cam.x + b.x, this.cam.y + b.y); b.x += c.x * dt * 0.5; }
-        if (b.y < -4) { b.y = this.vh + 4; b.x = Math.random() * this.vw; }
-        if (b.x < -12) b.x = this.vw + 12; else if (b.x > this.vw + 12) b.x = -12;
-      }
+      this.updateBubbles(dt);
     }
 
     // max level: evolve within the stage, or (sea apex) offer to crawl ashore

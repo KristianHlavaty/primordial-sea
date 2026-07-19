@@ -948,7 +948,7 @@ export function mpClientUpdate(engine, dt) {
   }
   engine.shake *= Math.exp(-dt * 8);
   engine.updateFlow(dt);
-  for (const b of engine.bubbles) { b.y -= b.sp * dt; b.x += Math.sin(engine.time + b.ph) * 6 * dt; if (b.y < -4) { b.y = engine.vh + 4; b.x = Math.random() * engine.vw; } }
+  engine.updateBubbles(dt, false);
   for (let i = engine.particles.length - 1; i >= 0; i--) { const q = engine.particles[i]; q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.life <= 0) engine.particles.splice(i, 1); }
   for (let i = engine.floaters.length - 1; i >= 0; i--) { const ft = engine.floaters[i]; ft.x += ft.vx * dt; ft.y += ft.vy * dt; ft.life -= dt; if (ft.life <= 0) engine.floaters.splice(i, 1); }
   for (let i = engine.fx.length - 1; i >= 0; i--) { engine.fx[i].t += dt; if (engine.fx[i].t >= engine.fx[i].max) engine.fx.splice(i, 1); }
