@@ -3,6 +3,7 @@
    one visible eye, one cheek, a hinged lower jaw and readable vertical fins. */
 import { TAU, lerp } from '../core/math.js';
 import { shade, withA } from '../core/color.js';
+import { drawStaticLayer, getStaticLayers, staticLayerScale } from './staticLayerCache.js';
 
 function drawEye(ctx, x, y, radius, iris, blind = false) {
   ctx.fillStyle = blind ? '#24282b' : '#edf4ee'; ctx.strokeStyle = '#152127'; ctx.lineWidth = 1.5;
@@ -339,14 +340,109 @@ function drawGillSlits(ctx, o, L, depth, rearX) {
   ctx.restore();
 }
 
-export function drawDunkleosteus(ctx, o) {
-  const t = o.t || 0, L = o.len, W = o.wid, mouth = Math.max(0, Math.min(1, o.mouth || 0));
-  const sway = o.sway == null ? 1 : o.sway, wag = Math.sin(t * 2.4) * sway;
+function geometryFor(o) {
+  const L = o.len, W = o.wid;
   const headLength = o.headLength || .45, headDepth = W * (o.headDepth || 1.05);
   const bodyTop = W * (o.bodyDepth || .95), bodyBottom = W * (o.bellyDepth || o.bodyDepth || .95);
-  const arch = W * (o.backArch || 0), rearX = L * (.58 - headLength * 1.18), tailX = -L * .74, tailY = wag * W * .08;
+  const arch = W * (o.backArch || 0), rearX = L * (.58 - headLength * 1.18), tailX = -L * .74;
   const hingeX = rearX + L * .17, hingeY = headDepth * .13, profile = snoutProfile(o, L, headDepth);
-  const gape = mouth * (.22 + (o.jawScale || 1) * .24);
+  return { L, W, headDepth, bodyTop, bodyBottom, arch, rearX, tailX, hingeX, hingeY, profile };
+}
+
+function drawStaticBody(ctx, o, g) {
+  const { L, W, headDepth, bodyTop, bodyBottom, arch, rearX, tailX } = g;
+  drawMedianFins(ctx, o, L, W, bodyTop + arch, bodyBottom);
+
+  const bodyGradient = ctx.createLinearGradient(0, -bodyTop - arch, 0, bodyBottom);
+  bodyGradient.addColorStop(0, o.backColor || shade(o.body, .3)); bodyGradient.addColorStop(.48, o.body); bodyGradient.addColorStop(1, o.bellyColor || shade(o.body, -.38));
+  ctx.fillStyle = bodyGradient; ctx.strokeStyle = shade(o.body, -.48); ctx.lineWidth = 2;
+  // The trunk is intentionally stable; the animated tail overlaps this broad
+  // peduncle, so its motion cannot expose a seam beside the cached body.
+  ctx.beginPath(); traceBody(ctx, L, W, rearX, tailX, 0, headDepth, bodyTop, bodyBottom, arch); ctx.fill(); ctx.stroke();
+  drawBellyLight(ctx, o, L, W, rearX, tailX, 0, headDepth, bodyTop, bodyBottom, arch);
+  drawBodyPattern(ctx, o, L, W, bodyTop + arch, bodyBottom);
+}
+
+function drawStaticArmor(ctx, o, g) {
+  const { L, W, headDepth, rearX, hingeX, profile } = g;
+  drawUpperArmor(ctx, o, L, W, rearX, hingeX, headDepth, profile);
+  drawArmorDetails(ctx, o, L, W, rearX, hingeX, headDepth, profile);
+  drawArmorOrnaments(ctx, o, L, W, rearX, headDepth);
+
+  const eyeX = lerp(rearX, profile.x, .6), eyeY = -headDepth * .43, eyeR = Math.max(2.6, W * .17 * (o.eyeSize || 1));
+  drawEye(ctx, eyeX, eyeY, eyeR, o.eyeColor || '#d9e9dc', o.armor === 'scarred');
+  ctx.strokeStyle = o.plateEdge; ctx.lineWidth = 1.7; ctx.beginPath(); ctx.arc(eyeX, eyeY, eyeR + 2.3, 0, TAU); ctx.stroke();
+  if (o.armor === 'scarred') {
+    ctx.strokeStyle = '#cf9b86'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(eyeX - eyeR * 1.8, eyeY - eyeR * 1.45); ctx.lineTo(eyeX + eyeR * 1.7, eyeY + eyeR * 1.4); ctx.stroke();
+  }
+}
+
+function finReach(style) {
+  if (style === 'sail') return 1.65;
+  if (style === 'banner') return 1.55;
+  if (style === 'spined') return 1.22;
+  if (style === 'blade') return 1.18;
+  if (style === 'torn') return 1.1;
+  if (style === 'reduced') return .55;
+  return 1;
+}
+
+function crestReach(style) {
+  return ({
+    'coral-knobs': 1.24, knobs: 1.08, 'rear-horn': 1.18, 'brow-horn': 1.1,
+    'ice-ridge': 1.34, 'square-ridge': 1.04, 'kelp-fringe': 1.38,
+    'double-crown': 1.68, saw: 1.25, antler: 1.53, cathedral: 1.7, crown: 1.5,
+  })[style] || 1.05;
+}
+
+function staticBounds(o, g, resolution) {
+  const { L, W, headDepth, bodyTop, bodyBottom, arch, profile } = g;
+  const finScale = o.finScale || 1, dorsalScale = (o.dorsalScale || 1) * finScale;
+  const top = Math.max(
+    bodyTop + arch,
+    (bodyTop + arch) * .57 + W * dorsalScale * finReach(o.finStyle),
+    headDepth * Math.max(o.armor === 'crested' ? 1.3 : 1, crestReach(o.crestStyle)),
+  );
+  const analStyle = o.finStyle === 'sail' ? 'swept' : o.finStyle;
+  const bottom = Math.max(bodyBottom, bodyBottom * .52 + W * finScale * .62 * finReach(analStyle), headDepth * .72);
+  const pad = Math.max(4, 12 / resolution);
+  const x = -L * .79 - pad, y = -top - pad;
+  return { x, y, width: Math.max(profile.x, L * 1.13) + pad - x, height: bottom + pad - y };
+}
+
+const STATIC_VISUAL_KEYS = [
+  'len', 'wid', 'body', 'backColor', 'bellyColor', 'bellyLight', 'bellyPatch',
+  'accent', 'plate', 'plateEdge', 'blade', 'eyeColor', 'eyeSize', 'glow', 'gillColor', 'gillSlits',
+  'headLength', 'headDepth', 'bodyDepth', 'bellyDepth', 'backArch', 'snout', 'armor', 'crestStyle',
+  'finStyle', 'finScale', 'dorsalScale', 'pattern',
+];
+
+function staticVisualKey(o) {
+  return JSON.stringify(STATIC_VISUAL_KEYS.map(key => o[key] == null ? null : o[key]));
+}
+
+function cachedStaticLayers(ctx, o, g) {
+  if (o.staticCache === false) return null;
+  const resolution = staticLayerScale(ctx); if (!resolution) return null;
+  const bounds = staticBounds(o, g, resolution);
+  return getStaticLayers('dunkleosteus', staticVisualKey(o), bounds, resolution, [
+    layerCtx => drawStaticBody(layerCtx, o, g),
+    layerCtx => drawStaticArmor(layerCtx, o, g),
+  ]);
+}
+
+function drawGillJoint(ctx, o, g) {
+  const { L, headDepth, rearX } = g;
+  ctx.fillStyle = withA(o.accent, .34); ctx.strokeStyle = withA(o.plateEdge, .76); ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.ellipse(rearX + L * .035, headDepth * .03, L * .09, headDepth * .39, -.08, 0, TAU); ctx.fill(); ctx.stroke();
+  drawGillSlits(ctx, o, L, headDepth, rearX);
+}
+
+export function drawDunkleosteus(ctx, o) {
+  const t = o.t || 0, mouth = Math.max(0, Math.min(1, o.mouth || 0));
+  const sway = o.sway == null ? 1 : o.sway, wag = Math.sin(t * 2.4) * sway;
+  const g = geometryFor(o), { L, W, headDepth, rearX, tailX, hingeX, hingeY, profile } = g;
+  const tailY = wag * W * .08, gape = mouth * (.22 + (o.jawScale || 1) * .24);
 
   ctx.save();
   if (o.glow) {
@@ -356,35 +452,15 @@ export function drawDunkleosteus(ctx, o) {
   }
 
   drawTail(ctx, o, L, W, tailX, tailY, wag);
-  drawMedianFins(ctx, o, L, W, bodyTop + arch, bodyBottom);
-
-  const bodyGradient = ctx.createLinearGradient(0, -bodyTop - arch, 0, bodyBottom);
-  bodyGradient.addColorStop(0, o.backColor || shade(o.body, .3)); bodyGradient.addColorStop(.48, o.body); bodyGradient.addColorStop(1, o.bellyColor || shade(o.body, -.38));
-  ctx.fillStyle = bodyGradient; ctx.strokeStyle = shade(o.body, -.48); ctx.lineWidth = 2;
-  ctx.beginPath(); traceBody(ctx, L, W, rearX, tailX, tailY, headDepth, bodyTop, bodyBottom, arch); ctx.fill(); ctx.stroke();
-  drawBellyLight(ctx, o, L, W, rearX, tailX, tailY, headDepth, bodyTop, bodyBottom, arch);
-  drawBodyPattern(ctx, o, L, W, bodyTop + arch, bodyBottom);
+  const staticLayers = cachedStaticLayers(ctx, o, g);
+  if (!drawStaticLayer(ctx, staticLayers, 0)) drawStaticBody(ctx, o, g);
 
   // Far pectoral fin sits behind the cheek; the near fin is redrawn later.
   ctx.save(); ctx.globalAlpha = .3; drawPectoralFin(ctx, o, L, W, rearX - L * .02, headDepth * .2, t + 1.2); ctx.restore();
   drawJaw(ctx, o, L, W, hingeX, hingeY, profile, headDepth, gape);
-  drawUpperArmor(ctx, o, L, W, rearX, hingeX, headDepth, profile);
-  drawArmorDetails(ctx, o, L, W, rearX, hingeX, headDepth, profile);
-  drawArmorOrnaments(ctx, o, L, W, rearX, headDepth);
-
-  // One visible orbital opening is the strongest immediate side-view cue.
-  const eyeX = lerp(rearX, profile.x, .6), eyeY = -headDepth * .43, eyeR = Math.max(2.6, W * .17 * (o.eyeSize || 1));
-  drawEye(ctx, eyeX, eyeY, eyeR, o.eyeColor || '#d9e9dc', o.armor === 'scarred');
-  ctx.strokeStyle = o.plateEdge; ctx.lineWidth = 1.7; ctx.beginPath(); ctx.arc(eyeX, eyeY, eyeR + 2.3, 0, TAU); ctx.stroke();
-  if (o.armor === 'scarred') {
-    ctx.strokeStyle = '#cf9b86'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(eyeX - eyeR * 1.8, eyeY - eyeR * 1.45); ctx.lineTo(eyeX + eyeR * 1.7, eyeY + eyeR * 1.4); ctx.stroke();
-  }
+  if (!drawStaticLayer(ctx, staticLayers, 1)) drawStaticArmor(ctx, o, g);
 
   drawPectoralFin(ctx, o, L, W, rearX - L * .01, headDepth * .27, t);
-
-  // Gill/neck joint separates rigid armor from the flexible living trunk.
-  ctx.fillStyle = withA(o.accent, .34); ctx.strokeStyle = withA(o.plateEdge, .76); ctx.lineWidth = 1.3;
-  ctx.beginPath(); ctx.ellipse(rearX + L * .035, headDepth * .03, L * .09, headDepth * .39, -.08, 0, TAU); ctx.fill(); ctx.stroke();
-  drawGillSlits(ctx, o, L, headDepth, rearX);
+  drawGillJoint(ctx, o, g);
   ctx.restore();
 }
