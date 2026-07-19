@@ -204,6 +204,59 @@ function drawUnderwaterMine(E, ctx, x, y, projectile, color) {
   ctx.restore();
 }
 
+function drawBoneClubShape(ctx, reach, alpha = 1) {
+  const start = reach * .12, end = reach * .86, shaft = Math.max(5, reach * .038);
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.lineJoin = 'round';
+
+  const bone = ctx.createLinearGradient(start, -shaft, end, shaft);
+  bone.addColorStop(0, '#9f8053'); bone.addColorStop(.14, '#d8bc83');
+  bone.addColorStop(.48, '#f1dca7'); bone.addColorStop(.78, '#c8a66e'); bone.addColorStop(1, '#7b5d3e');
+  ctx.fillStyle = bone; ctx.strokeStyle = '#5c432f'; ctx.lineWidth = Math.max(2, reach * .018);
+  ctx.beginPath();
+  ctx.moveTo(start + 11, -shaft);
+  ctx.lineTo(end - 15, -shaft * 1.15);
+  ctx.bezierCurveTo(end - 6, -shaft * 1.3, end - 8, -shaft * 3.2, end + 2, -shaft * 3.45);
+  ctx.bezierCurveTo(end + 13, -shaft * 3.7, end + 18, -shaft * 1.7, end + 9, -shaft * .35);
+  ctx.bezierCurveTo(end + 19, shaft * 1.25, end + 13, shaft * 3.45, end + 2, shaft * 3.35);
+  ctx.bezierCurveTo(end - 8, shaft * 3.15, end - 6, shaft * 1.3, end - 15, shaft * 1.15);
+  ctx.lineTo(start + 11, shaft);
+  ctx.bezierCurveTo(start + 5, shaft * .9, start + 5, shaft * 2.15, start - 2, shaft * 2.35);
+  ctx.bezierCurveTo(start - 10, shaft * 2.55, start - 13, shaft * .8, start - 7, 0);
+  ctx.bezierCurveTo(start - 13, -shaft * .85, start - 9, -shaft * 2.45, start - 2, -shaft * 2.35);
+  ctx.bezierCurveTo(start + 5, -shaft * 2.15, start + 5, -shaft * .9, start + 11, -shaft);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+
+  // Highlight, pores and small cracks keep the swinging silhouette visibly bone-like.
+  ctx.strokeStyle = `rgba(255,245,210,${.58 * alpha})`; ctx.lineWidth = Math.max(1.2, reach * .011);
+  ctx.beginPath(); ctx.moveTo(start + 15, -shaft * .35); ctx.quadraticCurveTo(reach * .48, -shaft * .75, end - 17, -shaft * .45); ctx.stroke();
+  ctx.fillStyle = `rgba(91,62,38,${.48 * alpha})`;
+  for (const spot of [[.55, -.22, .018], [.7, .28, .014], [.3, .18, .012]]) {
+    ctx.beginPath(); ctx.ellipse(reach * spot[0], shaft * spot[1], reach * spot[2], reach * spot[2] * .55, 0, 0, TAU); ctx.fill();
+  }
+  ctx.strokeStyle = `rgba(92,60,36,${.58 * alpha})`; ctx.lineWidth = Math.max(1, reach * .009);
+  ctx.beginPath(); ctx.moveTo(end - 12, -shaft * .7); ctx.lineTo(end - 22, 0); ctx.lineTo(end - 15, shaft * .55); ctx.stroke();
+  ctx.restore();
+}
+
+function drawBoneClubSwing(ctx, x, y, projectile, frac) {
+  const progress = 1 - frac, eased = progress * progress * (3 - 2 * progress);
+  const spread = projectile.spread || .8, reach = projectile.radius || 150;
+  const angle = projectile.angle - spread + eased * spread * 2;
+  const visibility = clamp(progress * 9, 0, 1) * clamp(frac * 5, 0, 1);
+  ctx.save(); ctx.translate(x, y);
+
+  // Translucent copies follow the club itself, making the fast rotation readable
+  // without falling back to the old detached neon arc.
+  for (let i = 3; i >= 1; i--) {
+    ctx.save(); ctx.rotate(angle - spread * .085 * i); ctx.globalAlpha = visibility * (.045 + (3 - i) * .035);
+    drawBoneClubShape(ctx, reach, .72); ctx.restore();
+  }
+  ctx.rotate(angle); ctx.globalAlpha = visibility;
+  ctx.shadowColor = 'rgba(255,220,150,.48)'; ctx.shadowBlur = 8;
+  drawBoneClubShape(ctx, reach);
+  ctx.restore();
+}
+
 function drawExplosion(ctx, x, y, projectile, def, color, frac) {
   const progress = 1 - frac, eased = 1 - (1 - progress) ** 3;
   const shockR = projectile.radius || (def && def.shockRadius) || 220;
@@ -416,11 +469,14 @@ export function drawItemProjectile(E, projectile) {
   } else if (projectile.visual === 'impact') {
     drawImpact(ctx, x, y, projectile, color, frac);
   } else if (projectile.visual === 'swing') {
-    ctx.save(); ctx.globalAlpha = Math.min(1, frac * 1.7); ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = color; ctx.lineWidth = 7; ctx.shadowColor = color; ctx.shadowBlur = 8;
-    ctx.beginPath(); ctx.arc(x, y, projectile.radius, projectile.angle - (projectile.spread || .8), projectile.angle + (projectile.spread || .8)); ctx.stroke();
-    ctx.strokeStyle = withA('#ffffff', .7); ctx.lineWidth = 2.2; ctx.shadowBlur = 3;
-    ctx.beginPath(); ctx.arc(x, y, projectile.radius * .94, projectile.angle - (projectile.spread || .8), projectile.angle + (projectile.spread || .8)); ctx.stroke(); ctx.restore();
+    if (projectile.type === 'bone_club') drawBoneClubSwing(ctx, x, y, projectile, frac);
+    else {
+      ctx.save(); ctx.globalAlpha = Math.min(1, frac * 1.7); ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = color; ctx.lineWidth = 7; ctx.shadowColor = color; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(x, y, projectile.radius, projectile.angle - (projectile.spread || .8), projectile.angle + (projectile.spread || .8)); ctx.stroke();
+      ctx.strokeStyle = withA('#ffffff', .7); ctx.lineWidth = 2.2; ctx.shadowBlur = 3;
+      ctx.beginPath(); ctx.arc(x, y, projectile.radius * .94, projectile.angle - (projectile.spread || .8), projectile.angle + (projectile.spread || .8)); ctx.stroke(); ctx.restore();
+    }
   } else if (projectile.visual === 'pulse' || projectile.visual === 'mine_ping') {
     drawPulse(ctx, x, y, projectile, color, frac);
   } else if (projectile.visual === 'force_field_burst') {
