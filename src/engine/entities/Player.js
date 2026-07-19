@@ -50,7 +50,7 @@ export class Player extends Entity {
     this.poisonT = 0; this.poisonDps = 0; this.poisonTick = 0; this.poisonOwner = null; this.venomStacks = 0; this.venomMarkT = 0;
     this.stunT = 0; this.slowT = 0; this.armorBreakT = 0; this.vulnerableT = 0;
     this.rebirthUsed = false;   // Colony Rebirth fires once per life
-    this.kills = 0; this.deaths = 0; this.deadT = 0; this.spawnProtT = 0;   // multiplayer FFA state
+    this.kills = 0; this.deaths = 0; this.deadT = 0; this.spawnProtT = 0;   // FFA and optional solo respawn state
     this.mpInvincible = false;  // per-player testing cheat; authoritative on the multiplayer host
     this.mpEvolveChoices = [];  // host-authoritative same-stage choices, empty during normal play
     this.vehicle = null; this.vehicleType = null; this.vehicleNetId = null; this.vehicleCreatureRadius = null;
@@ -75,7 +75,7 @@ export class Player extends Entity {
   }
   wantsBite(game) { return game.biteHeld; }
 
-  /* Multiplayer FFA: pop back in at a random spot with brief spawn immunity. */
+  /* Pop back in at a random spot with brief spawn immunity. */
   respawn(game) {
     this.hp = this.maxHp; this.shield = 0; this.shieldT = 0; this.forceFieldT = 0; this.vx = 0; this.vy = 0;
     this.biteT = 0; this.cd = 0; this.hitSet = null;
@@ -266,6 +266,8 @@ export class Player extends Entity {
           game.fx.push({ x: this.x, y: this.y, t: 0, max: 0.6, R: this.radius + 90, color: '#a0ffd8', dir: 'out', width: 4 });
           addFloater(game, { x: this.x, y: this.y - this.radius - 12, vx: 0, vy: -34, text: 'REBIRTH', life: 1.5, max: 1.5, color: '#a0ffd8', size: 16 });
           game.shake = Math.min(12, game.shake + 6); game.sfx.play('evolve');
+        } else if (!game.mp && game.respawnsEnabled) {
+          game.singlePlayerDied(this); return;
         } else {
           this.hp = 0; game.dead = true; game.paused = true;
           burst(game, this.x, this.y, '#ffd2d2', 26, 220); game.pushHud(true);
@@ -295,7 +297,7 @@ export class Player extends Entity {
   }
 
   update(game, dt) {
-    if (this.deadT > 0) {              // multiplayer: dead & respawning — inert until the timer ends
+    if (this.deadT > 0) {              // dead & respawning — inert until the timer ends
       this.deadT = Math.max(0, this.deadT - dt);
       if (this.deadT > 0) return;
       this.respawn(game);

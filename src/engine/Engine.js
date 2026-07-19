@@ -112,6 +112,7 @@ export class Engine {
     // UI-facing bits
     this.showLevels = true;
     this.fantasyEvolution = false;
+    this.respawnsEnabled = true;
     this.itemsEnabled = true;
     this.funItems = false;
     this.cheatsEnabled = false; this.invincible = false;
@@ -157,6 +158,7 @@ export class Engine {
   start(options = {}) {
     this.resetRun();
     this.fantasyEvolution = !!options.fantasyEvolution;
+    this.respawnsEnabled = options.respawns !== false;
     this.itemsEnabled = options.items !== false;
     this.funItems = this.itemsEnabled && !!options.funItems;
     this.cheatsEnabled = !!options.cheats; this.invincible = false;
@@ -171,6 +173,7 @@ export class Engine {
   startAt(speciesId, options = {}) {
     this.resetRun();
     this.fantasyEvolution = !!options.fantasyEvolution;
+    this.respawnsEnabled = options.respawns !== false;
     this.itemsEnabled = options.items !== false;
     this.funItems = this.itemsEnabled && !!options.funItems;
     this.cheatsEnabled = !!options.cheats; this.invincible = false;
@@ -317,6 +320,16 @@ export class Engine {
     const text = killer ? (this.mpNameOf(killer) + ' ate ' + this.mpNameOf(victim)) : (this.mpNameOf(victim) + ' was eaten');
     this.mpAddFeed(text, killer ? this.mpColorOf(killer) : '#cfd8e0');
     if (this.mp.lobby) this.mp.lobby.raw({ t: 'relay', data: { k: 'K', text, color: killer ? this.mpColorOf(killer) : '#cfd8e0' } });
+    burst(this, victim.x, victim.y, '#ffd2d2', 26, 220); this.sfx.play('kill'); this.pushHud(true);
+  }
+  /* Optional single-player death handling: preserve the run and current form,
+     then reuse the same short, protected respawn cycle as multiplayer. */
+  singlePlayerDied(victim) {
+    if (this.mp || !this.respawnsEnabled || !victim || victim.deadT > 0) return;
+    if (victim.vehicle) exitVehicle(this, victim, true);
+    victim.hp = 0; victim.deadT = 3.5; victim.deaths = (victim.deaths || 0) + 1;
+    victim.shield = 0; victim.forceFieldT = 0;
+    this.releaseInput();
     burst(this, victim.x, victim.y, '#ffd2d2', 26, 220); this.sfx.play('kill'); this.pushHud(true);
   }
   mpNameOf(p) { return p === this.player ? this.mp.selfName : (p.name || 'Player'); }
@@ -483,7 +496,7 @@ export class Engine {
   applyCurrent(dt) {
     if (this.stage !== 'sea') return;
     for (const player of this.allPlayers()) {
-      if (player.vehicle) continue;
+      if (player.vehicle || player.deadT > 0) continue;
       const current = this.currentAt(player.x, player.y);
       player.x = clamp(player.x + current.x * dt, player.radius, this.W - player.radius);
       player.y = clamp(player.y + current.y * dt, player.radius, this.H - player.radius);
@@ -750,7 +763,7 @@ export class Engine {
 
     for (const player of this.allPlayers()) player.update(this, dt);
 
-    if ((!this.mp && this.maybeCrossEdge(dt)) || (this.mp && this.mp.role === 'host' && mpMaybeCrossMap(this, dt))) return;
+    if ((!this.mp && p.deadT <= 0 && this.maybeCrossEdge(dt)) || (this.mp && this.mp.role === 'host' && mpMaybeCrossMap(this, dt))) return;
 
     // creatures (list may shrink mid-loop when something dies)
     this.danger = Math.max(0, this.danger - dt * 0.6);
@@ -940,6 +953,7 @@ export class Engine {
       canEvolve: p ? (this.mp ? mpChoices.length > 0 : p.species.evolvesTo.length > 0) : false, showLevels: this.showLevels,
       name: p ? p.species.name : '', branch: p ? p.species.branch : '-', tier: p ? p.species.tier : 0, era: this.era,
       kills: this.kills, dead: this.dead, paused: this.paused, pendingEvolve: pendingEvolution, evolveMode: this.mp ? 'normal' : this.evolveMode,
+      respawning: !!(!this.mp && p && p.deadT > 0), respawnIn: !this.mp && p ? Math.ceil(p.deadT || 0) : 0,
       choices: this.mp ? mpChoices.slice() : this.choices.slice(), muted: this.sfx.muted,
       abilities: abils, shield: p ? Math.round(p.shield) : 0, shieldMax: p ? p.shieldMax : 0,
       forceFieldTime: p ? Math.max(0, Math.ceil(p.forceFieldT || 0)) : 0,

@@ -10,13 +10,14 @@ export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onE
   const [view, setView] = useState('home');   // 'home' | 'single'
   const [showLand, setShowLand] = useState(false);
   const [fantasyEvolution, setFantasyEvolution] = useState(true);
+  const [respawns, setRespawns] = useState(true);
   const [items, setItems] = useState(true);
   const [funItems, setFunItems] = useState(false);
   const [cheats, setCheats] = useState(false);
 
   const pioneerBtn = id => {
     const sp = SPECIES[id];
-    return html`<button key=${id} className=${'skipBtn ' + sp.branch} onClick=${() => onSkipToLand(id, { fantasyEvolution, items, funItems: items && funItems, cheats })}>
+    return html`<button key=${id} className=${'skipBtn ' + sp.branch} onClick=${() => onSkipToLand(id, { fantasyEvolution, respawns, items, funItems: items && funItems, cheats })}>
       ${sp.name}<small>${BRANCH_WORD[sp.branch] || sp.branch}</small></button>`;
   };
 
@@ -61,6 +62,9 @@ export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onE
       <label className="fantasyToggle"><input type="checkbox" checked=${fantasyEvolution} onChange=${e => setFantasyEvolution(e.target.checked)}/>
         Enable fantasy evolution bridges <small>(adds speculative land descendants for cnidarians and molluscs)</small>
       </label>
+      <label className="respawnsToggle"><input type="checkbox" checked=${respawns} onChange=${e => setRespawns(e.target.checked)}/>
+        Enable respawns <small>(return after being eaten without losing run progress)</small>
+      </label>
       <label className="itemsToggle"><input type="checkbox" checked=${items} onChange=${e => { setItems(e.target.checked); if (!e.target.checked) setFunItems(false); }}/>
         Enable collectible items <small>(adds item drops and the Q/E/F inventory slots)</small>
       </label>
@@ -68,7 +72,7 @@ export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onE
         Enable fun weapons & vehicles <small>(adds modern weapons, submarines in water and attack helicopters on land)</small>
       </label>
       <label className="cheatsToggle"><input type="checkbox" checked=${cheats} onChange=${e => setCheats(e.target.checked)}/> Cheats <small>(show testing controls in game)</small></label>
-      <button className="bigbtn" onClick=${() => onBegin({ fantasyEvolution, items, funItems: items && funItems, cheats })}>BEGIN LIFE</button>
+      <button className="bigbtn" onClick=${() => onBegin({ fantasyEvolution, respawns, items, funItems: items && funItems, cheats })}>BEGIN LIFE</button>
       <div className="skipRow">
         <button className="skipToggle" onClick=${() => setShowLand(v => !v)}>${showLand ? '▾ hide' : '▸ skip ahead'}</button>
         ${showLand && html`

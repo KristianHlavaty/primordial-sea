@@ -88,6 +88,9 @@
 .fantasyToggle { display:flex; align-items:center; justify-content:center; gap:8px; margin:14px 0 10px; color:var(--dim); cursor:pointer; }
 .fantasyToggle input { accent-color:#b79bff; }
 .fantasyToggle small { opacity:.8; }
+.respawnsToggle { display:flex; align-items:center; justify-content:center; gap:7px; margin:-2px 0 10px; color:#8fded0; font-size:12px; cursor:pointer; }
+.respawnsToggle input { accent-color:#64e0ca; }
+.respawnsToggle small { color:var(--dim); }
 .itemsToggle { display:flex; align-items:center; justify-content:center; gap:7px; margin:-2px 0 10px; color:#9fd8c8; font-size:12px; cursor:pointer; }
 .itemsToggle input { accent-color:#62c9ad; }
 .itemsToggle small { color:var(--dim); }

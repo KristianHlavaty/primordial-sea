@@ -42,7 +42,7 @@ export function App() {
   const begin = options => { engineRef.current.start(options); setMpMenuOpen(false); setPhase('play'); };
   const skipToLand = (id, options) => { engineRef.current.startAt(id, options); setMpMenuOpen(false); setPhase('play'); };
   // "Evolve again" from the death screen — keep the run's gameplay settings
-  const restartRun = () => { const e = engineRef.current; e.start({ fantasyEvolution: e.fantasyEvolution, items: e.itemsEnabled, funItems: e.funItems, cheats: e.cheatsEnabled }); setPhase('play'); };
+  const restartRun = () => { const e = engineRef.current; e.start({ fantasyEvolution: e.fantasyEvolution, respawns: e.respawnsEnabled, items: e.itemsEnabled, funItems: e.funItems, cheats: e.cheatsEnabled }); setPhase('play'); };
   const blockForContent = blocked => {
     const e = engineRef.current; if (!e) return;
     if (e.mp) e.setInputSuppressed(blocked); else e.setPaused(blocked);
@@ -138,6 +138,11 @@ export function App() {
       ${phase === 'play' && hud && hud.mpRole && html`<button className="mpLeaveBtn" onClick=${mainMenu} title="Leave the shared game">‹ Leave game</button>`}
 
       ${phase === 'play' && hud && hud.mpRole && html`<${MpHud} hud=${hud}/>`}
+
+      ${phase === 'play' && hud && hud.respawning && html`
+        <div className="mpRespawn">
+          <div className="mpRespawnCard"><b>You were eaten!</b><span>Respawning in ${hud.respawnIn}…</span></div>
+        </div>`}
 
       ${phase === 'play' && hud && hud.achievement && html`<${AchievementToast} key=${hud.achievement.id} ach=${hud.achievement} onClose=${closeAchievement}/>`}
 
