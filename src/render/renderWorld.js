@@ -344,6 +344,14 @@ function drawPanderodusEffects(E, c, sx, sy) {
   }
 }
 
+/* Creature animation must use a stable rate. Multiplying total elapsed time by
+   instantaneous velocity makes even tiny speed changes become huge phase jumps
+   later in a run (most visible on plankton's fast cilia and body pulse). */
+export function creatureAnimPhase(entity, time) {
+  const ratedSpeed = Number.isFinite(entity.maxSpeed) ? clamp(entity.maxSpeed, 0, 480) : 0;
+  return time * (2 + ratedSpeed / 120) + (entity.animOff || 0);
+}
+
 /* Draw a creature/player at its world position (screen-space transform,
    flip vertically when facing left so it never renders upside-down). */
 function drawEntity(E, e) {
@@ -357,12 +365,11 @@ function drawEntity(E, e) {
   ctx.scale(sc * (ramming ? 1.16 : 1), sc * (ramming ? .84 : 1));
   if (e.stealthT > 0) ctx.globalAlpha *= .45;
   if (e.camoCharge > 0) ctx.globalAlpha *= 1 - e.camoCharge * .38;
-  const speed = hyp(e.vx, e.vy);
   const panderodusEnraged = e.bossKind === 'panderodus' && e.hp < e.maxHp * .45;
   const plan = frenzy ? { ...e.plan, body: '#b32238', accent: '#ff665c', glow: '#ff3048' }
     : panderodusEnraged ? { ...e.plan, body: '#821b2b', accent: '#ff8d82', glow: '#ff3048' } : e.plan;
   drawCreature(ctx, Object.assign({
-    t: E.time * (2 + speed / 120) + e.animOff, mouth: e.mouth, hurt: e.hurt,
+    t: creatureAnimPhase(e, E.time), mouth: e.mouth, hurt: e.hurt,
     scream: e.screamT > 0, tailSlap: clamp((e.tailSlapT || 0) / .55, 0, 1), enraged: panderodusEnraged,
   }, plan));
   ctx.restore();
