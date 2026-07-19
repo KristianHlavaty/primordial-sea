@@ -234,6 +234,35 @@ function updateMine(game, mine, dt) {
   return false;
 }
 
+function updateCatAttack(game, cat, dt) {
+  const def = ITEMS[cat.type], target = cat.target;
+  const targetHere = target && target.hp > 0
+    && (!isPlayer(target) || !game.mp || (target.mapId || game.mapId) === game.mapId);
+  if (!targetHere) {
+    cat.life = Math.min(cat.life, 0.22);
+    cat.scratchesDone = def.scratches;
+    return;
+  }
+
+  cat.x = target.x; cat.y = target.y; cat.radius = Math.max(18, target.radius || 18);
+  cat.scratchT -= dt;
+  while (cat.scratchT <= 0 && cat.scratchesDone < def.scratches && target.hp > 0) {
+    cat.scratchesDone++;
+    cat.scratchT += def.scratchInterval;
+    const finalSwipe = cat.scratchesDone === def.scratches;
+    const sourceDistance = cat.radius + 54;
+    const sourceX = cat.x - Math.cos(cat.angle) * sourceDistance;
+    const sourceY = cat.y - Math.sin(cat.angle) * sourceDistance;
+    damageTarget(game, cat.owner, target, def.damage / def.scratches, sourceX, sourceY, finalSwipe ? 320 : 0);
+    addVisual(game, 'cat_slash', {
+      type: cat.type, x: cat.x, y: cat.y, angle: cat.angle + rand(-0.16, 0.16),
+      radius: cat.radius + 34, color: def.color, life: 0.3, seed: Math.floor(rand(1, 100000)),
+    });
+    burst(game, cat.x, cat.y, finalSwipe ? '#fff1c2' : def.color, finalSwipe ? 14 : 8, finalSwipe ? 175 : 115);
+    game.shake = Math.min(22, game.shake + (finalSwipe ? 3 : 1.4)); game.sfx.play('cat_scratch');
+  }
+}
+
 function fireItem(game, actor, held, def) {
   const angle = actor.angle, fx = Math.cos(angle), fy = Math.sin(angle);
   if (def.kind === 'shield') {
@@ -270,6 +299,24 @@ function fireItem(game, actor, held, def) {
     addVisual(game, 'muzzle', { type: held.id, x: mx, y: my, angle: shotAngle, radius: 34, color: def.color, life: 0.14, seed: Math.floor(rand(1, 100000)) });
     addVisual(game, 'impact', { type: held.id, x: mx + Math.cos(shotAngle) * hit.distance, y: my + Math.sin(shotAngle) * hit.distance, angle: shotAngle, radius: hit.target ? 25 : 15, color: def.color, life: 0.22, seed: Math.floor(rand(1, 100000)) });
     game.shake = Math.min(22, game.shake + 1.2); game.sfx.play('shot');
+  } else if (def.kind === 'laser_pointer') {
+    const hit = rayTarget(game, actor, angle, def.range, def.lockWidth);
+    const start = actor.radius + 7, mx = actor.x + fx * start, my = actor.y + fy * start;
+    addVisual(game, 'laser_pointer', {
+      type: held.id, x: mx, y: my, angle, length: Math.max(0, hit.distance - start),
+      radius: hit.target ? Math.max(18, hit.target.radius || 18) : 12,
+      color: def.color, life: 0.42, seed: Math.floor(rand(1, 100000)),
+    });
+    game.sfx.play('laser_pointer');
+    if (hit.target) {
+      game.itemProjectiles.push({
+        type: held.id, visual: 'cat_attack', owner: actor, ownerConn: actorConn(game, actor), target: hit.target,
+        x: hit.target.x, y: hit.target.y, angle, radius: Math.max(18, hit.target.radius || 18),
+        life: def.catDuration, maxLife: def.catDuration, scratchT: def.scratchDelay, scratchesDone: 0,
+        seed: Math.floor(rand(1, 100000)), color: def.color,
+      });
+      burst(game, hit.target.x, hit.target.y, '#fff1d2', 18, 155); game.sfx.play('cat_appear');
+    }
   } else if (def.kind === 'pulse') {
     const shockRadius = def.shockRadius || def.blast;
     for (const target of targets(game, actor)) {
@@ -396,6 +443,11 @@ function updateProjectiles(game, dt) {
     }
     if (p.visual === 'mine') {
       if (updateMine(game, p, dt)) game.itemProjectiles.splice(i, 1);
+      continue;
+    }
+    if (p.visual === 'cat_attack') {
+      updateCatAttack(game, p, dt);
+      if (p.life <= 0) game.itemProjectiles.splice(i, 1);
       continue;
     }
     if (p.visual !== 'projectile') { if (p.life <= 0) game.itemProjectiles.splice(i, 1); continue; }

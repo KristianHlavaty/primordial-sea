@@ -831,6 +831,12 @@ function applySnapshot(engine, s) {
       engine.sfx.play(projectile.armed ? 'mine_arm' : 'mine_deploy');
     } else if (projectile.visual === 'mine' && projectile.armed && !previousArmed) {
       engine.sfx.play('mine_arm');
+    } else if (fresh && projectile.visual === 'laser_pointer') {
+      engine.sfx.play('laser_pointer');
+    } else if (fresh && projectile.visual === 'cat_attack') {
+      engine.sfx.play('cat_appear');
+    } else if (fresh && projectile.visual === 'cat_slash') {
+      engine.shake = Math.min(22, engine.shake + 1.5); engine.sfx.play('cat_scratch');
     } else if (projectile.visual === 'black_hole' && previousVisual !== 'black_hole') {
       engine.shake = Math.min(22, engine.shake + 10); engine.sfx.play('black_hole');
     } else if (fresh && projectile.visual === 'force_field_burst') {

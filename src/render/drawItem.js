@@ -33,6 +33,13 @@ export function drawItemIcon(ctx, id, size) {
     ctx.rotate(-.35); ctx.beginPath(); ctx.roundRect(-r, -r * .3, r * 1.65, r * .6, r * .18); ctx.fill(); ctx.stroke();
     ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r * .6, -r * .45); ctx.lineTo(r * .6, r * .45); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(-r * .62, -r * .48); ctx.lineTo(-r * .62, r * .48); ctx.closePath(); ctx.fill();
+  } else if (id === 'laser_pointer') {
+    ctx.rotate(-.3); ctx.fillStyle = '#352d36'; ctx.beginPath(); ctx.roundRect(-r * .82, -r * .3, r * 1.45, r * .6, r * .25); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = color; ctx.fillRect(-r * .65, -r * .28, r * .34, r * .56);
+    ctx.fillStyle = '#b8b4bb'; ctx.fillRect(r * .52, -r * .22, r * .3, r * .44);
+    ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = withA(color, .72); ctx.lineWidth = Math.max(1.2, size * .035); ctx.shadowColor = color; ctx.shadowBlur = r * .55;
+    ctx.beginPath(); ctx.moveTo(r * .82, 0); ctx.lineTo(r * 1.26, 0); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(r * 1.32, 0, r * .11, 0, TAU); ctx.fill();
   } else if (id === 'orbital_strike') {
     ctx.beginPath(); ctx.arc(0, r * .18, r * .78, 0, TAU); ctx.stroke();
     ctx.beginPath(); ctx.arc(0, r * .18, r * .36, 0, TAU); ctx.stroke();
@@ -450,6 +457,121 @@ function drawBlackHole(E, ctx, x, y, projectile, def, color, frac) {
   ctx.restore();
 }
 
+function drawLaserPointer(ctx, x, y, projectile, color, frac) {
+  const length = projectile.length || 0, ex = x + Math.cos(projectile.angle) * length, ey = y + Math.sin(projectile.angle) * length;
+  const targetR = projectile.radius || 12, progress = 1 - frac, pulse = .5 + .5 * Math.sin(progress * 52 + (projectile.seed || 1));
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  ctx.strokeStyle = withA(color, frac * .24); ctx.lineWidth = 7; ctx.shadowColor = color; ctx.shadowBlur = 15;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
+  ctx.strokeStyle = withA('#fff3f5', frac * .96); ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
+  const dot = ctx.createRadialGradient(ex, ey, 0, ex, ey, 10 + pulse * 5);
+  dot.addColorStop(0, '#ffffff'); dot.addColorStop(.18, color); dot.addColorStop(1, withA(color, 0));
+  ctx.fillStyle = dot; ctx.beginPath(); ctx.arc(ex, ey, 10 + pulse * 5, 0, TAU); ctx.fill();
+  ctx.strokeStyle = withA(color, frac * (.45 + pulse * .35)); ctx.lineWidth = 1.8; ctx.setLineDash([4, 6]);
+  ctx.beginPath(); ctx.arc(ex, ey, targetR + 8 + progress * 8, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+}
+
+function drawCatAttack(E, ctx, x, y, projectile, frac) {
+  const progress = 1 - frac, targetR = Math.max(18, projectile.radius || 18);
+  const size = clamp(35 + targetR * .22, 39, 66), seed = projectile.seed || 1;
+  const appear = clamp(progress * 8, 0, 1) * clamp(frac * 7, 0, 1);
+  const swipe = Math.sin(progress * TAU * 5.7), gait = Math.sin(progress * TAU * 8.5);
+  const bodyX = -targetR - size * 1.02, headX = -targetR - size * .36;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(projectile.angle || 0); ctx.globalAlpha = appear;
+
+  // Cartoon smoke makes the cat visibly pop into existence and vanish again.
+  const poof = Math.max(clamp(1 - progress * 5.2, 0, 1), clamp((.2 - frac) * 5, 0, 1));
+  if (poof > 0) {
+    ctx.fillStyle = withA('#fff8e8', poof * .72); ctx.strokeStyle = withA('#ffb8c5', poof * .55); ctx.lineWidth = 2;
+    for (let i = 0; i < 9; i++) {
+      const a = i / 9 * TAU + seeded(seed, i) * .3, distance = size * (.25 + (1 - poof) * .8);
+      ctx.beginPath(); ctx.arc(bodyX + Math.cos(a) * distance, Math.sin(a) * distance, size * (.2 + seeded(seed, i + 20) * .14) * poof, 0, TAU); ctx.fill(); ctx.stroke();
+    }
+  }
+
+  const scale = .72 + appear * .28; ctx.scale(scale, scale); ctx.translate(0, Math.sin(progress * TAU * 7) * size * .045); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(bodyX + size * .18, size * .58, size * 1.05, size * .24, 0, 0, TAU); ctx.fill();
+
+  // Two animated hind legs scramble for purchase while the front pair scratch.
+  // Drawing them before the torso keeps the joints readable without looking
+  // detached from the body.
+  const hindLegs = [
+    { x: bodyX - size * .43, phase: gait, color: '#d86232' },
+    { x: bodyX + size * .03, phase: -gait, color: '#f39a48' },
+  ];
+  for (const leg of hindLegs) {
+    const kneeX = leg.x - size * (.08 + leg.phase * .1), kneeY = size * (.5 - Math.abs(leg.phase) * .08);
+    const footX = leg.x + leg.phase * size * .34, footY = size * (.77 + Math.abs(leg.phase) * .04);
+    ctx.strokeStyle = '#713326'; ctx.lineWidth = size * .27;
+    ctx.beginPath(); ctx.moveTo(leg.x, size * .2); ctx.quadraticCurveTo(kneeX, kneeY, footX, footY); ctx.stroke();
+    ctx.strokeStyle = leg.color; ctx.lineWidth = size * .19; ctx.stroke();
+    ctx.fillStyle = '#ffd18a'; ctx.strokeStyle = '#713326'; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.ellipse(footX + size * .09, footY, size * .19, size * .11, leg.phase * .12, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#8b4932'; ctx.lineWidth = 1;
+    for (let toe = -1; toe <= 1; toe++) { ctx.beginPath(); ctx.moveTo(footX + size * .13, footY + toe * size * .045); ctx.lineTo(footX + size * .23, footY + toe * size * .05); ctx.stroke(); }
+  }
+
+  // Tail, body and striped orange coat.
+  ctx.strokeStyle = '#a94d27'; ctx.lineWidth = size * .22;
+  ctx.beginPath(); ctx.moveTo(bodyX - size * .7, size * .03); ctx.bezierCurveTo(bodyX - size * 1.55, -size * (.5 + swipe * .08), bodyX - size * 1.2, -size * (1.18 - swipe * .08), bodyX - size * .52, -size * .82); ctx.stroke();
+  ctx.strokeStyle = '#f39445'; ctx.lineWidth = size * .14; ctx.stroke();
+  const fur = ctx.createLinearGradient(bodyX, -size, headX, size);
+  fur.addColorStop(0, '#ffd076'); fur.addColorStop(.5, '#f28a3f'); fur.addColorStop(1, '#bd4f2d');
+  ctx.shadowColor = 'rgba(255,183,93,.5)'; ctx.shadowBlur = 9; ctx.fillStyle = fur; ctx.strokeStyle = '#4e251f'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(bodyX, 0, size * .9, size * .58, -.08, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#f59a48'; ctx.beginPath(); ctx.arc(headX, -size * .08, size * .48, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(headX - size * .36, -size * .35); ctx.lineTo(headX - size * .22, -size * .82); ctx.lineTo(headX + size * .02, -size * .43); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(headX + size * .12, -size * .43); ctx.lineTo(headX + size * .37, -size * .78); ctx.lineTo(headX + size * .4, -size * .27); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#ffbdba';
+  ctx.beginPath(); ctx.moveTo(headX - size * .25, -size * .46); ctx.lineTo(headX - size * .2, -size * .69); ctx.lineTo(headX - size * .05, -size * .45); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(headX + size * .17, -size * .45); ctx.lineTo(headX + size * .34, -size * .66); ctx.lineTo(headX + size * .34, -size * .34); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#8c3d29'; ctx.lineWidth = 2.5;
+  for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(bodyX - size * .1 + i * size * .3, -size * .48); ctx.lineTo(bodyX + i * size * .3, -size * .14); ctx.stroke(); }
+
+  // Furious face, whiskers and two alternating scratching paws.
+  ctx.fillStyle = '#f4e86d'; ctx.strokeStyle = '#41231f'; ctx.lineWidth = 1.7;
+  for (const ey of [-1, 1]) {
+    const eyeY = -size * .18 + ey * size * .11;
+    ctx.beginPath(); ctx.ellipse(headX + size * .27, eyeY, size * .1, size * .065, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#141018'; ctx.beginPath(); ctx.moveTo(headX + size * .27, eyeY - size * .055); ctx.lineTo(headX + size * .27, eyeY + size * .055); ctx.stroke(); ctx.strokeStyle = '#41231f';
+  }
+  ctx.fillStyle = '#ffe0b0'; ctx.beginPath(); ctx.ellipse(headX + size * .33, size * .02, size * .23, size * .18, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#ff8ca3'; ctx.beginPath(); ctx.moveTo(headX + size * .49, -size * .08); ctx.lineTo(headX + size * .34, -size * .15); ctx.lineTo(headX + size * .36, 0); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#55251f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(headX + size * .38, size * .06, size * .15, -.45, .65); ctx.stroke();
+  ctx.fillStyle = '#fff7e5';
+  ctx.beginPath(); ctx.moveTo(headX + size * .42, size * .13); ctx.lineTo(headX + size * .48, size * .31); ctx.lineTo(headX + size * .52, size * .12); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#fff2dc'; ctx.lineWidth = 1.2;
+  for (let i = -1; i <= 1; i += 2) { const wy = i * size * .12; ctx.beginPath(); ctx.moveTo(headX + size * .38, -size * .06 + wy); ctx.lineTo(headX + size * .82, -size * .1 + wy * 1.35); ctx.stroke(); }
+
+  const pawEnd = -targetR * .18, pawStart = headX - size * .04;
+  for (let i = -1; i <= 1; i += 2) {
+    const lift = i * size * (.18 + swipe * .13), endY = i * size * .16 - swipe * i * size * .28;
+    ctx.strokeStyle = '#713326'; ctx.lineWidth = size * .28;
+    ctx.beginPath(); ctx.moveTo(pawStart, lift); ctx.quadraticCurveTo(-targetR - size * .05, lift * .45, pawEnd, endY); ctx.stroke();
+    ctx.strokeStyle = i > 0 ? '#d86232' : '#f6a250'; ctx.lineWidth = size * .19;
+    ctx.beginPath(); ctx.moveTo(pawStart, lift); ctx.quadraticCurveTo(-targetR - size * .05, lift * .45, pawEnd, endY); ctx.stroke();
+    ctx.fillStyle = '#ffd18a'; ctx.strokeStyle = '#713326'; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.ellipse(pawEnd, endY, size * .18, size * .13, i * .2, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#fff7e9'; ctx.lineWidth = 1.5;
+    for (let claw = -1; claw <= 1; claw++) { ctx.beginPath(); ctx.moveTo(pawEnd, endY + claw * 3); ctx.lineTo(pawEnd + size * .2, endY + claw * 3 + i * 2); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+
+function drawCatSlash(ctx, x, y, projectile, color, frac) {
+  const progress = 1 - frac, reach = projectile.radius || 55, sweep = 1 - (1 - progress) ** 3;
+  ctx.save(); ctx.translate(x, y); ctx.rotate((projectile.angle || 0) - .72); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  for (let i = -1; i <= 1; i++) {
+    const offset = i * reach * .18;
+    ctx.strokeStyle = i ? withA(color, frac * .82) : withA('#fff9dc', frac);
+    ctx.lineWidth = i ? 3.5 : 5; ctx.shadowColor = color; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.moveTo(-reach * .55, offset - reach * .25); ctx.quadraticCurveTo(0, offset + reach * (.5 - sweep * .25), reach * .58, offset + reach * .2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 export function drawItemProjectile(E, projectile) {
   const ctx = E.ctx, def = ITEMS[projectile.type], color = projectile.color || (def && def.color) || '#fff';
   const x = projectile.x - E.cam.x, y = projectile.y - E.cam.y;
@@ -462,6 +584,12 @@ export function drawItemProjectile(E, projectile) {
     drawBlackHole(E, ctx, x, y, projectile, def, color, frac);
   } else if (projectile.visual === 'mine') {
     drawUnderwaterMine(E, ctx, x, y, projectile, color);
+  } else if (projectile.visual === 'laser_pointer') {
+    drawLaserPointer(ctx, x, y, projectile, color, frac);
+  } else if (projectile.visual === 'cat_attack') {
+    drawCatAttack(E, ctx, x, y, projectile, frac);
+  } else if (projectile.visual === 'cat_slash') {
+    drawCatSlash(ctx, x, y, projectile, color, frac);
   } else if (projectile.visual === 'tracer') {
     drawTracer(ctx, x, y, projectile, color, frac);
   } else if (projectile.visual === 'muzzle') {

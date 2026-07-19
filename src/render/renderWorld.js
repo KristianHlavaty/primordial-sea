@@ -686,7 +686,9 @@ export function renderWorld(E) {
   // collectible items and their shared/authoritative attack visuals
   for (const item of E.worldItems) drawWorldItem(E, item);
   for (const vehicle of E.vehicles) drawVehicle(E, vehicle);
-  for (const projectile of E.itemProjectiles) drawItemProjectile(E, projectile);
+  for (const projectile of E.itemProjectiles) {
+    if (projectile.visual !== 'cat_attack' && projectile.visual !== 'cat_slash') drawItemProjectile(E, projectile);
+  }
 
   // eggs (laid when an evolution is pending)
   for (const e of E.eggs) {
@@ -813,6 +815,12 @@ export function renderWorld(E) {
       ctx.restore();
     }
     if (!PL.vehicleType) drawPlayerShield(E, PL, gx, gy, pr);
+  }
+
+  // The summoned cat attacks in the foreground. Large bosses and players used
+  // to cover it completely when all item effects shared the background pass.
+  for (const projectile of E.itemProjectiles) {
+    if (projectile.visual === 'cat_attack' || projectile.visual === 'cat_slash') drawItemProjectile(E, projectile);
   }
 
   // player bite arc

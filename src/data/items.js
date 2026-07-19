@@ -34,6 +34,11 @@ export const ITEMS = {
     name: 'Rocket Launcher', icon: 'rocket', color: '#ff6575', modern: true, uses: 2, cooldown: 1.7,
     desc: 'Launches an impact rocket with an enormous fiery shockwave.', kind: 'rocket', damage: 225, speed: 760, life: 1.9, blast: 285, radius: 11, shockRadius: 410, shockwave: 880,
   },
+  laser_pointer: {
+    name: 'Laser Pointer', icon: 'laser', color: '#ff405f', modern: true, uses: 5, cooldown: 1.45,
+    desc: 'Points a red dot at an enemy, summoning a furious cat to scratch it three times before vanishing.', kind: 'laser_pointer',
+    damage: 144, range: 950, lockWidth: 24, scratches: 3, scratchDelay: 0.3, scratchInterval: 0.22, catDuration: 1.25, spawnWeight: 0.9,
+  },
   orbital_strike: {
     name: 'Orbital Strike', icon: 'orbital', color: '#ff58e6', modern: true, uses: 1, cooldown: 2.5,
     desc: 'Marks the ground for a delayed orbital laser with catastrophic impact.', kind: 'orbital', damage: 480, range: 620,

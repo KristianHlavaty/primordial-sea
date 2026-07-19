@@ -40,6 +40,9 @@ export class Sfx {
       else if (type === 'shotgun') { beep(120, 0.16, 0.09, 'sawtooth', 45); beep(520, 0.07, 0.045, 'square', 110); }
       else if (type === 'rocket') { beep(150, 0.2, 0.055, 'sawtooth', 62); beep(420, 0.08, 0.028, 'triangle', 140); }
       else if (type === 'explosion') { beep(95, 0.48, 0.12, 'sawtooth', 28); beep(210, 0.2, 0.065, 'square', 48); }
+      else if (type === 'laser_pointer') { beep(1180, 0.16, 0.035, 'sine', 1760); beep(590, 0.2, 0.018, 'triangle', 920); }
+      else if (type === 'cat_appear') { beep(440, 0.18, 0.045, 'sine', 710); beep(690, 0.28, 0.038, 'triangle', 430); }
+      else if (type === 'cat_scratch') { beep(245, 0.11, 0.05, 'sawtooth', 82); beep(980, 0.07, 0.028, 'square', 310); }
       else if (type === 'orbital_lock') { beep(520, 0.38, 0.045, 'sine', 980); beep(260, 0.42, 0.025, 'triangle', 520); }
       else if (type === 'orbital_strike') { beep(1400, 0.72, 0.1, 'sawtooth', 85); beep(88, 0.85, 0.12, 'sawtooth', 28); beep(320, 0.35, 0.07, 'square', 52); }
       else if (type === 'force_field') { beep(280, 0.42, 0.045, 'sine', 940); beep(560, 0.55, 0.035, 'triangle', 1180); }
