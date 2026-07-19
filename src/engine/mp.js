@@ -546,6 +546,8 @@ function buildSnapshot(engine, recipientConn) {
       a: roundTo(projectile.angle || 0, 2), r: Math.round(projectile.radius || 0), l: roundTo(projectile.life || 0, 2),
       ml: roundTo(projectile.maxLife || 0, 2), len: Math.round(projectile.length || 0),
       sp: roundTo(projectile.spread || 0, 2), c: projectile.color, sd: projectile.seed,
+      ar: !!projectile.armed, at: roundTo(projectile.armT || 0, 2), am: roundTo(projectile.armMax || 0, 2),
+      tr: Math.round(projectile.triggerRadius || 0),
     };
   });
   const vehicles = engine.vehicles.map(vehicle => ({
@@ -773,6 +775,7 @@ function applySnapshot(engine, s) {
     let projectile = mp.projectileById.get(projectileData.n);
     const fresh = !projectile;
     const previousVisual = projectile && projectile.visual;
+    const previousArmed = projectile && projectile.armed;
     if (!projectile) {
       projectile = { netId: projectileData.n, x: projectileData.x, y: projectileData.y, gx: projectileData.x, gy: projectileData.y };
       mp.projectileById.set(projectileData.n, projectile);
@@ -781,8 +784,14 @@ function applySnapshot(engine, s) {
       type: projectileData.t, visual: projectileData.v, gx: projectileData.x, gy: projectileData.y,
       angle: projectileData.a, radius: projectileData.r, life: projectileData.l, maxLife: projectileData.ml,
       length: projectileData.len, spread: projectileData.sp, color: projectileData.c, seed: projectileData.sd,
+      armed: !!projectileData.ar, armT: projectileData.at || 0, armMax: projectileData.am || 0,
+      triggerRadius: projectileData.tr || 0,
     });
-    if (projectile.visual === 'black_hole' && previousVisual !== 'black_hole') {
+    if (projectile.visual === 'mine' && fresh) {
+      engine.sfx.play(projectile.armed ? 'mine_arm' : 'mine_deploy');
+    } else if (projectile.visual === 'mine' && projectile.armed && !previousArmed) {
+      engine.sfx.play('mine_arm');
+    } else if (projectile.visual === 'black_hole' && previousVisual !== 'black_hole') {
       engine.shake = Math.min(22, engine.shake + 10); engine.sfx.play('black_hole');
     } else if (fresh && projectile.visual === 'force_field_burst') {
       engine.sfx.play('force_field');
@@ -794,8 +803,9 @@ function applySnapshot(engine, s) {
       engine.sfx.play('orbital_lock');
     } else if (fresh && projectile.visual === 'blast') {
       const torpedo = projectile.type === 'vehicle_torpedo';
-      engine.shake = Math.min(22, engine.shake + (projectile.type === 'rocket_launcher' ? 17 : projectile.type === 'vehicle_missile' ? 16 : projectile.type === 'grenade' ? 14 : torpedo ? 15 : 10));
-      engine.sfx.play(torpedo ? 'torpedo_hit' : projectile.type === 'grenade' || projectile.type === 'rocket_launcher' || projectile.type === 'vehicle_missile' ? 'explosion' : 'power');
+      const mine = projectile.type === 'underwater_mine';
+      engine.shake = Math.min(22, engine.shake + (projectile.type === 'rocket_launcher' ? 17 : projectile.type === 'vehicle_missile' ? 16 : projectile.type === 'grenade' ? 14 : mine ? 18 : torpedo ? 15 : 10));
+      engine.sfx.play(mine ? 'mine_explosion' : torpedo ? 'torpedo_hit' : projectile.type === 'grenade' || projectile.type === 'rocket_launcher' || projectile.type === 'vehicle_missile' ? 'explosion' : 'power');
     } else if (fresh && projectile.visual === 'pulse') {
       engine.shake = Math.min(22, engine.shake + 9); engine.sfx.play('power');
     } else if (fresh && projectile.visual === 'muzzle') {
@@ -869,7 +879,10 @@ export function mpClientUpdate(engine, dt) {
     if (c.cocoon && c.hatchT > 0) c.hatchT = Math.max(0, c.hatchT - dt);
   }
   for (const item of engine.worldItems) smooth(item);
-  for (const projectile of engine.itemProjectiles) { smooth(projectile); projectile.life = Math.max(0, (projectile.life || 0) - dt); }
+  for (const projectile of engine.itemProjectiles) {
+    smooth(projectile); projectile.life = Math.max(0, (projectile.life || 0) - dt);
+    if (projectile.visual === 'mine' && !projectile.armed) projectile.armT = Math.max(0, (projectile.armT || 0) - dt);
+  }
   for (const vehicle of engine.vehicles) {
     smooth(vehicle); vehicle.weaponCd = Math.max(0, (vehicle.weaponCd || 0) - dt);
     vehicle.hurt = Math.max(0, (vehicle.hurt || 0) - dt * 3);

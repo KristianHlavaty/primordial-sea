@@ -58,6 +58,16 @@ export function drawItemIcon(ctx, id, size) {
     ctx.beginPath(); ctx.arc(0, 0, r * .62, .2, Math.PI * 1.22); ctx.stroke();
     ctx.shadowBlur = 0; ctx.fillStyle = color;
     for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; ctx.beginPath(); ctx.arc(Math.cos(a) * r * .78, Math.sin(a) * r * .42, r * .1, 0, TAU); ctx.fill(); }
+  } else if (id === 'underwater_mine') {
+    ctx.strokeStyle = color; ctx.lineWidth = Math.max(1.8, size * .055);
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * TAU, inner = r * .52, outer = r * 1.02;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner); ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer); ctx.stroke();
+      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(Math.cos(a) * outer, Math.sin(a) * outer, r * .09, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = '#123e4a'; ctx.shadowColor = color; ctx.shadowBlur = r * .55;
+    ctx.beginPath(); ctx.arc(0, 0, r * .62, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#d9fcff'; ctx.beginPath(); ctx.arc(-r * .18, -r * .2, r * .13, 0, TAU); ctx.fill();
   } else if (id === 'vehicle_torpedo') {
     ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(r, 0); ctx.quadraticCurveTo(r * .58, -r * .42, -r * .58, -r * .36); ctx.lineTo(-r * .9, 0); ctx.lineTo(-r * .58, r * .36); ctx.quadraticCurveTo(r * .58, r * .42, r, 0); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-r * .52, -r * .25); ctx.lineTo(-r * .92, -r * .65); ctx.lineTo(-r * .8, -.05); ctx.lineTo(-r * .92, r * .65); ctx.lineTo(-r * .52, r * .25); ctx.fill();
@@ -152,12 +162,54 @@ function drawPulse(ctx, x, y, projectile, color, frac) {
   ctx.restore();
 }
 
+function drawUnderwaterMine(E, ctx, x, y, projectile, color) {
+  const R = projectile.radius || 18;
+  const armProgress = projectile.armed ? 1 : clamp(1 - (projectile.armT || 0) / (projectile.armMax || 1), 0, 1);
+  const blink = projectile.armed ? Math.sin(E.time * 10) ** 2 : .25 + armProgress * .55;
+  const ringR = projectile.triggerRadius || 125;
+  ctx.save();
+
+  if (projectile.armed) {
+    ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = withA(color, .08 + blink * .14);
+    ctx.lineWidth = 1.5; ctx.setLineDash([5, 10]); ctx.lineDashOffset = -E.time * 18;
+    ctx.beginPath(); ctx.arc(x, y, ringR * (.94 + blink * .06), 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    const sonar = ctx.createRadialGradient(x, y, R, x, y, R * (2.6 + blink));
+    sonar.addColorStop(0, withA(color, .2 + blink * .13)); sonar.addColorStop(1, withA(color, 0));
+    ctx.fillStyle = sonar; ctx.beginPath(); ctx.arc(x, y, R * (2.6 + blink), 0, TAU); ctx.fill();
+  }
+
+  ctx.globalCompositeOperation = 'source-over'; ctx.lineCap = 'round';
+  // A short chain and anchor make the deployed object read as a moored naval mine.
+  ctx.strokeStyle = 'rgba(105,171,181,.62)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x, y + R * .72); ctx.quadraticCurveTo(x + 5, y + R * 1.2, x, y + R * 1.72); ctx.stroke();
+  ctx.strokeStyle = 'rgba(70,125,137,.75)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x, y + R * 1.55); ctx.lineTo(x, y + R * 1.95); ctx.moveTo(x - 8, y + R * 1.82); ctx.quadraticCurveTo(x, y + R * 2.12, x + 8, y + R * 1.82); ctx.stroke();
+
+  ctx.translate(x, y); ctx.rotate((projectile.seed || 1) * .001);
+  ctx.strokeStyle = withA(color, .75); ctx.lineWidth = 2.5; ctx.shadowColor = color; ctx.shadowBlur = projectile.armed ? 10 + blink * 8 : 4;
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * TAU, inner = R * .58, outer = R * 1.18;
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner); ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer); ctx.stroke();
+    ctx.fillStyle = i % 2 ? '#75bac5' : color; ctx.beginPath(); ctx.arc(Math.cos(a) * outer, Math.sin(a) * outer, 2.2, 0, TAU); ctx.fill();
+  }
+  const shell = ctx.createRadialGradient(-R * .28, -R * .35, 1, 0, 0, R);
+  shell.addColorStop(0, '#badde1'); shell.addColorStop(.2, '#4f8790'); shell.addColorStop(.68, '#173f49'); shell.addColorStop(1, '#071c24');
+  ctx.fillStyle = shell; ctx.beginPath(); ctx.arc(0, 0, R * .72, 0, TAU); ctx.fill();
+  ctx.strokeStyle = withA(color, .7); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, R * .72, 0, TAU); ctx.stroke();
+
+  const lightColor = projectile.armed ? '#ff566c' : '#ffd96a';
+  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = withA(lightColor, .45 + blink * .55);
+  ctx.shadowColor = lightColor; ctx.shadowBlur = 6 + blink * 12;
+  ctx.beginPath(); ctx.arc(-R * .17, -R * .2, 2.7 + blink * 1.2, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
 function drawExplosion(ctx, x, y, projectile, def, color, frac) {
   const progress = 1 - frac, eased = 1 - (1 - progress) ** 3;
   const shockR = projectile.radius || (def && def.shockRadius) || 220;
   const blastR = (def && def.blast) || shockR * .72;
   const conventional = projectile.type === 'grenade' || projectile.type === 'rocket_launcher' || projectile.type === 'vehicle_missile';
-  const aquatic = projectile.type === 'vehicle_torpedo';
+  const aquatic = projectile.type === 'vehicle_torpedo' || projectile.type === 'underwater_mine';
   const seed = projectile.seed || 1, fireAlpha = clamp(1 - progress / .78, 0, 1);
   ctx.save();
 
@@ -355,6 +407,8 @@ export function drawItemProjectile(E, projectile) {
     drawOrbitalBeam(E, ctx, x, y, projectile, def, color, frac);
   } else if (projectile.visual === 'black_hole') {
     drawBlackHole(E, ctx, x, y, projectile, def, color, frac);
+  } else if (projectile.visual === 'mine') {
+    drawUnderwaterMine(E, ctx, x, y, projectile, color);
   } else if (projectile.visual === 'tracer') {
     drawTracer(ctx, x, y, projectile, color, frac);
   } else if (projectile.visual === 'muzzle') {
@@ -367,7 +421,7 @@ export function drawItemProjectile(E, projectile) {
     ctx.beginPath(); ctx.arc(x, y, projectile.radius, projectile.angle - (projectile.spread || .8), projectile.angle + (projectile.spread || .8)); ctx.stroke();
     ctx.strokeStyle = withA('#ffffff', .7); ctx.lineWidth = 2.2; ctx.shadowBlur = 3;
     ctx.beginPath(); ctx.arc(x, y, projectile.radius * .94, projectile.angle - (projectile.spread || .8), projectile.angle + (projectile.spread || .8)); ctx.stroke(); ctx.restore();
-  } else if (projectile.visual === 'pulse') {
+  } else if (projectile.visual === 'pulse' || projectile.visual === 'mine_ping') {
     drawPulse(ctx, x, y, projectile, color, frac);
   } else if (projectile.visual === 'force_field_burst') {
     drawPulse(ctx, x, y, projectile, color, frac);

@@ -49,6 +49,12 @@ export const ITEMS = {
     desc: 'Throws a rare generator that arms, collapses space and drags enemies into a damaging singularity.', kind: 'black_hole',
     speed: 500, delay: 1.8, duration: 6, radius: 12, field: 430, damage: 36, pull: 980, spawnWeight: 0.6,
   },
+  underwater_mine: {
+    name: 'Underwater Mine', icon: 'mine', color: '#62e4f5', modern: true, waterOnly: true, uses: 2, cooldown: 1.4,
+    desc: 'Deploys an anchored proximity mine that arms after a short delay and unleashes a crushing pressure wave.', kind: 'mine',
+    speed: 330, armDelay: 1.35, duration: 24, radius: 18, triggerRadius: 125,
+    damage: 210, blast: 250, shockRadius: 380, shockwave: 860, spawnWeight: 0.75,
+  },
   vehicle_torpedo: {
     name: 'Torpedo', icon: 'torpedo', color: '#72e7ff', modern: true, vehicleOnly: true, uses: 0, cooldown: 0.82,
     desc: 'A submarine-launched homing-free torpedo with a crushing underwater pressure wave.', kind: 'rocket',

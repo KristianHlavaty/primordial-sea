@@ -45,6 +45,9 @@ export class Sfx {
       else if (type === 'force_field') { beep(280, 0.42, 0.045, 'sine', 940); beep(560, 0.55, 0.035, 'triangle', 1180); }
       else if (type === 'black_hole_charge') { beep(620, 0.46, 0.04, 'sine', 150); beep(310, 0.38, 0.025, 'triangle', 95); }
       else if (type === 'black_hole') { beep(92, 0.95, 0.12, 'sawtooth', 24); beep(740, 0.7, 0.055, 'sine', 75); beep(185, 0.85, 0.07, 'triangle', 38); }
+      else if (type === 'mine_deploy') { beep(205, 0.2, 0.045, 'sine', 92); beep(520, 0.08, 0.022, 'triangle', 210); }
+      else if (type === 'mine_arm') { beep(460, 0.18, 0.04, 'sine', 820); beep(920, 0.1, 0.03, 'square', 1120); }
+      else if (type === 'mine_explosion') { beep(68, 0.72, 0.13, 'sine', 22); beep(245, 0.24, 0.065, 'square', 48); beep(880, 0.12, 0.035, 'triangle', 120); }
       else if (type === 'vehicle_enter') { beep(220, 0.18, 0.04, 'square', 440); beep(520, 0.22, 0.035, 'triangle', 760); }
       else if (type === 'vehicle_exit') beep(480, 0.18, 0.035, 'triangle', 190);
       else if (type === 'vehicle_hit') { beep(115, 0.16, 0.055, 'square', 62); beep(540, 0.08, 0.025, 'sawtooth', 170); }

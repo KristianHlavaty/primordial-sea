@@ -9,7 +9,9 @@ const isAuthority = game => !game.mp || game.mp.role === 'host';
 const itemsEnabled = game => game.mp ? game.mp.items !== false : game.itemsEnabled !== false;
 const funItemsEnabled = game => game.mp ? !!game.mp.funItems : !!game.funItems;
 const worldCap = game => funItemsEnabled(game) ? 20 : 14;
-const itemPool = game => funItemsEnabled(game) ? NATURAL_ITEMS.concat(MODERN_ITEMS) : NATURAL_ITEMS;
+const itemAllowedHere = (game, type) => !ITEMS[type].waterOnly || game.stage === 'sea';
+const itemPool = game => (funItemsEnabled(game) ? NATURAL_ITEMS.concat(MODERN_ITEMS) : NATURAL_ITEMS)
+  .filter(type => itemAllowedHere(game, type));
 const heldItem = (type, uses) => ({ id: type, uses: uses == null ? ITEMS[type].uses : uses, cd: 0 });
 
 function randomItemType(game) {
@@ -123,16 +125,19 @@ function explode(game, projectile) {
     pushShockwave(target, projectile.x, projectile.y, d, shockRadius, shockwave);
   }
   const torpedo = projectile.type === 'vehicle_torpedo';
+  const mine = projectile.type === 'underwater_mine';
+  const aquatic = torpedo || mine;
   const conventional = projectile.type === 'grenade' || projectile.type === 'rocket_launcher' || projectile.type === 'vehicle_missile';
-  burst(game, projectile.x, projectile.y, torpedo ? '#c9f8ff' : conventional ? '#ffb347' : def.color, conventional ? 52 : torpedo ? 48 : 40, conventional ? 440 : torpedo ? 390 : 330);
+  burst(game, projectile.x, projectile.y, aquatic ? '#c9f8ff' : conventional ? '#ffb347' : def.color, conventional ? 52 : mine ? 58 : torpedo ? 48 : 40, conventional ? 440 : mine ? 430 : torpedo ? 390 : 330);
+  if (mine) burst(game, projectile.x, projectile.y, '#489db5', 30, 280);
   if (conventional) burst(game, projectile.x, projectile.y, '#59463f', 24, 230);
   addVisual(game, 'blast', {
     type: projectile.type, x: projectile.x, y: projectile.y, radius: shockRadius,
     color: conventional ? '#ff7b32' : def.color, life: conventional ? (projectile.type === 'rocket_launcher' ? 0.95 : 0.85) : 0.7,
     seed: projectile.seed || Math.floor(rand(1, 100000)),
   });
-  const shake = projectile.type === 'rocket_launcher' ? 17 : projectile.type === 'vehicle_missile' ? 16 : projectile.type === 'grenade' ? 14 : torpedo ? 15 : 10;
-  game.shake = Math.min(22, game.shake + shake); game.sfx.play(torpedo ? 'torpedo_hit' : conventional ? 'explosion' : 'power');
+  const shake = projectile.type === 'rocket_launcher' ? 17 : projectile.type === 'vehicle_missile' ? 16 : projectile.type === 'grenade' ? 14 : mine ? 18 : torpedo ? 15 : 10;
+  game.shake = Math.min(22, game.shake + shake); game.sfx.play(mine ? 'mine_explosion' : torpedo ? 'torpedo_hit' : conventional ? 'explosion' : 'power');
 }
 
 function fireOrbitalStrike(game, marker) {
@@ -193,6 +198,40 @@ function updateBlackHole(game, hole, dt) {
       life: 0.65, max: 0.65, size: rand(1.5, 3.5), color: 'rgba(200,145,255,0.8)',
     });
   }
+}
+
+function updateMine(game, mine, dt) {
+  const def = ITEMS[mine.type];
+  if (!mine.armed) {
+    mine.armT = Math.max(0, mine.armT - dt);
+    mine.x += mine.vx * dt; mine.y += mine.vy * dt;
+    const drag = Math.exp(-dt * 3.3); mine.vx *= drag; mine.vy *= drag;
+    const blocked = game.obstacles.some(o => hyp(mine.x - o.x, mine.y - o.y) < (o.r || 35) + mine.radius);
+    const outX = mine.x < mine.radius || mine.x > game.W - mine.radius;
+    const outY = mine.y < mine.radius || mine.y > game.H - mine.radius;
+    if (blocked || outX) mine.vx *= -0.3;
+    if (blocked || outY) mine.vy *= -0.3;
+    mine.x = clamp(mine.x, mine.radius, game.W - mine.radius);
+    mine.y = clamp(mine.y, mine.radius, game.H - mine.radius);
+    if (mine.armT <= 0) {
+      mine.armed = true; mine.vx = 0; mine.vy = 0;
+      burst(game, mine.x, mine.y, def.color, 16, 145);
+      addVisual(game, 'mine_ping', {
+        type: mine.type, x: mine.x, y: mine.y, radius: mine.triggerRadius,
+        color: def.color, life: 0.45, seed: mine.seed,
+      });
+      game.sfx.play('mine_arm');
+      if (game.mp) game.mp.sendAcc = 1;
+    }
+    return false;
+  }
+  for (const target of targets(game, mine.owner)) {
+    if (hyp(target.x - mine.x, target.y - mine.y) <= mine.triggerRadius + target.radius) {
+      explode(game, mine); return true;
+    }
+  }
+  if (mine.life <= 0) { explode(game, mine); return true; }
+  return false;
 }
 
 function fireItem(game, actor, held, def) {
@@ -261,6 +300,16 @@ function fireItem(game, actor, held, def) {
       angle, radius: def.radius, life: def.delay, maxLife: def.delay, timed: true, seed: Math.floor(rand(1, 100000)),
     });
     game.sfx.play('black_hole_charge');
+  } else if (def.kind === 'mine') {
+    const start = actor.radius + 22;
+    game.itemProjectiles.push({
+      type: held.id, visual: 'mine', owner: actor, ownerConn: actorConn(game, actor),
+      x: actor.x + fx * start, y: actor.y + fy * start, vx: fx * def.speed, vy: fy * def.speed,
+      angle, radius: def.radius, triggerRadius: def.triggerRadius, damage: def.damage, blast: def.blast,
+      shockRadius: def.shockRadius, shockwave: def.shockwave, armT: def.armDelay, armMax: def.armDelay,
+      armed: false, life: def.duration, maxLife: def.duration, seed: Math.floor(rand(1, 100000)),
+    });
+    game.sfx.play('mine_deploy');
   } else {
     const start = actor.radius + 18;
     game.itemProjectiles.push({
@@ -281,7 +330,7 @@ function fireItem(game, actor, held, def) {
 export function useHeldItem(game, actor, slot) {
   if (!isAuthority(game) || !itemsEnabled(game) || !actor || actor.vehicleType || actor.deadT > 0 || slot < 0 || slot >= ITEM_SLOT_COUNT) return false;
   const held = actor.items[slot], def = held && ITEMS[held.id];
-  if (!def || held.uses <= 0 || held.cd > 0 || (actor.mpEvolveChoices && actor.mpEvolveChoices.length)) return false;
+  if (!def || !itemAllowedHere(game, held.id) || held.uses <= 0 || held.cd > 0 || (actor.mpEvolveChoices && actor.mpEvolveChoices.length)) return false;
   held.cd = def.cooldown; fireItem(game, actor, held, def);
   if (held.uses <= 0) actor.items[slot] = null;
   if (game.mp) game.mp.sendAcc = 1;
@@ -343,6 +392,10 @@ function updateProjectiles(game, dt) {
         burst(game, p.x, p.y, ITEMS[p.type].color, 22, 180);
         game.itemProjectiles.splice(i, 1);
       }
+      continue;
+    }
+    if (p.visual === 'mine') {
+      if (updateMine(game, p, dt)) game.itemProjectiles.splice(i, 1);
       continue;
     }
     if (p.visual !== 'projectile') { if (p.life <= 0) game.itemProjectiles.splice(i, 1); continue; }
