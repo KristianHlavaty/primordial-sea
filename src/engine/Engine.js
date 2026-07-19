@@ -20,7 +20,7 @@ import { ABILITIES, ACTIVE_TIMER } from '../data/abilities.js';
 import { ITEMS, ITEM_KEYS } from '../data/items.js';
 import { VEHICLES } from '../data/vehicles.js';
 import { PERKS, BOSSES } from '../data/bosses.js';
-import { MAPS, STAGES, firstMapOf, OPPOSITE_EDGE } from '../data/maps.js';
+import { MAPS, STAGES, firstMapOf, OPPOSITE_EDGE, EDGE_TRIGGER_PAD, EDGE_PASSAGE_ASSIST, EDGE_DWELL_TIME } from '../data/maps.js';
 import { SPECIES, landPioneers, speciesStage } from '../data/species.js';
 import { MAX_LEVEL, xpNeed } from '../data/progression.js';
 import { freshTalentState, computeTalentBonus, talentValue, TALENT_TREES, TALENT_BY_ID, TREE_BY_ID } from '../data/talents.js';
@@ -681,17 +681,23 @@ export class Engine {
       const gate = map.passages && map.passages[edge]; if (!gate) return true;
       const horizontalEdge = edge === 'top' || edge === 'bottom';
       const pos = horizontalEdge ? p.x : p.y, span = horizontalEdge ? this.W : this.H;
-      return Math.abs(pos - span * gate.center) <= gate.width * 0.5;
+      return Math.abs(pos - span * gate.center) <= gate.width * 0.5 + Math.min(EDGE_PASSAGE_ASSIST, p.radius);
     };
     let via = null;
-    if (nb.left && throughPassage('left') && p.x <= p.radius + 6) via = 'left';
-    else if (nb.right && throughPassage('right') && p.x >= this.W - p.radius - 6) via = 'right';
-    else if (nb.top && throughPassage('top') && p.y <= p.radius + 6) via = 'top';
-    else if (nb.bottom && throughPassage('bottom') && p.y >= this.H - p.radius - 6) via = 'bottom';
+    if (nb.left && throughPassage('left') && p.x <= p.radius + EDGE_TRIGGER_PAD) via = 'left';
+    else if (nb.right && throughPassage('right') && p.x >= this.W - p.radius - EDGE_TRIGGER_PAD) via = 'right';
+    else if (nb.top && throughPassage('top') && p.y <= p.radius + EDGE_TRIGGER_PAD) via = 'top';
+    else if (nb.bottom && throughPassage('bottom') && p.y >= this.H - p.radius - EDGE_TRIGGER_PAD) via = 'bottom';
     this.nearEdge = via ? MAPS[nb[via]].name : null;
     if (via && this.transitionCd <= 0) {
+      // Remove Entity.integrate's reflected edge velocity inside a real exit,
+      // otherwise it can nudge the player away and reset the crossing hold.
+      if (via === 'left') p.vx = Math.min(0, p.vx);
+      else if (via === 'right') p.vx = Math.max(0, p.vx);
+      else if (via === 'top') p.vy = Math.min(0, p.vy);
+      else if (via === 'bottom') p.vy = Math.max(0, p.vy);
       this.edgeDwell += dt;
-      if (this.edgeDwell > 0.3) { this.loadMap(nb[via], via); return true; }
+      if (this.edgeDwell >= EDGE_DWELL_TIME) { this.loadMap(nb[via], via); return true; }
     } else this.edgeDwell = 0;
     return false;
   }

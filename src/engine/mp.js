@@ -21,7 +21,7 @@ import { spawnInitial } from './systems/spawning.js';
 import { SPECIES, speciesOfStageTier, speciesStage } from '../data/species.js';
 import { ABILITY_SETS, ACTIVE_TIMER } from '../data/abilities.js';
 import { NPCS } from '../data/npcs.js';
-import { MAPS, OPPOSITE_EDGE } from '../data/maps.js';
+import { MAPS, OPPOSITE_EDGE, EDGE_TRIGGER_PAD, EDGE_PASSAGE_ASSIST, EDGE_DWELL_TIME } from '../data/maps.js';
 import { BOSSES } from '../data/bosses.js';
 import { ITEMS, ITEM_SLOT_COUNT } from '../data/items.js';
 import { MAX_LEVEL, xpNeed } from '../data/progression.js';
@@ -350,13 +350,13 @@ export function mpMaybeCrossMap(engine, dt) {
     const gate = map.passages && map.passages[edge]; if (!gate) return true;
     const horizontal = edge === 'top' || edge === 'bottom';
     const pos = horizontal ? player.x : player.y, span = horizontal ? engine.W : engine.H;
-    return Math.abs(pos - span * gate.center) <= gate.width * 0.5;
+    return Math.abs(pos - span * gate.center) <= gate.width * 0.5 + Math.min(EDGE_PASSAGE_ASSIST, player.radius);
   };
   const edgeOf = player => {
-    if (neighbors.left && passageAllows(player, 'left') && player.x <= player.radius + 6) return 'left';
-    if (neighbors.right && passageAllows(player, 'right') && player.x >= engine.W - player.radius - 6) return 'right';
-    if (neighbors.top && passageAllows(player, 'top') && player.y <= player.radius + 6) return 'top';
-    if (neighbors.bottom && passageAllows(player, 'bottom') && player.y >= engine.H - player.radius - 6) return 'bottom';
+    if (neighbors.left && passageAllows(player, 'left') && player.x <= player.radius + EDGE_TRIGGER_PAD) return 'left';
+    if (neighbors.right && passageAllows(player, 'right') && player.x >= engine.W - player.radius - EDGE_TRIGGER_PAD) return 'right';
+    if (neighbors.top && passageAllows(player, 'top') && player.y <= player.radius + EDGE_TRIGGER_PAD) return 'top';
+    if (neighbors.bottom && passageAllows(player, 'bottom') && player.y >= engine.H - player.radius - EDGE_TRIGGER_PAD) return 'bottom';
     return null;
   };
 
@@ -374,8 +374,12 @@ export function mpMaybeCrossMap(engine, dt) {
     const targetId = neighbors[edge], target = MAPS[targetId];
     mp.edgePrompts.set(conn, target.name);
     if (player._transitionCd > 0) continue;
+    if (edge === 'left') player.vx = Math.min(0, player.vx);
+    else if (edge === 'right') player.vx = Math.max(0, player.vx);
+    else if (edge === 'top') player.vy = Math.min(0, player.vy);
+    else if (edge === 'bottom') player.vy = Math.max(0, player.vy);
     player._edgeDwell = (player._edgeDwell || 0) + dt;
-    if (player._edgeDwell > 0.3) {
+    if (player._edgeDwell >= EDGE_DWELL_TIME) {
       if (player.vehicle) exitVehicle(engine, player, true);
       const arrive = OPPOSITE_EDGE[edge], horizontal = arrive === 'top' || arrive === 'bottom';
       const gate = target.passages && target.passages[arrive];

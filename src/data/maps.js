@@ -66,5 +66,11 @@ export const STAGE_FIRST_MAP = { sea: 'sea_shallows', devonian: 'tidal_coast', c
 export function firstMapOf(stage) { return STAGE_FIRST_MAP[stage]; }
 export function mapsOfStage(stage) { return Object.keys(MAPS).filter(id => MAPS[id].stage === stage); }
 
+/* Passage tuning: a little overlap around a creature's body makes gates easy
+   to enter, while a brief hold still prevents accidental map changes. */
+export const EDGE_TRIGGER_PAD = 18;
+export const EDGE_PASSAGE_ASSIST = 28;
+export const EDGE_DWELL_TIME = 0.18;
+
 /* The opposite edge — used to place the player when they cross a map border. */
 export const OPPOSITE_EDGE = { left: 'right', right: 'left', top: 'bottom', bottom: 'top' };
