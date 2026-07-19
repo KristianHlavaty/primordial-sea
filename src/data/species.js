@@ -191,7 +191,16 @@ export const SPECIES = {
     name: 'Dunkleosteus', tier: 4, branch: 'chord',
     desc: 'A bus-sized placoderm whose jaws shear bone — the sea\'s final answer.',
     stats: { hp: 330, accel: 1250, maxSpeed: 330, dmg: 55, reach: 19, radius: 29, dashCd: 0.42, dashPow: 480, turn: 12 },
-    plan: P({ kind: 'fish', len: 38, wid: 18, body: '#4a5a72', accent: '#b8c8dd', tail: 1.15, headPlate: true, boneShears: true, eyes: 1 }),
+    // Model-lab direction 40 (Estuary Phantom), Kelp palette.
+    plan: P({
+      kind: 'dunkleosteus', conceptId: 'estuary-phantom', len: 51, wid: 19, eyes: 1,
+      body: '#3d5947', backColor: '#19342c', bellyColor: '#778876', bellyLight: '#b8c09a',
+      accent: '#8db07f', plate: '#5a705d', plateEdge: '#1f3128', blade: '#e4dab1', eyeColor: '#e4e275',
+      headLength: .46, headDepth: 1, bodyDepth: .9, backArch: .07, bellyDepth: 1.12,
+      snout: 'hooked', armor: 'field', tailStyle: 'heterocercal', tailLength: 1.08,
+      finStyle: 'rounded', finScale: .92, dorsalScale: .58, jawScale: 1.02,
+      pattern: 'dark-back', bellyPatch: .94, gillSlits: 4, eyeSize: .88, sway: .74,
+    }),
     evolvesTo: []
   },
 

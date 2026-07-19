@@ -10,6 +10,7 @@ function drawEye(ctx, x, y, radius, iris, blind = false) {
   ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.fill(); ctx.stroke();
   if (!blind) {
     ctx.fillStyle = iris; ctx.beginPath(); ctx.arc(x + radius * .22, y, radius * .58, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#050706'; ctx.beginPath(); ctx.arc(x + radius * .28, y, radius * .31, 0, TAU); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y - radius * .22, radius * .2, 0, TAU); ctx.fill();
   }
 }
