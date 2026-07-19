@@ -236,8 +236,6 @@ function drawSeaFloor(E) {
   }
   if (passage && gapR > 0 && gapL < E.vw) {
     const center = (gapL + gapR) * .5, pulse = .5 + .5 * Math.sin(E.time * 3.4);
-    ctx.strokeStyle = withA('#60efff', .4 + pulse * .35); ctx.lineWidth = 3;
-    for (const edge of [gapL, gapR]) { ctx.beginPath(); ctx.moveTo(edge, floorScreenY + 20); ctx.quadraticCurveTo(edge + (edge === gapL ? -34 : 34), floorScreenY + 68, edge + (edge === gapL ? -52 : 52), E.vh); ctx.stroke(); }
     ctx.textAlign = 'center'; ctx.font = '900 11px "Segoe UI",sans-serif'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.75)';
     ctx.strokeText('DESCEND  ·  THE STARLESS BLOOM', center, floorScreenY + 16); ctx.fillStyle = withA('#b7fbff', .76 + pulse * .22); ctx.fillText('DESCEND  ·  THE STARLESS BLOOM', center, floorScreenY + 16);
     ctx.font = '900 22px "Segoe UI",sans-serif';
