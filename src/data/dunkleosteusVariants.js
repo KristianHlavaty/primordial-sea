@@ -128,6 +128,252 @@ export const DUNKLEOSTEUS_VARIANTS = [
       pattern: 'scars', eyeColor: '#ff6f5c', eyeSize: .84, sway: .72,
     },
   ),
+
+  // --- Crusher family: heavy skulls, short bodies, massive cheek armor ---
+  concept(
+    'basalt-bastion', 'Basalt Bastion', 'Crusher family · volcanic fortress',
+    'A near-black, extremely deep helmet sits ahead of a compact body and broad paddle tail. Layered basalt plates make this the heaviest-looking option in the study.',
+    ['side profile', 'crusher family', 'basalt armor'],
+    {
+      len: 43, wid: 22, body: '#292e30', accent: '#8a5d45', plate: '#505456', plateEdge: '#17191a', blade: '#d9c7a1',
+      headLength: .64, headDepth: 1.5, bodyDepth: 1.08, backArch: .34, bellyDepth: 1.15,
+      snout: 'blunt', armor: 'fossil', crestStyle: 'knobs', tailStyle: 'paddle', tailLength: .7,
+      finStyle: 'reduced', finScale: .55, dorsalScale: .5, jawScale: 1.28,
+      pattern: 'plate-rivets', eyeColor: '#ff9256', eyeSize: .7, sway: .28,
+    },
+  ),
+  concept(
+    'copper-ram', 'Copper Ram', 'Crusher family · bronze battering ram',
+    'Swept copper sutures divide a sloped helmet while a more active unequal tail gives this armored bruiser a little more forward momentum.',
+    ['side profile', 'crusher family', 'bronze plates'],
+    {
+      len: 46, wid: 21, body: '#3d4947', accent: '#cf7d3e', plate: '#8e684b', plateEdge: '#332319', blade: '#f0d5a5',
+      headLength: .58, headDepth: 1.28, bodyDepth: 1.02, backArch: .22, bellyDepth: 1.05,
+      snout: 'sloped', armor: 'fossil', crestStyle: 'rear-horn', tailStyle: 'heterocercal', tailLength: .9,
+      finStyle: 'rounded', finScale: .76, dorsalScale: .72, jawScale: 1.17,
+      pattern: 'shoulder-bars', eyeColor: '#ffe074', eyeSize: .82, sway: .45,
+    },
+  ),
+  concept(
+    'glacier-bulwark', 'Glacier Bulwark', 'Crusher family · ice-plated giant',
+    'Broad blue-white plates overlap above a thick slate body. A diamond tail and cold glowing seams keep the massive form readable against dark water.',
+    ['side profile', 'crusher family', 'ice armor'],
+    {
+      len: 45, wid: 21, body: '#3e5664', accent: '#aee6eb', plate: '#a9c5ce', plateEdge: '#304b5a', blade: '#f5f1d9', glow: '#bffaff',
+      headLength: .56, headDepth: 1.36, bodyDepth: 1.12, backArch: .3, bellyDepth: 1.1,
+      snout: 'blunt', armor: 'layered', crestStyle: 'ice-ridge', tailStyle: 'diamond', tailLength: .86,
+      finStyle: 'reduced', finScale: .7, dorsalScale: .74, jawScale: 1.2,
+      pattern: 'glow-line', eyeColor: '#d9ffff', eyeSize: .82, sway: .38,
+    },
+  ),
+  concept(
+    'black-anvil', 'Black Anvil', 'Crusher family · elongated shear jaw',
+    'The armor stays deep at the shoulder but stretches into a long flat cutting face, combining the Crusher’s weight with a much more pronounced jaw mechanism.',
+    ['side profile', 'crusher family', 'long shear'],
+    {
+      len: 48, wid: 20, body: '#202b36', accent: '#8499ab', plate: '#3c4854', plateEdge: '#111820', blade: '#e8d5ad',
+      headLength: .66, headDepth: 1.2, bodyDepth: .9, backArch: .14, bellyDepth: .96,
+      snout: 'flat', armor: 'split', crestStyle: 'brow-horn', tailStyle: 'spear', tailLength: 1.0,
+      finStyle: 'blade', finScale: .78, dorsalScale: .7, jawScale: 1.42,
+      pattern: 'lateral-line', eyeColor: '#f19b59', eyeSize: .7, sway: .55,
+    },
+  ),
+  concept(
+    'rust-citadel', 'Rust Citadel', 'Crusher family · towering iron plates',
+    'A rust-red saddle of armor climbs into a high shoulder wall, with stubby spined fins and a compact rudder tail reinforcing the siege-engine silhouette.',
+    ['side profile', 'crusher family', 'rusted citadel'],
+    {
+      len: 44, wid: 22, body: '#463a34', accent: '#d06e3d', plate: '#8b4f38', plateEdge: '#342119', blade: '#e7cb9b',
+      headLength: .57, headDepth: 1.46, bodyDepth: 1.18, backArch: .48, bellyDepth: 1.12,
+      snout: 'hooked', armor: 'saddle', crestStyle: 'square-ridge', tailStyle: 'paddle', tailLength: .8,
+      finStyle: 'spined', finScale: .76, dorsalScale: .84, jawScale: 1.2,
+      pattern: 'plate-rivets', eyeColor: '#ffca55', eyeSize: .76, sway: .33,
+    },
+  ),
+  concept(
+    'granite-cheek', 'Granite Cheek', 'Crusher family · weathered stone armor',
+    'Rounded granite-colored cheek plates, subdued mottling and a wide fan tail create a slower, older-looking cousin of Cleveland Crusher.',
+    ['side profile', 'crusher family', 'granite plates'],
+    {
+      len: 45, wid: 22, body: '#535653', accent: '#aaa083', plate: '#85837a', plateEdge: '#373733', blade: '#e7dbbb',
+      headLength: .59, headDepth: 1.3, bodyDepth: 1.16, backArch: .18, bellyDepth: 1.24,
+      snout: 'blunt', armor: 'fossil', crestStyle: 'knobs', tailStyle: 'fan', tailLength: .78,
+      finStyle: 'rounded', finScale: .9, dorsalScale: .7, jawScale: 1.12,
+      pattern: 'stone-mottle', eyeColor: '#d9c36e', eyeSize: .8, sway: .3,
+    },
+  ),
+  concept(
+    'ember-ram', 'Ember Ram', 'Crusher family · furnace-lit armor',
+    'A red luminous seam cuts through soot-dark overlapping plates. The visor snout and short lance tail make it feel aggressive without losing the Crusher proportions.',
+    ['side profile', 'crusher family', 'ember seams'],
+    {
+      len: 46, wid: 21, body: '#251f25', accent: '#e2533f', plate: '#473238', plateEdge: '#160f14', blade: '#e7c79e', glow: '#ff5d42',
+      headLength: .61, headDepth: 1.34, bodyDepth: 1.04, backArch: .24, bellyDepth: 1.08,
+      snout: 'visor', armor: 'layered', crestStyle: 'brow-horn', tailStyle: 'lance', tailLength: .88,
+      finStyle: 'blade', finScale: .82, dorsalScale: .78, jawScale: 1.26,
+      pattern: 'glow-line', eyeColor: '#ff8b5c', eyeSize: .78, sway: .43,
+    },
+  ),
+
+  // --- Ambusher family: low backs, deep bellies, disruptive camouflage ---
+  concept(
+    'kelp-stalker', 'Kelp Stalker', 'Ambusher family · weed-bed camouflage',
+    'Long green blotches break up a low helmet and soft fan fins. The trailing fin edges resemble torn kelp when the animal cruises slowly.',
+    ['side profile', 'ambusher family', 'kelp camouflage'],
+    {
+      len: 47, wid: 20, body: '#344b3e', accent: '#829c62', plate: '#52674f', plateEdge: '#223128', blade: '#d6c99c',
+      headLength: .48, headDepth: 1.0, bodyDepth: 1.06, backArch: .02, bellyDepth: 1.22,
+      snout: 'flat', armor: 'low', crestStyle: 'kelp-fringe', tailStyle: 'fan', tailLength: .9,
+      finStyle: 'torn', finScale: 1.22, dorsalScale: .52, jawScale: .93,
+      pattern: 'kelp-blotches', eyeColor: '#ced66f', eyeSize: .86, sway: .48,
+    },
+  ),
+  concept(
+    'sand-burrower', 'Sand Burrower', 'Ambusher family · seabed concealment',
+    'A nearly flat back, pale belly and dense sand speckles make this the most bottom-hugging option, supported by small fins and a broad digging tail.',
+    ['side profile', 'ambusher family', 'sand camouflage'],
+    {
+      len: 44, wid: 19, body: '#9a835c', accent: '#d6c58f', plate: '#b29c72', plateEdge: '#55452f', blade: '#efe2bd',
+      headLength: .46, headDepth: .9, bodyDepth: .9, backArch: 0, bellyDepth: 1.32,
+      snout: 'flat', armor: 'low', tailStyle: 'paddle', tailLength: .8,
+      finStyle: 'reduced', finScale: .68, dorsalScale: .38, jawScale: .88,
+      pattern: 'sand-speckle', eyeColor: '#f4e28e', eyeSize: .78, sway: .32,
+    },
+  ),
+  concept(
+    'lichenback', 'Lichenback', 'Ambusher family · encrusted reef mimic',
+    'Pale green lichen clusters spread across a rounded body while small armor knobs imitate stones and shell growth on a reef wall.',
+    ['side profile', 'ambusher family', 'lichen camouflage'],
+    {
+      len: 45, wid: 21, body: '#4d5b45', accent: '#a7ad6d', plate: '#69735a', plateEdge: '#30382b', blade: '#ded5ae',
+      headLength: .5, headDepth: 1.12, bodyDepth: 1.18, backArch: .1, bellyDepth: 1.2,
+      snout: 'sloped', armor: 'low', crestStyle: 'knobs', tailStyle: 'fan', tailLength: .84,
+      finStyle: 'fan', finScale: 1.12, dorsalScale: .58, jawScale: .95,
+      pattern: 'lichen', eyeColor: '#dce58b', eyeSize: .9, sway: .38,
+    },
+  ),
+  concept(
+    'mangrove-shade', 'Mangrove Shade', 'Ambusher family · shadow-water stalker',
+    'Dark olive countershading and a hooked snout suit murky root-filled water. Unlike the flatter ambushers, this one keeps an active unequal tail for short lunges.',
+    ['side profile', 'ambusher family', 'shadow camouflage'],
+    {
+      len: 49, wid: 19, body: '#293b32', accent: '#74835b', plate: '#46574a', plateEdge: '#18251f', blade: '#d2c597',
+      headLength: .45, headDepth: .98, bodyDepth: .9, backArch: .05, bellyDepth: 1.12,
+      snout: 'hooked', armor: 'low', crestStyle: 'rear-horn', tailStyle: 'heterocercal', tailLength: 1.02,
+      finStyle: 'rounded', finScale: .9, dorsalScale: .56, jawScale: .98,
+      pattern: 'countershade', eyeColor: '#d7bd59', eyeSize: .88, sway: .7,
+    },
+  ),
+  concept(
+    'coral-cryptic', 'Coral Cryptic', 'Ambusher family · coral-rubble mimic',
+    'Muted coral spots and broken crest points disguise the armor as reef rubble, while a fork tail keeps the silhouette compact between rocks.',
+    ['side profile', 'ambusher family', 'coral camouflage'],
+    {
+      len: 45, wid: 20, body: '#66504b', accent: '#c48670', plate: '#84665d', plateEdge: '#3c2928', blade: '#e9d7b5',
+      headLength: .47, headDepth: 1.08, bodyDepth: 1.02, backArch: .08, bellyDepth: 1.16,
+      snout: 'beak', armor: 'crested', crestStyle: 'coral-knobs', tailStyle: 'fork', tailLength: .88,
+      finStyle: 'spined', finScale: .92, dorsalScale: .68, jawScale: 1.0,
+      pattern: 'coral-spots', eyeColor: '#ffe095', eyeSize: .84, sway: .44,
+    },
+  ),
+  concept(
+    'mudstone-lurker', 'Mudstone Lurker', 'Ambusher family · heavy silt predator',
+    'A blunt mud-colored helmet hangs over an unusually deep belly. Large rounded fins and a short paddle tail make it look adapted for precise movement near the bottom.',
+    ['side profile', 'ambusher family', 'silt camouflage'],
+    {
+      len: 43, wid: 22, body: '#574c3d', accent: '#98805a', plate: '#75644d', plateEdge: '#332b21', blade: '#d9c59a',
+      headLength: .52, headDepth: 1.15, bodyDepth: 1.12, backArch: .02, bellyDepth: 1.4,
+      snout: 'blunt', armor: 'fossil', crestStyle: 'knobs', tailStyle: 'paddle', tailLength: .74,
+      finStyle: 'fan', finScale: 1.18, dorsalScale: .5, jawScale: 1.02,
+      pattern: 'stone-mottle', eyeColor: '#d5b967', eyeSize: .8, sway: .25,
+    },
+  ),
+
+  // --- Bone Helm family: pale crests, brow weapons, ceremonial silhouettes ---
+  concept(
+    'ivory-rampart', 'Ivory Rampart', 'Bone Helm family · monumental white crest',
+    'A towering ivory skull and double rear crest dominate a very short charcoal body, pushing Bone Helm toward the same monumental weight as the Crusher family.',
+    ['side profile', 'bone helm family', 'ivory crest'],
+    {
+      len: 43, wid: 22, body: '#303238', accent: '#bcae87', plate: '#e2d9bf', plateEdge: '#5a5348', blade: '#fff9df',
+      headLength: .58, headDepth: 1.42, bodyDepth: 1.04, backArch: .32, bellyDepth: 1.05,
+      snout: 'beak', armor: 'crested', crestStyle: 'double-crown', tailStyle: 'fork', tailLength: .78,
+      finStyle: 'spined', finScale: .88, dorsalScale: .9, jawScale: 1.22,
+      pattern: 'bone-bands', eyeColor: '#c9453e', eyeSize: .72, sway: .35,
+    },
+  ),
+  concept(
+    'obsidian-helm', 'Obsidian Helm', 'Bone Helm family · black ceremonial skull',
+    'Glossy black plates with pale seams invert the Bone Helm palette. A single white brow horn and red eye make the compact profile immediately recognizable.',
+    ['side profile', 'bone helm family', 'obsidian crest'],
+    {
+      len: 47, wid: 20, body: '#262a31', accent: '#a7a6a1', plate: '#30343a', plateEdge: '#080a0d', blade: '#f0e4c6',
+      headLength: .51, headDepth: 1.2, bodyDepth: .92, backArch: .18, bellyDepth: .94,
+      snout: 'visor', armor: 'crested', crestStyle: 'brow-horn', tailStyle: 'lance', tailLength: .96,
+      finStyle: 'blade', finScale: .94, dorsalScale: .82, jawScale: 1.18,
+      pattern: 'bone-bands', eyeColor: '#ff4944', eyeSize: .8, sway: .55,
+    },
+  ),
+  concept(
+    'sawcrest', 'Sawcrest', 'Bone Helm family · serrated dorsal crown',
+    'A continuous row of pale triangular plates runs from the helmet onto the back, giving this slimmer variant a long saw-toothed silhouette.',
+    ['side profile', 'bone helm family', 'saw crest'],
+    {
+      len: 50, wid: 18, body: '#3c4143', accent: '#d0bf91', plate: '#d8c9a5', plateEdge: '#4d493f', blade: '#fff3d1',
+      headLength: .48, headDepth: 1.08, bodyDepth: .82, backArch: .12, bellyDepth: .86,
+      snout: 'wedge', armor: 'crested', crestStyle: 'saw', tailStyle: 'crescent', tailLength: 1.08,
+      finStyle: 'spined', finScale: .82, dorsalScale: .72, jawScale: 1.12,
+      pattern: 'lateral-line', eyeColor: '#d55746', eyeSize: .78, sway: .72,
+    },
+  ),
+  concept(
+    'antler-brow', 'Antler Brow', 'Bone Helm family · backward horned skull',
+    'A long rear-facing brow horn and smaller shoulder spike turn the pale helmet into a sweeping antler-like shape above a naturalistic unequal tail.',
+    ['side profile', 'bone helm family', 'horned brow'],
+    {
+      len: 48, wid: 20, body: '#39413e', accent: '#c7b783', plate: '#d5c7a3', plateEdge: '#504a3c', blade: '#fff0c8',
+      headLength: .53, headDepth: 1.18, bodyDepth: .94, backArch: .2, bellyDepth: .96,
+      snout: 'beak', armor: 'crested', crestStyle: 'antler', tailStyle: 'heterocercal', tailLength: .96,
+      finStyle: 'spined', finScale: .95, dorsalScale: .8, jawScale: 1.16,
+      pattern: 'countershade', eyeColor: '#cc4f3e', eyeSize: .8, sway: .56,
+    },
+  ),
+  concept(
+    'cathedral-skull', 'Cathedral Skull', 'Bone Helm family · vaulted gold tracery',
+    'Tall arched armor, a central crown and thin gold seams create a cathedral-like profile with long banner fins and a ceremonial lyre tail.',
+    ['side profile', 'bone helm family', 'ornate crest'],
+    {
+      len: 49, wid: 21, body: '#34394c', accent: '#d7b75d', plate: '#c9c3ae', plateEdge: '#4e4a43', blade: '#fff5d0', glow: '#f2cc67',
+      headLength: .54, headDepth: 1.36, bodyDepth: .96, backArch: .34, bellyDepth: .98,
+      snout: 'beak', armor: 'royal', crestStyle: 'cathedral', tailStyle: 'lyre', tailLength: 1.08,
+      finStyle: 'banner', finScale: 1.1, dorsalScale: 1.06, jawScale: 1.18,
+      pattern: 'royal-bars', eyeColor: '#ffde71', eyeSize: .78, sway: .58,
+    },
+  ),
+  concept(
+    'crimson-reliquary', 'Crimson Reliquary', 'Bone Helm family · red war regalia',
+    'Ivory blades and crest plates sit over a crimson body, with a high diamond tail and repeated bone bands giving it a martial heraldic rhythm.',
+    ['side profile', 'bone helm family', 'crimson regalia'],
+    {
+      len: 47, wid: 20, body: '#6a2830', accent: '#d9b77d', plate: '#d8c8a7', plateEdge: '#573c35', blade: '#fff2cd',
+      headLength: .5, headDepth: 1.2, bodyDepth: .98, backArch: .16, bellyDepth: 1.0,
+      snout: 'hooked', armor: 'crested', crestStyle: 'double-crown', tailStyle: 'diamond', tailLength: .94,
+      finStyle: 'spined', finScale: 1.02, dorsalScale: .94, jawScale: 1.2,
+      pattern: 'bone-bands', eyeColor: '#ffdc66', eyeSize: .82, sway: .6,
+    },
+  ),
+  concept(
+    'fossil-king', 'Fossil King', 'Bone Helm family · crown of preserved plates',
+    'Weathered tan plates combine fossil rivets with a broad crown. The body stays dark and restrained so the huge archaeological-looking skull remains the focus.',
+    ['side profile', 'bone helm family', 'fossil crown'],
+    {
+      len: 45, wid: 22, body: '#343638', accent: '#b79661', plate: '#bca982', plateEdge: '#51483a', blade: '#f4e4bd',
+      headLength: .6, headDepth: 1.38, bodyDepth: 1.06, backArch: .3, bellyDepth: 1.08,
+      snout: 'blunt', armor: 'fossil', crestStyle: 'crown', tailStyle: 'fork', tailLength: .82,
+      finStyle: 'spined', finScale: .86, dorsalScale: .82, jawScale: 1.24,
+      pattern: 'plate-rivets', eyeColor: '#b83d38', eyeSize: .72, sway: .34,
+    },
+  ),
 ];
 
 export const DUNKLEOSTEUS_VARIANT_MAP = Object.fromEntries(DUNKLEOSTEUS_VARIANTS.map(variant => [variant.id, variant]));

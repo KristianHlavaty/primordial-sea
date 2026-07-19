@@ -83,10 +83,12 @@ function drawBackdrop(ctx, width, height, time, compact) {
 function modelScale(model, width, height, compact) {
   const plan = model.plan, concept = plan.kind === 'dunkleosteus';
   const horizontal = concept ? 3.25 : 3.5;
+  const tallCrest = ['ice-ridge', 'square-ridge', 'double-crown', 'saw', 'antler', 'cathedral', 'crown'].includes(plan.crestStyle);
   const vertical = !concept ? 5.1
     : plan.finStyle === 'sail' ? 6.35
       : plan.finStyle === 'banner' ? 5.75
-        : plan.armor === 'crested' || plan.finStyle === 'spined' ? 5.35 : 4.45;
+        : tallCrest ? 5.85
+          : plan.armor === 'crested' || plan.finStyle === 'spined' ? 5.35 : 4.45;
   const fit = Math.min(width / Math.max(1, plan.len * horizontal), height / Math.max(1, plan.wid * vertical));
   return fit * (compact ? .91 : zoom);
 }
@@ -147,7 +149,7 @@ function syncDetails() {
     const item = document.createElement('span'), strong = document.createElement('b');
     item.textContent = label; strong.textContent = value; item.append(strong); return item;
   }));
-  $('#stageIndex').textContent = collection === 'concepts' ? `SIDE PROFILE · ${String(index + 1).padStart(2, '0')} / 10` : `CREATURE ${String(index + 1).padStart(2, '0')} / ${models.length}`;
+  $('#stageIndex').textContent = collection === 'concepts' ? `SIDE PROFILE · ${String(index + 1).padStart(2, '0')} / ${models.length}` : `CREATURE ${String(index + 1).padStart(2, '0')} / ${models.length}`;
   $('#stageAnimation').textContent = animationNames[animation];
   for (const [id, card] of cards) card.classList.toggle('selected', id === selected.id);
   syncUrl();
@@ -182,9 +184,10 @@ function rebuildLibrary() {
   $('#libraryEyebrow').textContent = collection === 'concepts' ? 'REDESIGN STUDY' : 'LIVE GAME CATALOGUE';
   $('#libraryTitle').textContent = collection === 'concepts' ? 'Choose a direction' : `${models.length} current creatures`;
   $('#libraryIntro').textContent = collection === 'concepts'
-    ? 'Ten new side-profile silhouettes with articulated jaws. Select any card, then stress-test its movement in the viewer.'
+    ? 'Thirty side-profile directions, including twenty new Crusher, Ambusher and Bone Helm relatives.'
     : 'Every current species uses this same renderer path. Filter by name, tier, branch or body plan.';
   $('#modelSearch').value = ''; filterCards(); syncDetails();
+  requestAnimationFrame(() => cards.get(selected.id)?.scrollIntoView({ block: 'nearest' }));
 }
 
 function filterCards() {

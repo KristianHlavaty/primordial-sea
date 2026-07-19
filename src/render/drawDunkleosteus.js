@@ -122,12 +122,35 @@ function drawBodyPattern(ctx, o, L, W, top, bottom) {
     ctx.strokeStyle = withA(o.glow, .72); ctx.shadowColor = o.glow; ctx.shadowBlur = 9; ctx.lineWidth = 1.8;
     ctx.beginPath(); ctx.moveTo(L * .12, -W * .06); ctx.bezierCurveTo(-L * .18, -top * .34, -L * .48, bottom * .16, -L * .72, 0); ctx.stroke(); ctx.shadowBlur = 0;
     ctx.fillStyle = withA(o.glow, .72); for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(lerp(-L * .58, L * .02, i / 5), bottom * .42, 1.4, 0, TAU); ctx.fill(); }
-  } else if (o.pattern === 'mottle') {
+  } else if (o.pattern === 'mottle' || o.pattern === 'stone-mottle' || o.pattern === 'lichen') {
     for (let i = 0; i < 19; i++) {
       const x = lerp(-L * .66, L * .08, (i * .618) % 1), y = Math.sin(i * 4.7) * (i % 2 ? top : bottom) * .58;
-      ctx.fillStyle = withA(i % 2 ? o.accent : shade(o.body, -.42), .22 + i % 3 * .07);
-      ctx.beginPath(); ctx.ellipse(x, y, W * (.1 + i % 4 * .025), W * (.07 + i % 3 * .025), i * .7, 0, TAU); ctx.fill();
+      const lichen = o.pattern === 'lichen', stone = o.pattern === 'stone-mottle';
+      ctx.fillStyle = withA(i % 2 ? o.accent : shade(o.body, stone ? -.28 : -.42), (lichen ? .3 : .22) + i % 3 * .07);
+      ctx.beginPath(); ctx.ellipse(x, y, W * ((lichen ? .13 : .1) + i % 4 * .025), W * ((lichen ? .1 : .07) + i % 3 * .025), i * .7, 0, TAU); ctx.fill();
+      if (lichen && i % 3 === 0) { ctx.strokeStyle = withA(shade(o.accent, .25), .42); ctx.lineWidth = 1; ctx.stroke(); }
     }
+  } else if (o.pattern === 'kelp-blotches') {
+    ctx.strokeStyle = withA(o.accent, .38); ctx.lineWidth = W * .16;
+    for (let i = 0; i < 6; i++) {
+      const x = lerp(-L * .62, L * .04, i / 5); ctx.beginPath(); ctx.moveTo(x - L * .05, -top * .5);
+      ctx.bezierCurveTo(x + L * .08, -top * .15, x - L * .11, bottom * .22, x + L * .03, bottom * .58); ctx.stroke();
+    }
+  } else if (o.pattern === 'sand-speckle') {
+    ctx.fillStyle = withA(shade(o.accent, -.25), .5);
+    for (let i = 0; i < 34; i++) {
+      const x = lerp(-L * .68, L * .08, (i * .618) % 1), y = Math.sin(i * 7.13) * (i % 2 ? top : bottom) * .58;
+      ctx.beginPath(); ctx.arc(x, y, 1 + i % 3 * .45, 0, TAU); ctx.fill();
+    }
+  } else if (o.pattern === 'coral-spots') {
+    for (let i = 0; i < 14; i++) {
+      const x = lerp(-L * .62, L * .06, (i * .754) % 1), y = Math.sin(i * 5.37) * (i % 2 ? top : bottom) * .55;
+      ctx.fillStyle = withA(i % 2 ? o.accent : shade(o.accent, .22), .38); ctx.strokeStyle = withA(shade(o.body, -.35), .5); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(x, y, W * (.08 + i % 3 * .025), 0, TAU); ctx.fill(); ctx.stroke();
+    }
+  } else if (o.pattern === 'plate-rivets') {
+    ctx.fillStyle = withA(o.accent, .52);
+    for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(lerp(-L * .58, L * .03, i / 6), Math.sin(i * 2.2) * W * .2, 1.8, 0, TAU); ctx.fill(); }
   } else if (o.pattern === 'bone-bands') {
     ctx.strokeStyle = withA(o.accent, .38); ctx.lineWidth = 3;
     for (let i = 0; i < 3; i++) { const x = -L * (.08 + i * .18); ctx.beginPath(); ctx.moveTo(x, -top * .62); ctx.lineTo(x - L * .06, bottom * .58); ctx.stroke(); }
@@ -191,10 +214,12 @@ function drawArmorDetails(ctx, o, L, W, rearX, hingeX, depth, profile) {
     ctx.beginPath(); ctx.moveTo(L * .82, -depth * .38); ctx.lineTo(L * .52, -depth * .72); ctx.lineTo(L * .43, depth * .1); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(L * .4, -depth * .82); ctx.lineTo(rearX + L * .04, depth * .16); ctx.stroke(); ctx.shadowBlur = 0;
   } else if (o.armor === 'crested') {
-    ctx.fillStyle = o.plate; ctx.strokeStyle = o.plateEdge;
-    for (let i = 0; i < 3; i++) {
-      const x = lerp(rearX + L * .07, L * .48, i / 2), h = depth * (.2 + (i % 2) * .12);
-      ctx.beginPath(); ctx.moveTo(x - L * .08, -depth * .75); ctx.lineTo(x, -depth - h); ctx.lineTo(x + L * .08, -depth * .72); ctx.closePath(); ctx.fill(); ctx.stroke();
+    if (!o.crestStyle) {
+      ctx.fillStyle = o.plate; ctx.strokeStyle = o.plateEdge;
+      for (let i = 0; i < 3; i++) {
+        const x = lerp(rearX + L * .07, L * .48, i / 2), h = depth * (.2 + (i % 2) * .12);
+        ctx.beginPath(); ctx.moveTo(x - L * .08, -depth * .75); ctx.lineTo(x, -depth - h); ctx.lineTo(x + L * .08, -depth * .72); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
     }
     ctx.beginPath(); ctx.moveTo(L * .68, -depth * .68); ctx.lineTo(L * .52, depth * .15); ctx.stroke();
   } else if (o.armor === 'royal') {
@@ -207,6 +232,54 @@ function drawArmorDetails(ctx, o, L, W, rearX, hingeX, depth, profile) {
     ctx.beginPath(); ctx.moveTo(L * .76, -depth * .74); ctx.lineTo(L * .59, -depth * .2); ctx.lineTo(L * .67, depth * .18); ctx.stroke();
     ctx.strokeStyle = o.plateEdge; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(L * .4, -depth * .8); ctx.lineTo(rearX + L * .04, depth * .13); ctx.stroke(); ctx.setLineDash([]);
   }
+}
+
+function drawArmorOrnaments(ctx, o, L, W, rearX, depth) {
+  const style = o.crestStyle; if (!style) return;
+  ctx.save(); ctx.fillStyle = o.plate; ctx.strokeStyle = o.plateEdge; ctx.lineWidth = 1.5;
+  const spike = (x, halfWidth, height) => {
+    ctx.beginPath(); ctx.moveTo(x - halfWidth, -depth * .72); ctx.lineTo(x, -depth - height); ctx.lineTo(x + halfWidth, -depth * .7); ctx.closePath(); ctx.fill(); ctx.stroke();
+  };
+  if (style === 'knobs' || style === 'coral-knobs') {
+    const count = style === 'coral-knobs' ? 5 : 3;
+    for (let i = 0; i < count; i++) {
+      const x = lerp(rearX + L * .08, L * .58, i / Math.max(1, count - 1)), radius = W * (style === 'coral-knobs' ? .13 + i % 2 * .05 : .11);
+      ctx.beginPath(); ctx.arc(x, -depth * (.78 + i % 2 * .06), radius, 0, TAU); ctx.fill(); ctx.stroke();
+      if (style === 'coral-knobs' && i % 2) spike(x, L * .035, depth * .18);
+    }
+  } else if (style === 'rear-horn') {
+    ctx.beginPath(); ctx.moveTo(rearX + L * .15, -depth * .78); ctx.lineTo(rearX - L * .32, -depth * 1.18); ctx.lineTo(rearX + L * .28, -depth * .62); ctx.closePath(); ctx.fill(); ctx.stroke();
+  } else if (style === 'brow-horn') {
+    ctx.beginPath(); ctx.moveTo(L * .54, -depth * .78); ctx.lineTo(L * .96, -depth * 1.1); ctx.lineTo(L * .66, -depth * .56); ctx.closePath(); ctx.fill(); ctx.stroke();
+  } else if (style === 'ice-ridge') {
+    ctx.fillStyle = withA(o.plate, .78);
+    for (let i = 0; i < 4; i++) spike(lerp(rearX + L * .06, L * .52, i / 3), L * .055, depth * (.18 + i % 2 * .14));
+  } else if (style === 'square-ridge') {
+    for (let i = 0; i < 3; i++) {
+      const x = lerp(rearX + L * .08, L * .48, i / 2); ctx.beginPath(); ctx.rect(x - L * .07, -depth * 1.02, L * .14, depth * .28); ctx.fill(); ctx.stroke();
+    }
+  } else if (style === 'kelp-fringe') {
+    ctx.strokeStyle = withA(o.accent, .72); ctx.lineWidth = Math.max(2.4, W * .16); ctx.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {
+      const x = lerp(rearX, L * .42, i / 3); ctx.beginPath(); ctx.moveTo(x, -depth * .72);
+      ctx.quadraticCurveTo(x + (i % 2 ? -1 : 1) * L * .08, -depth * 1.08, x + L * .02, -depth * (1.2 + i % 2 * .12)); ctx.stroke();
+    }
+  } else if (style === 'double-crown') {
+    spike(rearX + L * .2, L * .09, depth * .5); spike(rearX + L * .48, L * .1, depth * .38);
+  } else if (style === 'saw') {
+    for (let i = 0; i < 7; i++) spike(lerp(rearX - L * .08, L * .54, i / 6), L * .045, depth * (.14 + i % 2 * .08));
+  } else if (style === 'antler') {
+    ctx.strokeStyle = o.plate; ctx.lineWidth = Math.max(3, W * .22); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(L * .54, -depth * .76); ctx.quadraticCurveTo(L * .38, -depth * 1.28, rearX - L * .28, -depth * 1.2); ctx.stroke();
+    ctx.lineWidth *= .65; ctx.beginPath(); ctx.moveTo(L * .27, -depth * 1.08); ctx.lineTo(L * .42, -depth * 1.4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rearX + L * .02, -depth * 1.22); ctx.lineTo(rearX - L * .03, -depth * 1.48); ctx.stroke();
+  } else if (style === 'cathedral') {
+    spike(rearX + L * .3, L * .13, depth * .65); spike(rearX + L * .08, L * .07, depth * .3); spike(rearX + L * .52, L * .07, depth * .28);
+    ctx.strokeStyle = o.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(rearX + L * .3, -depth * .93); ctx.lineTo(rearX + L * .3, -depth * 1.52); ctx.stroke();
+  } else if (style === 'crown') {
+    for (let i = 0; i < 5; i++) spike(lerp(rearX + L * .02, L * .55, i / 4), L * .055, depth * (.2 + (i === 2 ? .25 : i % 2 * .08)));
+  }
+  ctx.restore();
 }
 
 function drawJaw(ctx, o, L, W, hingeX, hingeY, profile, depth, gape) {
@@ -268,6 +341,7 @@ export function drawDunkleosteus(ctx, o) {
   drawJaw(ctx, o, L, W, hingeX, hingeY, profile, headDepth, gape);
   drawUpperArmor(ctx, o, L, W, rearX, hingeX, headDepth, profile);
   drawArmorDetails(ctx, o, L, W, rearX, hingeX, headDepth, profile);
+  drawArmorOrnaments(ctx, o, L, W, rearX, headDepth);
 
   // One visible orbital opening is the strongest immediate side-view cue.
   const eyeX = lerp(rearX, profile.x, .6), eyeY = -headDepth * .43, eyeR = Math.max(2.6, W * .17 * (o.eyeSize || 1));
