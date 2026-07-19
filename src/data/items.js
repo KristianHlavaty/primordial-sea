@@ -3,7 +3,7 @@
    lives in engine/systems/items.js and both HUD/world art read this catalog. */
 export const ITEMS = {
   bone_club: {
-    name: 'Bone Club', icon: 'club', color: '#e6c996', modern: false, uses: 10, cooldown: 0.75,
+    name: 'Bone Club', icon: 'club', color: '#e6c996', modern: false, uses: 5, cooldown: 0.75,
     desc: 'A heavy close-range sweep that sends enemies flying.', kind: 'melee', damage: 75, range: 155, spread: 0.86, knockback: 520,
   },
   fossil_spear: {
