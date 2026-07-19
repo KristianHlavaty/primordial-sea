@@ -87,8 +87,10 @@ function finPath(ctx, style, L, W, scale, dorsal) {
 function drawMedianFins(ctx, o, L, W, bodyTop, bodyBottom) {
   const style = o.finStyle || 'rounded', dorsalScale = (o.dorsalScale || 1) * (o.finScale || 1);
   ctx.fillStyle = withA(o.accent, .64); ctx.strokeStyle = shade(o.body, -.42); ctx.lineWidth = 1.4;
-  ctx.save(); ctx.translate(-L * .14, -bodyTop * .83); ctx.beginPath(); finPath(ctx, style, L, W, dorsalScale, true); ctx.fill(); ctx.stroke(); ctx.restore();
-  ctx.save(); ctx.translate(-L * .35, bodyBottom * .7); ctx.beginPath(); finPath(ctx, style === 'sail' ? 'swept' : style, L * .62, W, (o.finScale || 1) * .62, false); ctx.fill(); ctx.stroke(); ctx.restore();
+  // Sink both fin roots well inside the trunk. The body is painted afterward,
+  // hiding this overlap and preventing the old floating dorsal-fin gap.
+  ctx.save(); ctx.translate(-L * .14, -bodyTop * .57); ctx.beginPath(); finPath(ctx, style, L, W, dorsalScale, true); ctx.fill(); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.translate(-L * .35, bodyBottom * .52); ctx.beginPath(); finPath(ctx, style === 'sail' ? 'swept' : style, L * .62, W, (o.finScale || 1) * .62, false); ctx.fill(); ctx.stroke(); ctx.restore();
 }
 
 function drawPectoralFin(ctx, o, L, W, baseX, baseY, t) {
@@ -307,6 +309,36 @@ function drawJaw(ctx, o, L, W, hingeX, hingeY, profile, depth, gape) {
   ctx.restore();
 }
 
+function traceBody(ctx, L, W, rearX, tailX, tailY, headDepth, bodyTop, bodyBottom, arch) {
+  ctx.moveTo(rearX + L * .14, -headDepth * .42);
+  ctx.bezierCurveTo(L * .04, -bodyTop - arch, -L * .46, -bodyTop * .82, tailX, tailY - W * .2);
+  ctx.quadraticCurveTo(tailX - L * .04, tailY, tailX, tailY + W * .2);
+  ctx.bezierCurveTo(-L * .48, bodyBottom * .75, L * .02, bodyBottom, rearX + L * .14, headDepth * .36);
+  ctx.closePath();
+}
+
+function drawBellyLight(ctx, o, L, W, rearX, tailX, tailY, headDepth, bodyTop, bodyBottom, arch) {
+  if (!o.bellyLight || !o.bellyPatch) return;
+  ctx.save(); ctx.beginPath(); traceBody(ctx, L, W, rearX, tailX, tailY, headDepth, bodyTop, bodyBottom, arch); ctx.clip();
+  const reach = Math.max(.45, Math.min(1, o.bellyPatch));
+  ctx.fillStyle = withA(o.bellyLight, .58); ctx.beginPath();
+  ctx.moveTo(rearX + L * .18, bodyBottom * .22);
+  ctx.bezierCurveTo(L * .02, bodyBottom * .64, -L * reach * .55, bodyBottom * .8, -L * reach * .72, tailY + W * .08);
+  ctx.quadraticCurveTo(-L * reach * .4, bodyBottom * .42, rearX + L * .18, bodyBottom * .08);
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+function drawGillSlits(ctx, o, L, depth, rearX) {
+  const count = Math.max(0, o.gillSlits | 0); if (!count) return;
+  ctx.save(); ctx.strokeStyle = withA(o.gillColor || o.plateEdge, .86); ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+  for (let i = 0; i < count; i++) {
+    const x = rearX + L * (.002 + i * .025), inset = i * depth * .018;
+    ctx.beginPath(); ctx.moveTo(x, -depth * .24 + inset);
+    ctx.quadraticCurveTo(x - L * .022, depth * .01, x, depth * .25 - inset); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 export function drawDunkleosteus(ctx, o) {
   const t = o.t || 0, L = o.len, W = o.wid, mouth = Math.max(0, Math.min(1, o.mouth || 0));
   const sway = o.sway == null ? 1 : o.sway, wag = Math.sin(t * 2.4) * sway;
@@ -327,13 +359,10 @@ export function drawDunkleosteus(ctx, o) {
   drawMedianFins(ctx, o, L, W, bodyTop + arch, bodyBottom);
 
   const bodyGradient = ctx.createLinearGradient(0, -bodyTop - arch, 0, bodyBottom);
-  bodyGradient.addColorStop(0, shade(o.body, .3)); bodyGradient.addColorStop(.48, o.body); bodyGradient.addColorStop(1, shade(o.body, -.38));
+  bodyGradient.addColorStop(0, o.backColor || shade(o.body, .3)); bodyGradient.addColorStop(.48, o.body); bodyGradient.addColorStop(1, o.bellyColor || shade(o.body, -.38));
   ctx.fillStyle = bodyGradient; ctx.strokeStyle = shade(o.body, -.48); ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(rearX + L * .14, -headDepth * .42);
-  ctx.bezierCurveTo(L * .04, -bodyTop - arch, -L * .46, -bodyTop * .82, tailX, tailY - W * .2);
-  ctx.quadraticCurveTo(tailX - L * .04, tailY, tailX, tailY + W * .2);
-  ctx.bezierCurveTo(-L * .48, bodyBottom * .75, L * .02, bodyBottom, rearX + L * .14, headDepth * .36);
-  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); traceBody(ctx, L, W, rearX, tailX, tailY, headDepth, bodyTop, bodyBottom, arch); ctx.fill(); ctx.stroke();
+  drawBellyLight(ctx, o, L, W, rearX, tailX, tailY, headDepth, bodyTop, bodyBottom, arch);
   drawBodyPattern(ctx, o, L, W, bodyTop + arch, bodyBottom);
 
   // Far pectoral fin sits behind the cheek; the near fin is redrawn later.
@@ -356,5 +385,6 @@ export function drawDunkleosteus(ctx, o) {
   // Gill/neck joint separates rigid armor from the flexible living trunk.
   ctx.fillStyle = withA(o.accent, .34); ctx.strokeStyle = withA(o.plateEdge, .76); ctx.lineWidth = 1.3;
   ctx.beginPath(); ctx.ellipse(rearX + L * .035, headDepth * .03, L * .09, headDepth * .39, -.08, 0, TAU); ctx.fill(); ctx.stroke();
+  drawGillSlits(ctx, o, L, headDepth, rearX);
   ctx.restore();
 }

@@ -88,10 +88,17 @@ export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onE
     <//>`;
 
   return html`
-    <div className="scrim"><div className="card menuCard">
-      <div className="menuTop">${chip}</div>
-      <div className="title">PRIMORDIAL SEA</div>
-      <div className="subtitle">an evolution game · from the sea to the land</div>
-      ${view === 'home' ? home : single}
-    </div></div>`;
+    <div className="scrim">
+      <div className="card menuCard">
+        <div className="menuTop">${chip}</div>
+        <div className="title">PRIMORDIAL SEA</div>
+        <div className="subtitle">an evolution game · from the sea to the land</div>
+        ${view === 'home' ? home : single}
+      </div>
+      <button className="modelLabShortcut" type="button" aria-label="Open Model Lab"
+        onClick=${() => { window.location.href = 'model-lab.html'; }}>
+        <span className="modelLabCog" aria-hidden="true">⚙</span>
+        <span className="modelLabShortcutTip" aria-hidden="true">Model Lab</span>
+      </button>
+    </div>`;
 }

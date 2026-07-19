@@ -28,6 +28,14 @@ let animation = animationNames[query.get('animation')] ? query.get('animation') 
 let animationTime = 0, previousFrame = performance.now(), paused = false, flipped = false;
 let zoom = 1, theme = 'deep', lastThumbDraw = 0;
 const cards = new Map();
+const paletteSelections = new Map();
+const requestedPalette = Math.max(0, Number.parseInt(query.get('palette'), 10) || 0);
+if (selected.palettes?.length) paletteSelections.set(selected.id, Math.min(requestedPalette, selected.palettes.length - 1));
+
+const paletteIndex = model => Math.min(paletteSelections.get(model.id) || 0, Math.max(0, (model.palettes?.length || 1) - 1));
+const resolvedPlan = model => model.palettes?.length
+  ? { ...model.plan, ...model.palettes[paletteIndex(model)] }
+  : model.plan;
 
 const visibleCards = new Set();
 const cardObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
@@ -117,7 +125,7 @@ function renderCanvas(canvas, model, compact = false) {
   ctx.rotate(state.tilt);
   ctx.scale((flipped ? -1 : 1) * scale, scale);
   ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = compact ? 4 / scale : 10 / scale; ctx.shadowOffsetY = compact ? 2 / scale : 4 / scale;
-  drawCreature(ctx, { ...model.plan, t: state.t, mouth: state.mouth, hurt: state.hurt });
+  drawCreature(ctx, { ...resolvedPlan(model), t: state.t, mouth: state.mouth, hurt: state.hurt });
   ctx.restore();
   if (!compact) {
     const vignette = ctx.createRadialGradient(width * .5, height * .5, Math.min(width, height) * .24, width * .5, height * .5, Math.max(width, height) * .67);
@@ -151,13 +159,44 @@ function syncDetails() {
   }));
   $('#stageIndex').textContent = collection === 'concepts' ? `SIDE PROFILE · ${String(index + 1).padStart(2, '0')} / ${models.length}` : `CREATURE ${String(index + 1).padStart(2, '0')} / ${models.length}`;
   $('#stageAnimation').textContent = animationNames[animation];
-  for (const [id, card] of cards) card.classList.toggle('selected', id === selected.id);
+  for (const [id, card] of cards) {
+    card.classList.toggle('selected', id === selected.id);
+    const model = models.find(candidate => candidate.id === id);
+    card.querySelectorAll('[data-palette]').forEach(dot => dot.classList.toggle('active', Number(dot.dataset.palette) === paletteIndex(model)));
+  }
+  syncStagePalettes();
   syncUrl();
 }
 
 function syncUrl() {
   const params = new URLSearchParams({ collection, model: selected.id, animation });
+  if (selected.palettes?.length) params.set('palette', String(paletteIndex(selected)));
   history.replaceState(null, '', `${location.pathname}?${params}`);
+}
+
+function paletteDot(model, palette, index, compact = false) {
+  const dot = document.createElement('button');
+  dot.type = 'button'; dot.className = `paletteDot${compact ? ' compact' : ''}`; dot.dataset.palette = index;
+  dot.title = palette.name; dot.setAttribute('aria-label', `${model.name}: ${palette.name} colors`);
+  const upper = palette.backColor || palette.plate || palette.body || '#526c70';
+  const lower = palette.bellyColor || palette.accent || palette.body || '#a8b9a5';
+  dot.style.background = `linear-gradient(135deg, ${upper} 0 49%, ${lower} 51% 100%)`;
+  dot.classList.toggle('active', index === paletteIndex(model));
+  dot.addEventListener('click', event => { event.stopPropagation(); setPalette(model, index); });
+  return dot;
+}
+
+function syncStagePalettes() {
+  const picker = $('#stagePalettePicker');
+  const palettes = selected.palettes || [];
+  picker.hidden = palettes.length === 0;
+  picker.replaceChildren(...palettes.map((entry, index) => paletteDot(selected, entry, index)));
+}
+
+function setPalette(model, index) {
+  if (!model.palettes?.length) return;
+  paletteSelections.set(model.id, Math.max(0, Math.min(index, model.palettes.length - 1)));
+  selected = model; animationTime = 0; syncDetails();
 }
 
 function selectModel(model, reveal = false) {
@@ -166,14 +205,23 @@ function selectModel(model, reveal = false) {
 }
 
 function makeCard(model, index) {
-  const card = document.createElement('button'); card.type = 'button'; card.className = 'modelCard'; card.dataset.model = model.id;
+  const card = document.createElement('div'); card.className = 'modelCard'; card.dataset.model = model.id;
+  card.tabIndex = 0; card.setAttribute('role', 'group'); card.setAttribute('aria-label', `${model.name} model option`);
   const canvas = document.createElement('canvas'); canvas.setAttribute('aria-hidden', 'true');
   const text = document.createElement('span'); text.className = 'modelCardText';
   const number = document.createElement('span'); number.className = 'modelCardIndex';
   number.textContent = collection === 'concepts' ? `DIRECTION ${String(index + 1).padStart(2, '0')}` : `TIER ${model.species.tier} · ${model.plan.kind.toUpperCase()}`;
   const name = document.createElement('span'); name.className = 'modelCardName'; name.textContent = model.name;
   const direction = document.createElement('span'); direction.className = 'modelCardDirection'; direction.textContent = model.direction;
-  text.append(number, name, direction); card.append(canvas, text); card.addEventListener('click', () => selectModel(model));
+  text.append(number, name, direction); card.append(canvas, text);
+  if (model.palettes?.length) {
+    const picker = document.createElement('span'); picker.className = 'modelCardPalettes'; picker.setAttribute('aria-label', 'Color variants');
+    picker.append(...model.palettes.map((entry, paletteNumber) => paletteDot(model, entry, paletteNumber, true))); card.append(picker);
+  }
+  card.addEventListener('click', () => selectModel(model));
+  card.addEventListener('keydown', event => {
+    if (event.target === card && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); selectModel(model); }
+  });
   card._canvas = canvas; card._search = `${model.name} ${model.direction} ${model.description} ${model.tags.join(' ')}`.toLowerCase();
   cards.set(model.id, card); cardObserver?.observe(card); if (!cardObserver) visibleCards.add(card); return card;
 }
@@ -184,7 +232,7 @@ function rebuildLibrary() {
   $('#libraryEyebrow').textContent = collection === 'concepts' ? 'REDESIGN STUDY' : 'LIVE GAME CATALOGUE';
   $('#libraryTitle').textContent = collection === 'concepts' ? 'Choose a direction' : `${models.length} current creatures`;
   $('#libraryIntro').textContent = collection === 'concepts'
-    ? 'Thirty side-profile directions, including twenty new Crusher, Ambusher and Bone Helm relatives.'
+    ? `${models.length} side-profile directions. Directions 31-40 develop Mangrove Shade's dark back, light belly and visible gills.`
     : 'Every current species uses this same renderer path. Filter by name, tier, branch or body plan.';
   $('#modelSearch').value = ''; filterCards(); syncDetails();
   requestAnimationFrame(() => cards.get(selected.id)?.scrollIntoView({ block: 'nearest' }));
@@ -238,7 +286,7 @@ $('#zoomRange').addEventListener('input', event => { zoom = Number(event.target.
 $('#themeSelect').addEventListener('change', event => { theme = event.target.value; stage.dataset.theme = theme; });
 $('#snapshotButton').addEventListener('click', snapshot);
 window.addEventListener('keydown', event => {
-  if (event.target.matches('input,select,textarea')) return;
+  if (event.target.matches('input,select,textarea,button,a')) return;
   if (/^[1-5]$/.test(event.key)) setAnimation(Object.keys(animationNames)[Number(event.key) - 1]);
   else if (event.key === 'ArrowLeft') stepModel(-1);
   else if (event.key === 'ArrowRight') stepModel(1);

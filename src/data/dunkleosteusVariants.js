@@ -1,11 +1,31 @@
-/* Ten SIDE-PROFILE Dunkleosteus art directions for model-lab.html.
+/* Side-profile Dunkleosteus art directions for model-lab.html.
    None replaces the live top-down game plan until a direction is selected. */
 import { P } from './plans.js';
 
-const concept = (id, name, direction, description, tags, plan) => ({
-  id, name, direction, description, tags,
-  plan: P({ kind: 'dunkleosteus', view: 'side', len: 48, wid: 18, eyes: 1, ...plan, conceptId: id }),
-});
+const hex = color => color && color.startsWith('#') && color.length === 7
+  ? [1, 3, 5].map(index => parseInt(color.slice(index, index + 2), 16)) : null;
+const mix = (color, target, amount) => {
+  const from = hex(color), to = hex(target); if (!from || !to) return color;
+  return `#${from.map((channel, index) => Math.round(channel + (to[index] - channel) * amount).toString(16).padStart(2, '0')).join('')}`;
+};
+const colorKeys = ['body', 'backColor', 'bellyColor', 'bellyLight', 'accent', 'plate', 'plateEdge', 'blade', 'eyeColor', 'glow'];
+const palette = (name, plan, targets, amount) => {
+  const result = { name };
+  for (const key of colorKeys) if (plan[key]) result[key] = amount ? mix(plan[key], targets[key] || targets.body, amount) : plan[key];
+  result.swatch = result.plate || result.body; return result;
+};
+const makePalettes = plan => [
+  palette('Original', plan, {}, 0),
+  palette('Deep Water', plan, { body: '#102b43', backColor: '#071a29', bellyColor: '#456779', bellyLight: '#7292a0', accent: '#71c9d2', plate: '#345a70', plateEdge: '#07141e', blade: '#cadbd5', eyeColor: '#79e5dc', glow: '#5ef3eb' }, .58),
+  palette('Kelp', plan, { body: '#3e5638', backColor: '#1d3828', bellyColor: '#778066', bellyLight: '#abb38c', accent: '#9ab76b', plate: '#637052', plateEdge: '#24301f', blade: '#ddd5ac', eyeColor: '#dce87b', glow: '#a9ef7d' }, .58),
+  palette('Ember', plan, { body: '#64352f', backColor: '#391c24', bellyColor: '#9b6250', bellyLight: '#d49a72', accent: '#eb7750', plate: '#8e4c3e', plateEdge: '#32151a', blade: '#f0d0a6', eyeColor: '#ffcc68', glow: '#ff674c' }, .58),
+  palette('Pale Fossil', plan, { body: '#9b9b8e', backColor: '#666d6a', bellyColor: '#c8c2aa', bellyLight: '#eee2be', accent: '#d7c88f', plate: '#cec6ad', plateEdge: '#5c5a50', blade: '#fff4d2', eyeColor: '#b84c46', glow: '#f6dc8c' }, .65),
+];
+
+const concept = (id, name, direction, description, tags, sourcePlan) => {
+  const plan = P({ kind: 'dunkleosteus', view: 'side', len: 48, wid: 18, eyes: 1, ...sourcePlan, conceptId: id });
+  return { id, name, direction, description, tags, plan, palettes: makePalettes(plan) };
+};
 
 export const DUNKLEOSTEUS_VARIANTS = [
   concept(
@@ -257,11 +277,12 @@ export const DUNKLEOSTEUS_VARIANTS = [
     'Dark olive countershading and a hooked snout suit murky root-filled water. Unlike the flatter ambushers, this one keeps an active unequal tail for short lunges.',
     ['side profile', 'ambusher family', 'shadow camouflage'],
     {
-      len: 49, wid: 19, body: '#293b32', accent: '#74835b', plate: '#46574a', plateEdge: '#18251f', blade: '#d2c597',
+      len: 49, wid: 19, body: '#405343', backColor: '#172a22', bellyColor: '#78836b', bellyLight: '#aeb792',
+      accent: '#74835b', plate: '#46574a', plateEdge: '#18251f', blade: '#d2c597',
       headLength: .45, headDepth: .98, bodyDepth: .9, backArch: .05, bellyDepth: 1.12,
-      snout: 'hooked', armor: 'low', crestStyle: 'rear-horn', tailStyle: 'heterocercal', tailLength: 1.02,
+      snout: 'hooked', armor: 'low', tailStyle: 'heterocercal', tailLength: 1.02,
       finStyle: 'rounded', finScale: .9, dorsalScale: .56, jawScale: .98,
-      pattern: 'countershade', eyeColor: '#d7bd59', eyeSize: .88, sway: .7,
+      pattern: 'dark-back', bellyPatch: .78, gillSlits: 3, eyeColor: '#d7bd59', eyeSize: .88, sway: .7,
     },
   ),
   concept(
@@ -372,6 +393,138 @@ export const DUNKLEOSTEUS_VARIANTS = [
       snout: 'blunt', armor: 'fossil', crestStyle: 'crown', tailStyle: 'fork', tailLength: .82,
       finStyle: 'spined', finScale: .86, dorsalScale: .82, jawScale: 1.24,
       pattern: 'plate-rivets', eyeColor: '#b83d38', eyeSize: .72, sway: .34,
+    },
+  ),
+
+  // --- Mangrove Shade studies: two-tone backs, light bellies, visible gills ---
+  concept(
+    'blackwater-shade', 'Blackwater Shade', 'Mangrove study · black dorsal mantle',
+    'The Mangrove Shade anatomy pushed darker: a nearly black back, blue-grey lower body, three visible gill slits and a long pale belly patch.',
+    ['side profile', 'mangrove study', 'two-tone'],
+    {
+      len: 50, wid: 19, body: '#384d4e', backColor: '#101c24', bellyColor: '#71848a', bellyLight: '#b7c4b5',
+      accent: '#78928c', plate: '#41585a', plateEdge: '#101d22', blade: '#ddd4ad',
+      headLength: .46, headDepth: 1.0, bodyDepth: .91, backArch: .06, bellyDepth: 1.14,
+      snout: 'hooked', armor: 'low', tailStyle: 'heterocercal', tailLength: 1.04,
+      finStyle: 'rounded', finScale: .9, dorsalScale: .58, jawScale: 1.0,
+      pattern: 'dark-back', bellyPatch: .84, gillSlits: 3, eyeColor: '#e5d46d', eyeSize: .86, sway: .72,
+    },
+  ),
+  concept(
+    'reedwater-stripe', 'Reedwater Stripe', 'Mangrove study · reed-green countershade',
+    'An olive-black back sits over a yellow-green belly, interrupted by soft reed-like flank bars and a compact group of four gill slits.',
+    ['side profile', 'mangrove study', 'reed pattern'],
+    {
+      len: 48, wid: 19, body: '#53634b', backColor: '#223526', bellyColor: '#8e956b', bellyLight: '#c6c995',
+      accent: '#99a96b', plate: '#61705a', plateEdge: '#253327', blade: '#e2d6a7',
+      headLength: .44, headDepth: .96, bodyDepth: .88, backArch: .03, bellyDepth: 1.1,
+      snout: 'flat', armor: 'low', crestStyle: 'kelp-fringe', tailStyle: 'fan', tailLength: .94,
+      finStyle: 'rounded', finScale: .96, dorsalScale: .5, jawScale: .94,
+      pattern: 'shoulder-bars', bellyPatch: .72, gillSlits: 4, eyeColor: '#e2d96f', eyeSize: .88, sway: .58,
+    },
+  ),
+  concept(
+    'peatback-lurker', 'Peatback Lurker', 'Mangrove study · brownwater ambusher',
+    'Peat-brown dorsal coloring fades into a warm clay belly. The deeper lower body and broad tail make this the slowest, heaviest Mangrove descendant.',
+    ['side profile', 'mangrove study', 'peat water'],
+    {
+      len: 46, wid: 21, body: '#604f3d', backColor: '#2c251f', bellyColor: '#8d7254', bellyLight: '#c6ad7d',
+      accent: '#99805c', plate: '#6e5b46', plateEdge: '#30271e', blade: '#ddc99e',
+      headLength: .49, headDepth: 1.08, bodyDepth: 1.04, backArch: .04, bellyDepth: 1.28,
+      snout: 'blunt', armor: 'low', crestStyle: 'knobs', tailStyle: 'paddle', tailLength: .82,
+      finStyle: 'fan', finScale: 1.08, dorsalScale: .5, jawScale: .98,
+      pattern: 'stone-mottle', bellyPatch: .76, gillSlits: 3, eyeColor: '#d9bc61', eyeSize: .82, sway: .36,
+    },
+  ),
+  concept(
+    'moonbelly-stalker', 'Moonbelly Stalker', 'Mangrove study · silver underside',
+    'A navy dorsal mantle meets a bright silver belly that remains visible beneath the cheek armor. Thin cyan gill slits sell the transition between skull and trunk.',
+    ['side profile', 'mangrove study', 'silver belly'],
+    {
+      len: 51, wid: 18, body: '#3c5665', backColor: '#142737', bellyColor: '#8da0a5', bellyLight: '#d4ded3',
+      accent: '#79aeb0', plate: '#506b73', plateEdge: '#172b34', blade: '#e8e1bf', glow: '#8ce8df',
+      headLength: .43, headDepth: .92, bodyDepth: .83, backArch: .06, bellyDepth: 1.02,
+      snout: 'wedge', armor: 'fitted', tailStyle: 'crescent', tailLength: 1.08,
+      finStyle: 'tuna', finScale: .88, dorsalScale: .58, jawScale: .94,
+      pattern: 'dark-back', bellyPatch: .9, gillSlits: 4, eyeColor: '#caffef', eyeSize: .84, sway: .82,
+    },
+  ),
+  concept(
+    'copperroot-hunter', 'Copperroot Hunter', 'Mangrove study · bronze dorsal plates',
+    'Copper-brown armor and a dark root-colored back contrast with a pale ochre belly. Its hooked nose and active unequal tail preserve direction 21’s lunge profile.',
+    ['side profile', 'mangrove study', 'copper back'],
+    {
+      len: 50, wid: 19, body: '#665043', backColor: '#30251f', bellyColor: '#a17a58', bellyLight: '#ddb982',
+      accent: '#c07a47', plate: '#805841', plateEdge: '#35231c', blade: '#ecd0a0',
+      headLength: .47, headDepth: 1.01, bodyDepth: .9, backArch: .08, bellyDepth: 1.12,
+      snout: 'hooked', armor: 'field', tailStyle: 'heterocercal', tailLength: 1.06,
+      finStyle: 'swept', finScale: .86, dorsalScale: .6, jawScale: 1.02,
+      pattern: 'dark-back', bellyPatch: .78, gillSlits: 3, eyeColor: '#ffd267', eyeSize: .84, sway: .72,
+    },
+  ),
+  concept(
+    'algae-lantern', 'Algae Lantern', 'Mangrove study · luminous lower flank',
+    'A forest-dark back hides the body from above while a soft chartreuse belly glow spreads behind the gills like reflected algae light.',
+    ['side profile', 'mangrove study', 'luminous belly'],
+    {
+      len: 49, wid: 19, body: '#3c5544', backColor: '#15291d', bellyColor: '#789064', bellyLight: '#c0d77a',
+      accent: '#91bd63', plate: '#4e6a50', plateEdge: '#192b1d', blade: '#dfe0aa', glow: '#b4ed72',
+      headLength: .45, headDepth: .97, bodyDepth: .9, backArch: .04, bellyDepth: 1.1,
+      snout: 'visor', armor: 'layered', crestStyle: 'kelp-fringe', tailStyle: 'lance', tailLength: .98,
+      finStyle: 'rounded', finScale: .92, dorsalScale: .56, jawScale: .98,
+      pattern: 'glow-line', bellyPatch: .86, gillSlits: 5, eyeColor: '#ddf781', eyeSize: .9, sway: .66,
+    },
+  ),
+  concept(
+    'silt-runner', 'Silt Runner', 'Mangrove study · fast pale-bottom form',
+    'A slimmer tan body keeps the Mangrove two-tone layout but replaces the broad fins with swept surfaces and a spear tail for rapid movement over open silt.',
+    ['side profile', 'mangrove study', 'silt runner'],
+    {
+      len: 53, wid: 17, body: '#75694f', backColor: '#3d3a2c', bellyColor: '#a99b75', bellyLight: '#ded0a2',
+      accent: '#b4a36e', plate: '#81775b', plateEdge: '#3a3529', blade: '#eee0ba',
+      headLength: .4, headDepth: .86, bodyDepth: .78, backArch: .04, bellyDepth: .96,
+      snout: 'blade', armor: 'fitted', tailStyle: 'spear', tailLength: 1.18,
+      finStyle: 'swept', finScale: .8, dorsalScale: .52, jawScale: .92,
+      pattern: 'sand-speckle', bellyPatch: .82, gillSlits: 3, eyeColor: '#efe08b', eyeSize: .76, sway: .96,
+    },
+  ),
+  concept(
+    'rootshadow', 'Rootshadow', 'Mangrove study · violet-black roots',
+    'Purple-black dorsal armor breaks into muted mauve on the sides and a grey belly below, producing a strange but still natural shadow-water palette.',
+    ['side profile', 'mangrove study', 'root shadow'],
+    {
+      len: 48, wid: 20, body: '#514753', backColor: '#211b29', bellyColor: '#827685', bellyLight: '#b9aeb2',
+      accent: '#8b6f83', plate: '#5e5260', plateEdge: '#241c27', blade: '#dec9af',
+      headLength: .48, headDepth: 1.04, bodyDepth: .96, backArch: .09, bellyDepth: 1.16,
+      snout: 'hooked', armor: 'low', crestStyle: 'brow-horn', tailStyle: 'diamond', tailLength: .9,
+      finStyle: 'blade', finScale: .88, dorsalScale: .62, jawScale: 1.06,
+      pattern: 'dark-back', bellyPatch: .74, gillSlits: 4, eyeColor: '#e5c66a', eyeSize: .84, sway: .56,
+    },
+  ),
+  concept(
+    'brackish-ghost', 'Brackish Ghost', 'Mangrove study · pale murkwater morph',
+    'The same darker-back construction rendered in desaturated grey-green, with an almost white underside and dark gill cuts for maximum anatomical clarity.',
+    ['side profile', 'mangrove study', 'pale morph'],
+    {
+      len: 49, wid: 19, body: '#78817a', backColor: '#46534f', bellyColor: '#aeb5a7', bellyLight: '#e5e4c9',
+      accent: '#a5aa83', plate: '#89928a', plateEdge: '#414b47', blade: '#f5e9c6',
+      headLength: .46, headDepth: .98, bodyDepth: .9, backArch: .05, bellyDepth: 1.1,
+      snout: 'flat', armor: 'field', tailStyle: 'fan', tailLength: .94,
+      finStyle: 'rounded', finScale: .94, dorsalScale: .54, jawScale: .98,
+      pattern: 'dark-back', bellyPatch: .88, gillSlits: 4, eyeColor: '#a9463e', eyeSize: .84, sway: .6,
+    },
+  ),
+  concept(
+    'estuary-phantom', 'Estuary Phantom', 'Mangrove study · apex two-tone profile',
+    'The most polished direction-21 descendant combines a charcoal-teal back, long ivory belly light, clean gill slits and a balanced active tail.',
+    ['side profile', 'mangrove study', 'refined two-tone'],
+    {
+      len: 51, wid: 19, body: '#3c5e5b', backColor: '#142f31', bellyColor: '#77938b', bellyLight: '#cbd3ad',
+      accent: '#7ba79a', plate: '#4d716d', plateEdge: '#173335', blade: '#eee1b8',
+      headLength: .46, headDepth: 1.0, bodyDepth: .9, backArch: .07, bellyDepth: 1.12,
+      snout: 'hooked', armor: 'field', tailStyle: 'heterocercal', tailLength: 1.08,
+      finStyle: 'rounded', finScale: .92, dorsalScale: .58, jawScale: 1.02,
+      pattern: 'dark-back', bellyPatch: .94, gillSlits: 4, eyeColor: '#f0da6c', eyeSize: .88, sway: .74,
     },
   ),
 ];
