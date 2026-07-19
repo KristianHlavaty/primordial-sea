@@ -143,6 +143,27 @@ export class Boss extends Creature {
     });
   }
 
+  canFightTarget(target, targetDistance, homeDistance) {
+    if (!target || target.hp <= 0 || target.deadT > 0) return false;
+    // Once a wind-up starts it is committed. Previously, momentum could carry
+    // the boss a pixel beyond its leash, cancel the telegraph, then select the
+    // next special as soon as it drifted back inside.
+    if (this.telegraph) return true;
+    // Give a disengaged boss room to travel home before it can aggro again so
+    // the leash boundary cannot become a per-frame engage/disengage switch.
+    const reengageInset = Math.min(110, this.leash * .12);
+    const leashLimit = this.engaged ? this.leash : this.leash - reengageInset;
+    return (targetDistance < this.sense || this.engaged) && homeDistance < leashLimit;
+  }
+
+  cancelTelegraph() {
+    if (!this.telegraph) return;
+    this.telegraph = null;
+    // Cancellation is reserved for an invalid/dead target. Do not leave an
+    // already-expired timer that can immediately choose another special.
+    this.abilT = Math.max(this.abilT, .8);
+  }
+
   act(game, dt) {
     const p = (game.mp && game.nearestPlayer(this.x, this.y)) || (game.worldPlayer ? game.worldPlayer() : game.player);
     if (!p) return;
@@ -152,7 +173,7 @@ export class Boss extends Creature {
     if (this.dashT > 0) this.dashT -= dt;
     const home = this.home, dh = hyp(this.x - home.x, this.y - home.y);
     const bdx = p.x - this.x, bdy = p.y - this.y, bd = hyp(bdx, bdy);
-    const aggro = (bd < this.sense || this.engaged) && dh < this.leash && p.hp > 0;
+    const aggro = this.canFightTarget(p, bd, dh);
     let bx = 0, by = 0, bs = 0;
     if (aggro) {
       this.engaged = true; bx = bdx / (bd || 1); by = bdy / (bd || 1); bs = 1; this.faceTarget = Math.atan2(by, bx);
@@ -165,7 +186,7 @@ export class Boss extends Creature {
         this.biteCd = biteRate; this.mouth = 1; p.takeHit(game, this.dmg, this.x, this.y, this); game.danger = 1;
       }
     } else {
-      this.engaged = false; this.telegraph = null;
+      this.engaged = false; this.cancelTelegraph();
       if (dh > 28) { bx = (home.x - this.x) / (dh || 1); by = (home.y - this.y) / (dh || 1); bs = 0.5; this.faceTarget = Math.atan2(by, bx); }
       if (this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.06 * dt);   // heals back if you disengage
     }
@@ -192,9 +213,9 @@ export class Boss extends Creature {
 
     const home = this.home, dh = hyp(this.x - home.x, this.y - home.y);
     const dx = p.x - this.x, dy = p.y - this.y, distance = hyp(dx, dy);
-    const aggro = (distance < this.sense || this.engaged) && dh < this.leash && p.hp > 0;
+    const aggro = this.canFightTarget(p, distance, dh);
     if (!aggro) {
-      this.engaged = false; this.telegraph = null; this.screamT = 0;
+      this.engaged = false; this.cancelTelegraph(); this.screamT = 0;
       if (dh > 28) {
         this.faceTarget = Math.atan2(home.y - this.y, home.x - this.x);
         this.vx += Math.cos(this.faceTarget) * this.accel * .5 * dt;
