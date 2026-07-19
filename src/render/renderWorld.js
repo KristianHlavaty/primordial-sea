@@ -366,7 +366,11 @@ function drawEntity(E, e) {
   if (e.stealthT > 0) ctx.globalAlpha *= .45;
   if (e.camoCharge > 0) ctx.globalAlpha *= 1 - e.camoCharge * .38;
   const panderodusEnraged = e.bossKind === 'panderodus' && e.hp < e.maxHp * .45;
-  const plan = frenzy ? { ...e.plan, body: '#b32238', accent: '#ff665c', glow: '#ff3048' }
+  const plan = frenzy ? {
+    ...e.plan,
+    body: '#b32238', backColor: '#641421', bellyColor: '#cf3c49', bellyLight: '#ff8179',
+    accent: '#ff665c', plate: '#c32f42', plateEdge: '#58101b', glow: '#ff3048',
+  }
     : panderodusEnraged ? { ...e.plan, body: '#821b2b', accent: '#ff8d82', glow: '#ff3048' } : e.plan;
   drawCreature(ctx, Object.assign({
     t: creatureAnimPhase(e, E.time), mouth: e.mouth, hurt: e.hurt,
