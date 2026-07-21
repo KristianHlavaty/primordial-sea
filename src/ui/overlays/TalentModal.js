@@ -1,13 +1,12 @@
-/* The talent tree overlay. Pausable (App sets engine.setPaused while open).
-   Reads a ready-made snapshot from engine.talentInfo() and calls back into
-   engine.spendTalent / undoTalent / respecTree. Re-renders on every action and
-   once a second so the 30s undo countdown stays live. */
+/* The talent tree overlay. App pauses it through runtime commands. It reads a
+   ready-made simulation snapshot and publishes spend/undo/respec commands.
+   Re-renders on every action and once a second so the 30s undo countdown lives. */
 import { html, useState, useEffect } from '../react.js';
 import { TalentIcon } from '../components/TalentIcon.js';
 
 const COLW = 194, ROWH = 182, PADX = 22, PADY = 18, NW = 172, NH = 164;
 
-export function TalentModal({ engine, onClose }) {
+export function TalentModal({ engine, commands, onClose }) {
   const [, force] = useState(0);
   const [tab, setTab] = useState(engine.stage);
   const bump = () => force(n => n + 1);
@@ -15,9 +14,9 @@ export function TalentModal({ engine, onClose }) {
 
   const info = engine.talentInfo();
   const tree = info.trees.find(t => t.id === tab) || info.trees[0];
-  const spend = id => { engine.spendTalent(tree.id, id); bump(); };
-  const undo = id => { engine.undoTalent(tree.id, id); bump(); };
-  const respec = () => { engine.respecTree(tree.id); bump(); };
+  const spend = id => { commands.spendTalent(tree.id, id); bump(); };
+  const undo = id => { commands.undoTalent(tree.id, id); bump(); };
+  const respec = () => { commands.respecTree(tree.id); bump(); };
 
   const rows = Math.max(...tree.nodes.map(n => n.row)) + 1;
   const gridW = PADX * 2 + tree.paths.length * COLW, gridH = PADY * 2 + rows * ROWH;

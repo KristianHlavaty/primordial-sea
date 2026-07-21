@@ -36,16 +36,18 @@ export function App() {
   const [mpState, setMpState] = useState({ status: 'idle', rooms: [], room: null, error: null, connId: null });
   const lobbyRef = useRef(null);                  // the WebSocket lobby — owned here so it survives lobby→game
   const uiRef = useRef({});                       // latest UI state for input handlers / debug API
-  const { engineRef, hud } = useEngine(canvasRef, uiRef);
+  const { runtimeRef, engineRef, hud } = useEngine(canvasRef, uiRef);
+  const runtime = runtimeRef.current;
   const engine = engineRef.current;
+  const commands = runtime && runtime.commands;
 
-  const begin = options => { engineRef.current.start(options); setMpMenuOpen(false); setPhase('play'); };
-  const skipToLand = (id, options) => { engineRef.current.startAt(id, options); setMpMenuOpen(false); setPhase('play'); };
+  const begin = options => { runtimeRef.current.startRun(options); setMpMenuOpen(false); setPhase('play'); };
+  const skipToLand = (id, options) => { runtimeRef.current.startAt(id, options); setMpMenuOpen(false); setPhase('play'); };
   // "Evolve again" from the death screen — keep the run's gameplay settings
-  const restartRun = () => { const e = engineRef.current; e.start({ fantasyEvolution: e.fantasyEvolution, respawns: e.respawnsEnabled, items: e.itemsEnabled, funItems: e.funItems, cheats: e.cheatsEnabled }); setPhase('play'); };
+  const restartRun = () => { const e = engineRef.current; runtimeRef.current.startRun({ fantasyEvolution: e.fantasyEvolution, respawns: e.respawnsEnabled, items: e.itemsEnabled, funItems: e.funItems, cheats: e.cheatsEnabled }); setPhase('play'); };
   const blockForContent = blocked => {
     const e = engineRef.current; if (!e) return;
-    if (e.mp) e.setInputSuppressed(blocked); else e.setPaused(blocked);
+    if (e.mp) runtimeRef.current.commands.setInputSuppressed(blocked); else runtimeRef.current.commands.setPaused(blocked);
   };
   const openTree = () => { if (engineRef.current && engineRef.current.canWiki()) { blockForContent(true); setTreeOpen(true); } };
   const closeTree = () => { setTreeOpen(false); blockForContent(false); };
@@ -58,13 +60,13 @@ export function App() {
     if (e && !e.mp && e.canWiki()) { blockForContent(true); setTalentsOpen(true); }
   };
   const closeTalents = () => { setTalentsOpen(false); blockForContent(false); };
-  const closeAchievement = () => { if (engineRef.current) engineRef.current.dismissAchievement(); };
+  const closeAchievement = () => { if (runtimeRef.current) runtimeRef.current.commands.dismissAchievement(); };
   const openSettings = () => setSettingsOpen(true);
   const closeSettings = () => setSettingsOpen(false);
   const changeSettings = value => setSettings(saveSettings(value));
   const toggleMpMenu = () => {
     const open = !mpMenuOpen;
-    if (engineRef.current) engineRef.current.setInputSuppressed(open);
+    if (runtimeRef.current) runtimeRef.current.commands.setInputSuppressed(open);
     setMpMenuOpen(open);
   };
   const handleEscape = () => {
@@ -77,7 +79,7 @@ export function App() {
     else if (atlasOpen) closeAtlas();
     else if (hud && hud.pendingEvolve) return;   // evolution is a required choice, not a dismissible menu
     else if (engineRef.current && engineRef.current.mp) toggleMpMenu();
-    else if (engineRef.current) engineRef.current.togglePause();
+    else if (runtimeRef.current) runtimeRef.current.commands.togglePause();
   };
   const closeLobby = () => {
     if (lobbyRef.current) { lobbyRef.current.close(); lobbyRef.current = null; }
@@ -87,7 +89,7 @@ export function App() {
     setTreeOpen(false); setAtlasOpen(false); setBossEffectsOpen(false); setTalentsOpen(false);
     setSettingsOpen(false); setMpMenuOpen(false); setMpView(false);
     closeLobby();
-    if (engineRef.current) { engineRef.current.setInputSuppressed(false); engineRef.current.returnToMenu(); }
+    if (engineRef.current) { runtimeRef.current.commands.setInputSuppressed(false); runtimeRef.current.returnToMenu(); }
     setPhase('start');
   };
   const openProfile = () => setProfileOpen(true);
@@ -95,7 +97,7 @@ export function App() {
   const openMultiplayer = () => {
     if (!lobbyRef.current) {
       lobbyRef.current = createLobby(profile, setMpState,
-        (from, data) => { if (engineRef.current) engineRef.current.onNetPacket(from, data); });
+        (from, data) => { if (runtimeRef.current) runtimeRef.current.receiveNetworkPacket(from, data); });
     }
     setMpView(true);
   };
@@ -110,20 +112,20 @@ export function App() {
     if (!started || phase !== 'start') return;
     const room = mpState.room, roster = buildRoster(room), isHost = room.host === mpState.connId;
     const opts = { room, profile, lobby: lobbyRef.current, selfConn: mpState.connId, roster };
-    if (isHost) engineRef.current.startMpHost(opts);
-    else engineRef.current.startMpClient({ ...opts, hostConn: room.host });
+    if (isHost) runtimeRef.current.startMpHost(opts);
+    else runtimeRef.current.startMpClient({ ...opts, hostConn: room.host });
     setMpView(false); setMpMenuOpen(false); setPhase('play');
   }, [started, phase]);
 
   // keep the host's roster fresh as players join/leave/recolour mid-session
   useEffect(() => {
-    if (phase === 'play' && mpState.room && engineRef.current && engineRef.current.mp) engineRef.current.mpSetRoster(buildRoster(mpState.room));
+    if (phase === 'play' && mpState.room && engineRef.current && engineRef.current.mp) runtimeRef.current.setRoster(buildRoster(mpState.room));
   }, [mpState.room]);
   const curId = (engine && engine.player) ? engine.player.speciesId : 'protocell';
   const contentModalOpen = treeOpen || atlasOpen || bossEffectsOpen || talentsOpen;
   const inputBlocked = contentModalOpen || settingsOpen || profileOpen || mpMenuOpen || !!(hud && (hud.paused || hud.pendingEvolve));
   uiRef.current = {
-    phase, frameRate: settings.frameRate, inputBlocked, handleEscape,
+    phase, frameRate: settings.frameRate, inputBlocked, multiplayer: !!(engine && engine.mp), handleEscape,
     treeOpen, openTree, closeTree, atlasOpen, openAtlas, closeAtlas,
     bossEffectsOpen, openBossEffects, closeBossEffects, talentsOpen, openTalents, closeTalents,
     achievementOpen: !!(hud && hud.achievement), closeAchievement,
@@ -133,7 +135,7 @@ export function App() {
     <${Fragment}>
       <canvas id="game" ref=${canvasRef}/>
 
-      ${phase === 'play' && hud && !hud.dead && html`<${Hud} hud=${hud} engine=${engine} onOpenTree=${openTree} onOpenAtlas=${openAtlas} onOpenBossEffects=${openBossEffects} onOpenTalents=${openTalents} onToggleMenu=${toggleMpMenu}/>`}
+      ${phase === 'play' && hud && !hud.dead && html`<${Hud} hud=${hud} commands=${commands} onOpenTree=${openTree} onOpenAtlas=${openAtlas} onOpenBossEffects=${openBossEffects} onOpenTalents=${openTalents} onToggleMenu=${toggleMpMenu}/>`}
 
       ${phase === 'play' && hud && hud.mpRole && html`<button className="mpLeaveBtn" onClick=${mainMenu} title="Leave the shared game">‹ Leave game</button>`}
 
@@ -150,14 +152,14 @@ export function App() {
 
       ${phase === 'play' && atlasOpen && hud && html`<${AtlasModal} engine=${engine} hud=${hud} onClose=${closeAtlas}/>`}
 
-      ${phase === 'play' && talentsOpen && engine && html`<${TalentModal} engine=${engine} onClose=${closeTalents}/>`}
+      ${phase === 'play' && talentsOpen && engine && html`<${TalentModal} engine=${engine} commands=${commands} onClose=${closeTalents}/>`}
 
       ${phase === 'play' && bossEffectsOpen && hud && html`<${BossEffectsModal} perks=${hud.perks || []} onClose=${closeBossEffects}/>`}
 
-      ${phase === 'play' && hud && hud.pendingEvolve && engine && html`<${EvolveModal} engine=${engine} hud=${hud}/>`}
+      ${phase === 'play' && hud && hud.pendingEvolve && engine && html`<${EvolveModal} engine=${engine} commands=${commands} hud=${hud}/>`}
 
       ${phase === 'play' && hud && hud.paused && !hud.pendingEvolve && !hud.dead && !hud.achievement && !contentModalOpen && !settingsOpen && html`
-        <${PauseOverlay} onResume=${() => engine.togglePause()} onSettings=${openSettings} onMainMenu=${mainMenu}/>`}
+        <${PauseOverlay} onResume=${commands.togglePause} onSettings=${openSettings} onMainMenu=${mainMenu}/>`}
 
       ${phase === 'play' && hud && hud.mpRole && mpMenuOpen && !settingsOpen && html`
         <${PauseOverlay} multiplayer=${true} onResume=${toggleMpMenu} onSettings=${openSettings} onMainMenu=${mainMenu}/>`}

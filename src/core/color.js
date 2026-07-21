@@ -2,8 +2,13 @@
 import { clamp } from './math.js';
 
 export function hx(h) {
-  h = h.replace('#', '');
-  return [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16)];
+  const value = String(h || '').trim();
+  const functional = value.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+  if (functional) return functional.slice(1, 4).map(channel => clamp(Number(channel) || 0, 0, 255));
+  let hex = value.replace('#', '');
+  if (hex.length === 3 || hex.length === 4) hex = hex.slice(0, 3).split('').map(channel => channel + channel).join('');
+  if (!/^[0-9a-f]{6}/i.test(hex)) return [0, 0, 0];
+  return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
 }
 
 /* Lighten (amt > 0) or darken (amt < 0) a hex color. */

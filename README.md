@@ -35,8 +35,9 @@ it, each with a one-file launcher.
 | **Host multiplayer** — any OS   | **Node.js** (LTS) — install once from <https://nodejs.org> (Windows: `winget install OpenJS.NodeJS.LTS`) |
 | **Join** a multiplayer game     | Nothing but a web browser                                                                      |
 
-No `npm install` is ever required — React/htm are vendored in `vendor/`, and the
-multiplayer server is a single dependency-free Node script.
+No `npm install` is ever required — React/htm and the pinned PixiJS runtime are
+vendored in `vendor/`, and the multiplayer server is a single dependency-free
+Node script.
 
 ### Play solo
 
@@ -93,11 +94,13 @@ host-game.command     double-click to host multiplayer (macOS · needs Node.js)
 host-game.sh          run to host multiplayer (macOS / Linux · needs Node.js)
 server/relay.mjs      zero-dependency Node host: serves the game + WebSocket lobby/relay
 tools/serve.ps1       dependency-free static web server (Windows, solo play)
-vendor/               React 18, ReactDOM, htm (local copies; game works offline)
+vendor/               React 18, ReactDOM, htm, PixiJS 8.18.1 + licenses (local; offline)
+docs/                 staged rewrite plan and feature-parity checklist
+tests/                browser-run architecture, catalog, renderer and game smoke tests
 styles/               base.css (theme/reset) · hud.css · overlays.css · tree.css · atlas.css · talents.css · menu.css
 src/
   main.js             boots the React app
-  core/               math.js, color.js — pure helpers
+  core/               math.js, color.js + deterministic EventBus
   net/                multiplayer client — profile.js (local name/colour) · lobby.js (WebSocket lobby client)
   data/               ALL game content as plain data (no logic):
     species.js          player evolution tree (sea + land) + LAND_PIONEERS + STAT_MAX
@@ -109,7 +112,10 @@ src/
     branches.js         branch colors/labels (sea + land branches)
     progression.js      XP curve, level cap
   engine/
-    Engine.js           orchestrator: world state, update loop, evolution, HUD snapshots
+    events.js           cross-subsystem subscriber-event names
+    adapters/           command-event compatibility adapters for legacy simulation calls
+    components/         component world plus the temporary legacy presentation mirror
+    Engine.js           simulation facade: world state, fixed updates, evolution, HUD snapshots
     audio.js            Sfx — tiny WebAudio beep synth
     mp.js               multiplayer netcode — host authority, snapshots, client replica, packets
     entities/           class hierarchy:
@@ -123,15 +129,18 @@ src/
       abilities.js        what each active power actually does
       effects.js          particle bursts, floating text
   render/
+    canvas/             compatibility world renderer used until Pixi reaches visual parity
+    pixi/               native Pixi world renderer, scene layers, geometry bridge and pools
     drawCreature.js     the one parametric creature renderer (incl. land tetrapods)
     drawPlant.js        sea + land flora (algae/kelp, moss/fern)
     drawAbilityIcon.js  vector icons for powers
     renderWorld.js      full frame draw; sea + land backgrounds by theme
+  runtime/              composition root, clock, interpolation projector and audio boundary
   ui/                   React components (htm templates, JSX-like, no build)
     react.js            single React/htm import point
     App.js              root — picks which screens/overlays to show
-    useEngine.js        engine lifecycle + requestAnimationFrame loop
-    input.js            keyboard/mouse bindings
+    useEngine.js        React lifecycle adapter for the game runtime
+    input.js            keyboard/mouse command-event publisher
     debug.js            window.__game console API for testing
     components/         Hud, AbilityBar, AbilityIcon, AchievementToast, StatRow, CreatureCanvas
     overlays/           StartScreen (main menu), MultiplayerScreen (lobby), MpHud (FFA scoreboard + kill feed),
@@ -142,12 +151,24 @@ src/
 ### Architecture in one paragraph
 
 `data/` is pure content — adding a species, power or boss is a data edit.
-`engine/` owns the simulation: `Engine.update()` advances the world once per
-frame, and each entity updates itself (`Creature.act()` is overridden by
-`Boss`, so boss behavior is polymorphism, not if-chains). `render/` draws the
-world from engine state and knows nothing about React. `ui/` is React: the
-engine publishes plain HUD snapshot objects through a callback, and React
-renders overlays from them — the UI never mutates engine internals directly.
+`engine/` owns simulation state: `Engine.update()` advances one fixed step, and
+each legacy entity currently updates itself while behavior is moved in phases
+to the component world. `runtime/` composes the clock, event bus, inputs, audio,
+network ingress, immutable presentation projection and selected renderer.
+`render/` consumes presentation frames and knows nothing about React. `ui/` is
+React: it publishes commands and renders plain HUD snapshots received through
+subscriber events. The full migration sequence and parity gates are in
+`docs/PIXI_COMPONENT_MIGRATION.md`.
+
+Canvas remains the default gameplay renderer while the Phase 3 parity matrix is
+reviewed. Append `?renderer=pixi` to the game URL to run the complete Pixi world
+path; it draws native Pixi geometry/text and does not upload Canvas frames.
+
+The browser test pages are `tests/core.test.html` (architecture, catalogs and
+runtime), `tests/render.test.html` (all Pixi visual catalogs/scenarios), and
+`tests/app-smoke.test.html` (real React startup and run flow). The deterministic
+visual page is `tests/render-smoke.test.html`; add `?renderer=pixi` and optionally
+`&map=spore_marsh` (or another map id). A passing run reports `PASS` in its title.
 
 ## How to extend
 

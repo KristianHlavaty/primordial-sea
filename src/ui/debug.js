@@ -4,13 +4,15 @@
 import { ABILITIES, ACTIVE_TIMER } from '../data/abilities.js';
 import { xpNeed } from '../data/progression.js';
 
-export function installDebugApi(engine, ui) {
+export function installDebugApi(runtime, ui) {
+  const engine = runtime.engine;
   window.__game = {
     eng: engine,
-    start: () => engine.start(),
-    startAt: id => engine.startAt(id),
-    step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) engine.update(dt); engine.render(); },
-    render: () => engine.render(),
+    runtime,
+    start: () => runtime.startRun(),
+    startAt: id => runtime.startAt(id),
+    step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) runtime.step(dt); runtime.render(); },
+    render: () => runtime.render(),
     choose: id => engine.chooseEvolution(id),
     ascend: () => engine.openAscend(),
     stay: () => engine.dismissAscend(),
@@ -37,10 +39,12 @@ export function installDebugApi(engine, ui) {
       const own = engine.player ? [{ self: true, connId: engine.mp && engine.mp.self, sp: engine.player.speciesId, x: Math.round(engine.player.x), y: Math.round(engine.player.y), hp: Math.round(engine.player.hp), lv: engine.player.level }] : [];
       return own.concat(engine.remotePlayers.map(r => ({ self: false, connId: r.connId, name: r.name, sp: r.species || r.speciesId, x: Math.round(r.x), y: Math.round(r.y), hp: Math.round(r.hp), lv: r.level, bite: +(r.biteAnim || 0).toFixed(2) })));
     },
-    mpFeed: data => engine.onNetPacket(engine.mp ? engine.mp.host : 0, data),
-    mpPacket: (from, data) => engine.onNetPacket(from, data),
-    mpTestClient: room => engine.startMpClient({ room, profile: { id: 't', name: 'Tester', color: '#8affd0' }, lobby: null, selfConn: 99, hostConn: 1, roster: {} }),
-    mpTestHost: room => engine.startMpHost({ room, profile: { id: 'h', name: 'Host', color: '#8affd0' }, lobby: room.lobby || null, selfConn: 1, roster: room.roster || {} }),
+    mpFeed: data => runtime.receiveNetworkPacket(engine.mp ? engine.mp.host : 0, data),
+    mpPacket: (from, data) => runtime.receiveNetworkPacket(from, data),
+    mpTestClient: room => runtime.startMpClient({ room, profile: { id: 't', name: 'Tester', color: '#8affd0' }, lobby: null, selfConn: 99, hostConn: 1, roster: {} }),
+    mpTestHost: room => runtime.startMpHost({ room, profile: { id: 'h', name: 'Host', color: '#8affd0' }, lobby: room.lobby || null, selfConn: 1, roster: room.roster || {} }),
+    renderer: () => ({ mode: runtime.rendererMode, ready: runtime.rendererReady, entities: runtime.componentMirror.size(), resources: runtime.renderer.stats ? runtime.renderer.stats() : null }),
+    components: (...types) => runtime.componentWorld.query(...types).map(entity => ({ entity, components: Object.fromEntries(types.map(type => [type, runtime.componentWorld.getComponent(entity, type)])) })),
     abState: () => {
       const p = engine.player;
       return p && p.abilities.map((id, i) => ({ i, id, cd: +(p.acd[id] || 0).toFixed(2), active: +((p[ACTIVE_TIMER[id]] || 0)).toFixed(2), passive: ABILITIES[id].passive }));

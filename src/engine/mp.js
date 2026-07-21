@@ -142,6 +142,7 @@ export function mpStartHost(engine, { room, profile, lobby, selfConn, roster }) 
 
 export function mpStartClient(engine, { room, profile, lobby, selfConn, hostConn, roster }) {
   engine.resetRun();
+  const previousMapId = engine.mapId;
   const fantasy = !!room.fantasy;
   const evolution = room.evolution !== false;
   const bosses = room.bosses === true;
@@ -172,6 +173,7 @@ export function mpStartClient(engine, { room, profile, lobby, selfConn, hostConn
   engine.cam.y = clamp(engine.player.y - engine.vh / 2, 0, Math.max(0, engine.H - engine.vh));
   engine.captureRenderState();
   engine.playing = true; engine.paused = false; engine.dead = false;
+  engine.emitMapChanged(previousMapId);
   engine.sfx.unlock();
   if (lobby) lobby.raw({ t: 'relay', to: hostConn, data: { k: 'ready' } });
   engine.pushHud(true);
@@ -224,7 +226,7 @@ function ensureRemote(engine, connId) {
   const rp = new RemotePlayer(resolveSpecies(r.species, mp.stage, mp.tier, mp.fantasy), engine, { connId, name: r.name, color: r.color });
   rp.mapId = engine.player.mapId || engine.mapId;
   engine.remotePlayers.push(rp);
-  if (engine.onScheduleChange) engine.onScheduleChange();
+  engine.notifyScheduleChange();
   return rp;
 }
 
@@ -411,6 +413,7 @@ export function mpMaybeCrossMap(engine, dt) {
    restore the host player's map for rendering, input, HUD and camera work. */
 export function mpUpdateWorlds(engine, dt, updateWorld) {
   const mp = engine.mp;
+  const previousVisibleMap = engine.mapId;
   saveActiveWorld(engine);
   const players = engine.player ? [engine.player, ...engine.remotePlayers] : engine.remotePlayers.slice();
   const occupied = [...new Set(players.map(player => player.mapId).filter(mapId => mp.worlds.has(mapId)))];
@@ -422,6 +425,9 @@ export function mpUpdateWorlds(engine, dt, updateWorld) {
   }
   engine._worldFocusPlayer = null;
   mpActivateWorld(engine, engine.player.mapId);
+  if (engine.mapId !== previousVisibleMap) {
+    engine.captureRenderState(); engine.emitMapChanged(previousVisibleMap);
+  }
   engine.nearEdge = mp.edgePrompts.get(mp.self) || null;
 }
 
@@ -863,7 +869,7 @@ function applySnapshot(engine, s) {
 }
 
 function applyWorldInit(engine, w) {
-  const mp = engine.mp, mapChanged = !!(w.map && w.map !== engine.mapId);
+  const mp = engine.mp, previousMapId = engine.mapId, mapChanged = !!(w.map && w.map !== engine.mapId);
   mp.gotInit = true;
   engine.W = w.W; engine.H = w.H; engine.theme = w.theme; engine.era = w.era || 0;
   if (w.map) {
@@ -884,6 +890,7 @@ function applyWorldInit(engine, w) {
   engine.obstacles = (w.obstacles || []).map(o => ({ ...o }));
   engine.plants = (w.plants || []).map(p => ({ ...p, value: 1, eatCd: 0, regen: 0 }));
   engine.webs = (w.webs || []).map(x => ({ ...x }));
+  if (mapChanged) { engine.captureRenderState(); engine.emitMapChanged(previousMapId); }
 }
 
 export function mpClientUpdate(engine, dt) {

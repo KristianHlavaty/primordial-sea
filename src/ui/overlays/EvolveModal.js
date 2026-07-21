@@ -12,7 +12,7 @@ import { StatRow } from '../components/StatRow.js';
 
 const MAX = STAT_MAX;
 
-export function EvolveModal({ engine, hud }) {
+export function EvolveModal({ engine, commands, hud }) {
   const cur = engine.player.species.stats;
   const ascend = hud.evolveMode === 'ascend';
   const advance = hud.evolveMode === 'advance';
@@ -33,7 +33,7 @@ export function EvolveModal({ engine, hud }) {
             const bcls = (sp.branch === '-') ? '' : sp.branch;
             const blabel = BRANCH_WORD[sp.branch] || '';
             return html`
-              <div key=${id} className=${'choice ' + bcls} onClick=${() => engine.chooseEvolution(id)}>
+              <div key=${id} className=${'choice ' + bcls} onClick=${() => commands.chooseEvolution(id)}>
                 <canvas width="200" height="120" ref=${el => engine.registerPreview(id, el)}/>
                 <div className="cname">${sp.name}
                   ${bcls && html`<span className=${'ctag ' + bcls}>${blabel}</span>`}</div>
@@ -52,12 +52,12 @@ export function EvolveModal({ engine, hud }) {
         </div>
         ${ascend && html`
           <div className="ascendStay">
-            <button className="stayBtn" onClick=${() => engine.dismissAscend()}>Not yet — stay in the sea</button>
+            <button className="stayBtn" onClick=${commands.dismissAscend}>Not yet — stay in the sea</button>
             <div className="ascendHint">Finish hunting the deep (bosses, kills…) and reopen this from the <b>🏝 Ashore</b> button anytime.</div>
           </div>`}
         ${advance && html`
           <div className="ascendStay">
-            <button className="stayBtn" onClick=${() => engine.dismissAdvance()}>Not yet — stay in the Devonian</button>
+            <button className="stayBtn" onClick=${commands.dismissAdvance}>Not yet — stay in the Devonian</button>
             <div className="ascendHint">Finish exploring Devonian zones and reopen this transition from the <b>Carboniferous</b> button anytime.</div>
           </div>`}
       </div>

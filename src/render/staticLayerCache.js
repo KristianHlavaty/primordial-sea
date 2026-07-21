@@ -41,6 +41,7 @@ function enforceBudget() {
 /* Returns the smallest useful cache density for the caller's current transform.
    Very large close-ups bypass caching rather than stretching a blurry bitmap. */
 export function staticLayerScale(ctx) {
+  if (ctx && ctx.kind === 'pixi') return 0;
   let required = 1;
   if (typeof ctx.getTransform === 'function') {
     const matrix = ctx.getTransform();

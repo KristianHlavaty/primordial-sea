@@ -1,0 +1,61 @@
+/* Cross-subsystem event names. Keeping them centralized makes subscribers and
+   migration adapters discoverable, while the wire payloads remain plain data. */
+export const GameEvents = Object.freeze({
+  RUNTIME_ERROR: 'runtime:error',
+  RUNTIME_READY: 'runtime:ready',
+  RUNTIME_STARTED: 'runtime:started',
+  RUNTIME_STOPPED: 'runtime:stopped',
+  RUNTIME_SCHEDULE_CHANGED: 'runtime:schedule-changed',
+  RUNTIME_RESIZED: 'runtime:resized',
+  RUNTIME_BACKGROUND_CHANGED: 'runtime:background-changed',
+
+  INPUT_RESIZE_REQUESTED: 'input:resize-requested',
+  INPUT_POINTER_MOVED: 'input:pointer-moved',
+  INPUT_MOVE_CHANGED: 'input:move-changed',
+  INPUT_BITE_CHANGED: 'input:bite-changed',
+  INPUT_ABILITY_REQUESTED: 'input:ability-requested',
+  INPUT_ITEM_REQUESTED: 'input:item-requested',
+  INPUT_ITEM_DROP_REQUESTED: 'input:item-drop-requested',
+  INPUT_VEHICLE_REQUESTED: 'input:vehicle-requested',
+  INPUT_PAUSE_REQUESTED: 'input:pause-requested',
+  INPUT_MUTE_REQUESTED: 'input:mute-requested',
+  INPUT_LEVELS_REQUESTED: 'input:levels-requested',
+  INPUT_RELEASED: 'input:released',
+
+  FLOW_PAUSED_CHANGED: 'flow:paused-changed',
+  FLOW_INPUT_SUPPRESSION_CHANGED: 'flow:input-suppression-changed',
+  FLOW_ASCEND_REQUESTED: 'flow:ascend-requested',
+  FLOW_ADVANCE_REQUESTED: 'flow:advance-requested',
+  FLOW_ASCEND_DISMISSED: 'flow:ascend-dismissed',
+  FLOW_ADVANCE_DISMISSED: 'flow:advance-dismissed',
+  PROGRESSION_EVOLUTION_REQUESTED: 'progression:evolution-requested',
+  PROGRESSION_TALENT_SPEND_REQUESTED: 'progression:talent-spend-requested',
+  PROGRESSION_TALENT_UNDO_REQUESTED: 'progression:talent-undo-requested',
+  PROGRESSION_TALENT_RESPEC_REQUESTED: 'progression:talent-respec-requested',
+  CHEAT_INVINCIBILITY_REQUESTED: 'cheat:invincibility-requested',
+  CHEAT_LEVEL_REQUESTED: 'cheat:level-requested',
+  UI_ACHIEVEMENT_DISMISSED: 'ui:achievement-dismissed',
+
+  WORLD_ENTITY_CREATED: 'world:entity-created',
+  WORLD_ENTITY_DESTROYED: 'world:entity-destroyed',
+  WORLD_COMPONENT_ADDED: 'world:component-added',
+  WORLD_COMPONENT_CHANGED: 'world:component-changed',
+  WORLD_COMPONENT_REMOVED: 'world:component-removed',
+  WORLD_MAP_CHANGED: 'world:map-changed',
+
+  UI_HUD_UPDATED: 'ui:hud-updated',
+
+  AUDIO_PLAY_REQUESTED: 'audio:play-requested',
+  AUDIO_UNLOCK_REQUESTED: 'audio:unlock-requested',
+  AUDIO_MUTED_CHANGED: 'audio:muted-changed',
+  AUDIO_BACKGROUND_CHANGED: 'audio:background-changed',
+
+  NET_PACKET_RECEIVED: 'net:packet-received',
+
+  RENDERER_READY: 'renderer:ready',
+  RENDERER_RESIZED: 'renderer:resized',
+  RENDERER_DESTROYED: 'renderer:destroyed',
+  RENDER_CAPTURE_REQUESTED: 'renderer:capture-requested',
+  RENDER_FRAME_REQUESTED: 'renderer:frame-requested',
+  RENDER_OBJECT_SNAPPED: 'renderer:object-snapped',
+});

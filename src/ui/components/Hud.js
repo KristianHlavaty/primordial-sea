@@ -6,7 +6,7 @@ import { AbilityBar } from './AbilityBar.js';
 import { AbilityIcon } from './AbilityIcon.js';
 import { ItemBar } from './ItemBar.js';
 
-export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects, onOpenTalents, onToggleMenu }) {
+export function Hud({ hud, commands, onOpenTree, onOpenAtlas, onOpenBossEffects, onOpenTalents, onToggleMenu }) {
   return html`
     <div className="hud">
       <div className="topleft">
@@ -50,15 +50,15 @@ export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects, o
         ${!hud.mpRole && html`<button className=${'iconbtn talentBtn' + (hud.talentUnspent > 0 ? ' glow' : '')} onClick=${onOpenTalents} title=${'Talents (K)' + (hud.talentUnspent > 0 ? ' — ' + hud.talentUnspent + ' unspent' : '')}>✦${hud.talentUnspent > 0 ? html`<em>${hud.talentUnspent}</em>` : ''}</button>`}
         <button className="iconbtn" onClick=${onOpenTree} title="Evolution tree (T)">🧬</button>
         <button className="iconbtn" onClick=${onOpenAtlas} title="World atlas (B)">🗺</button>
-        <button className=${'iconbtn' + (hud.showLevels ? ' on' : '')} onClick=${() => engine.toggleLevels()} title="Toggle level labels (L)">Lv</button>
-        <button className="iconbtn" onClick=${() => engine.toggleMute()} title="Mute (M)">${hud.muted ? '🔇' : '🔊'}</button>
-        <button className="iconbtn" onClick=${() => hud.mpRole ? onToggleMenu && onToggleMenu() : engine.togglePause()}
+        <button className=${'iconbtn' + (hud.showLevels ? ' on' : '')} onClick=${commands.toggleLevels} title="Toggle level labels (L)">Lv</button>
+        <button className="iconbtn" onClick=${commands.toggleMute} title="Mute (M)">${hud.muted ? '🔇' : '🔊'}</button>
+        <button className="iconbtn" onClick=${() => hud.mpRole ? onToggleMenu && onToggleMenu() : commands.togglePause()}
           title=${hud.mpRole ? 'Game menu (Esc / P)' : 'Pause (P)'}>${hud.mpRole ? '☰' : '⏸'}</button>
       </div>
       ${hud.ascendAvailable && html`
-        <button className="ashoreBtn" onClick=${() => engine.openAscend()} title="Crawl ashore — evolve onto the land">🏝 Ashore</button>`}
+        <button className="ashoreBtn" onClick=${commands.openAscend} title="Crawl ashore — evolve onto the land">🏝 Ashore</button>`}
       ${hud.advanceAvailable && html`
-        <button className="advanceBtn" onClick=${() => engine.openAdvance()} title="Continue into the Carboniferous">◆ Carboniferous</button>`}
+        <button className="advanceBtn" onClick=${commands.openAdvance} title="Continue into the Carboniferous">◆ Carboniferous</button>`}
       ${hud.landDeadEnd && html`
         <div className="deadEndNote">🌊 <b>Dead end.</b> This lineage has no real land descendants — it can't crawl ashore. Start a new run with <b>Fantasy Evolution</b> on to give it a speculative land path.</div>`}
       ${hud.nearEdge && html`<div className=${'edgePrompt' + (hud.items ? ' withItems' : '')}>▸ crossing to <b>${hud.nearEdge}</b>…</div>`}
@@ -68,10 +68,10 @@ export function Hud({ hud, engine, onOpenTree, onOpenAtlas, onOpenBossEffects, o
       ${hud.cheatsEnabled && html`
         <div className="cheatPanel">
           <div className="cheatTitle">CHEATS</div>
-          <button className=${hud.invincible ? 'active' : ''} onClick=${() => engine.toggleInvincible()}>${hud.invincible ? '◆' : '◇'} Invincibility</button>
-          <button onClick=${() => engine.cheatLevelUp()} disabled=${hud.level >= 10 || hud.pendingEvolve}>＋ Level up</button>
+          <button className=${hud.invincible ? 'active' : ''} onClick=${commands.toggleInvincible}>${hud.invincible ? '◆' : '◇'} Invincibility</button>
+          <button onClick=${commands.cheatLevelUp} disabled=${hud.level >= 10 || hud.pendingEvolve}>＋ Level up</button>
         </div>`}
-      ${hud.items && !hud.vehicle && html`<${ItemBar} items=${hud.items} engine=${engine}/>`}
-      ${!hud.vehicle && html`<${AbilityBar} abilities=${hud.abilities} engine=${engine}/>`}
+      ${hud.items && !hud.vehicle && html`<${ItemBar} items=${hud.items} commands=${commands}/>`}
+      ${!hud.vehicle && html`<${AbilityBar} abilities=${hud.abilities} commands=${commands}/>`}
     </div>`;
 }

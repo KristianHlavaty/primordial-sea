@@ -4,7 +4,7 @@
 import { html } from '../react.js';
 import { AbilityIcon } from './AbilityIcon.js';
 
-export function AbilityBar({ abilities, engine }) {
+export function AbilityBar({ abilities, commands }) {
   if (!abilities || !abilities.length) return null;
   return html`
     <div className="abilbar">
@@ -12,7 +12,7 @@ export function AbilityBar({ abilities, engine }) {
         <div key=${a.id} className=${'abil' + (a.active ? ' active' : '') + (a.passive ? ' passive' : '')}
              style=${{ '--ac': a.color }}
              title=${a.name + ' — ' + a.desc}
-             onClick=${() => a.passive ? null : engine.useAbility(i)}>
+             onClick=${() => a.passive ? null : commands.useAbility(i)}>
           <${AbilityIcon} id=${a.id} color=${a.color}/>
           ${a.passive ? html`<span className="apass">PASSIVE</span>` : html`<span className="akey">${a.key}</span>`}
           <span className="aname">${a.name}</span>

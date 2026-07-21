@@ -1,7 +1,6 @@
-/* The game engine: owns all world state, advances the simulation (update)
-   and draws it (render). The React shell drives it from a rAF loop and
-   receives UI state through the onHud callback — plain snapshot objects,
-   so the UI never reaches into live entities.
+/* The game simulation facade: owns legacy world state and advances it. The
+   runtime owns clocks, platform adapters and rendering; UI state is published
+   through subscriber events as plain snapshot objects.
 
    The world is one of many MAPS (data/maps.js), grouped into STAGES (sea, land).
    loadMap() swaps the active map — resizing the world, reseeding stage-matched
@@ -30,47 +29,17 @@ import { activateAbility } from './systems/abilities.js';
 import { burst } from './systems/effects.js';
 import { updateItems, useHeldItem, dropHeldItem } from './systems/items.js';
 import { updateVehicles, toggleVehicle, exitVehicle } from './systems/vehicles.js';
-import { renderWorld } from '../render/renderWorld.js';
 import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpMinimap, mpMaybeCrossMap, mpUpdateWorlds, mpActivateWorld, mpQueueEvolution, mpChooseEvolution, mpUseCheat, mpUseItem, mpDropItem, mpToggleVehicle } from './mp.js';
-import { Sfx } from './audio.js';
+import { GameEvents } from './events.js';
 
 const CURRENT_SPEED = 165;   // sea-stage water current — px/s of drift at full strength
 
-const RENDER_FIELDS = [
-  ['x', '_renderPrevX', '_renderLiveX'], ['y', '_renderPrevY', '_renderLiveY'],
-  ['angle', '_renderPrevAngle', '_renderLiveAngle'], ['t', '_renderPrevT', '_renderLiveT'],
-  ['px', '_renderPrevPx', '_renderLivePx'], ['py', '_renderPrevPy', '_renderLivePy'],
-];
-
-function captureRenderObject(object) {
-  if (!object) return;
-  for (const [field, previous] of RENDER_FIELDS) if (Number.isFinite(object[field])) object[previous] = object[field];
-}
-
-function interpolateRenderObject(object, alpha) {
-  if (!object) return;
-  for (const [field, previous, live] of RENDER_FIELDS) {
-    const current = object[field]; if (!Number.isFinite(current)) continue;
-    object[live] = current;
-    const from = Number.isFinite(object[previous]) ? object[previous] : current;
-    object[field] = field === 'angle'
-      ? from + Math.atan2(Math.sin(current - from), Math.cos(current - from)) * alpha
-      : from + (current - from) * alpha;
-  }
-}
-
-function restoreRenderObject(object) {
-  if (!object) return;
-  for (const [field, , live] of RENDER_FIELDS) if (Number.isFinite(object[live])) object[field] = object[live];
-}
-
 export class Engine {
-  constructor(canvas, { onHud }) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
-    this.onHud = onHud;
-    this.onScheduleChange = null;
-    this.sfx = new Sfx();
+  constructor({ events, componentWorld, audio } = {}) {
+    if (!events || !componentWorld || !audio) throw new Error('Engine requires runtime-owned events, componentWorld and audio');
+    this.events = events;
+    this.componentWorld = componentWorld;
+    this.sfx = audio;
 
     // current map / viewport
     this.mapId = 'sea_shallows'; this.stage = 'sea'; this.theme = 'sea';
@@ -123,11 +92,10 @@ export class Engine {
     this.talentBonus = computeTalentBonus(this.talent.trees);
   }
 
-  resize() {
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.vw = window.innerWidth; this.vh = window.innerHeight;
-    this.canvas.width = this.vw * this.dpr; this.canvas.height = this.vh * this.dpr;
-    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+  resize(width, height, resolution = 1) {
+    this.dpr = Math.min(Math.max(Number(resolution) || 1, 1), 2);
+    this.vw = Math.max(1, Number(width) || 1); this.vh = Math.max(1, Number(height) || 1);
+    this.events.emit(GameEvents.RUNTIME_RESIZED, { width: this.vw, height: this.vh, resolution: this.dpr });
   }
 
   makePlayer(speciesId) {
@@ -148,7 +116,6 @@ export class Engine {
     this.ascendOffered = false; this.ascendAvailable = false; this.advanceAvailable = false;
     this.transitionCd = 0; this.edgeDwell = 0; this.nearEdge = null; this.visitedMaps = new Set();
     this.time = 0; this.lastHurt = -99;
-    this._renderPrevTime = NaN;
     this.inputSuppressed = false;
     this.mouse.x = this.vw / 2; this.mouse.y = this.vh / 2;
     this.talent = freshTalentState();
@@ -204,6 +171,7 @@ export class Engine {
      at the opposite edge of the new map); omit it for a fresh/landfall entry
      (player is centered). */
   loadMap(mapId, via) {
+    const previousMapId = this.mapId;
     for (const player of this.allPlayers()) if (player.vehicle) exitVehicle(this, player, true);
     const m = MAPS[mapId];
     this.mapId = mapId; this.stage = m.stage; this.theme = m.theme; this.W = m.W; this.H = m.H;
@@ -243,7 +211,15 @@ export class Engine {
     if (this.mp && this.mp.role === 'host') this.mp.worldDirty = true;
     this.visitedMaps.add(mapId);
     this.captureRenderState();
+    this.emitMapChanged(previousMapId, via);
     this.pushHud(true);
+  }
+
+  emitMapChanged(previousMapId, via = null) {
+    this.events.emit(GameEvents.WORLD_MAP_CHANGED, {
+      mapId: this.mapId, previousMapId, via,
+      stage: this.stage, theme: this.theme,
+    });
   }
 
   togglePause() { if (this.dead || this.pendingEvolve || !this.playing || this.mp) return; this.paused = !this.paused; this.pushHud(true); }
@@ -255,17 +231,19 @@ export class Engine {
     if (backgrounded) {
       this.particles.length = 0; this.fx.length = 0; this.floaters.length = 0; this.flow.length = 0;
     } else this.pushHud(true);
+    this.events.emit(GameEvents.RUNTIME_BACKGROUND_CHANGED, { backgrounded });
   }
   returnToMenu() {
     this.playing = false; this.paused = false; this.pendingEvolve = false;
     this.mp = null; this.remotePlayers = [];
     this.biteHeld = false; this.keys = {}; this.pushHud(true);
-    if (this.onScheduleChange) this.onScheduleChange();
+    this.notifyScheduleChange();
   }
 
   /* ---------------- multiplayer entry (delegates to engine/mp.js) ---------------- */
-  startMpHost(opts) { mpStartHost(this, opts); if (this.onScheduleChange) this.onScheduleChange(); }
-  startMpClient(opts) { mpStartClient(this, opts); if (this.onScheduleChange) this.onScheduleChange(); }
+  notifyScheduleChange() { this.events.emit(GameEvents.RUNTIME_SCHEDULE_CHANGED, { engine: this }); }
+  startMpHost(opts) { mpStartHost(this, opts); this.notifyScheduleChange(); }
+  startMpClient(opts) { mpStartClient(this, opts); this.notifyScheduleChange(); }
   updateReplica(dt) { mpClientUpdate(this, dt); }
   onNetPacket(from, data) { mpOnPacket(this, from, data); }
   queueMpEvolution(player) { mpQueueEvolution(this, player); }
@@ -283,7 +261,7 @@ export class Engine {
       this.remotePlayers = this.remotePlayers.filter(rp => roster && roster[rp.connId]);   // drop players who left the room
     }
     for (const rp of this.remotePlayers) { const r = roster && roster[rp.connId]; if (r) { rp.name = r.name; rp.color = r.color; } }
-    if (this.onScheduleChange) this.onScheduleChange();
+    this.notifyScheduleChange();
   }
 
   /* Every player in the active map. Multiplayer players in another adjacent
@@ -550,8 +528,11 @@ export class Engine {
       // Screen-edge wrapping is a teleport, not motion. Reset interpolation on
       // the wrapped axis so high-refresh rendering cannot streak it across the
       // entire viewport on the next frame.
-      if (wrappedX) { s._renderPrevX = s.x; s._renderPrevPx = s.px; }
-      if (wrappedY) { s._renderPrevY = s.y; s._renderPrevPy = s.py; }
+      if (wrappedX || wrappedY) {
+        const fields = [];
+        if (wrappedX) fields.push('x', 'px'); if (wrappedY) fields.push('y', 'py');
+        this.events.emit(GameEvents.RENDER_OBJECT_SNAPPED, { object: s, fields });
+      }
     }
   }
 
@@ -569,8 +550,11 @@ export class Engine {
       }
       if (b.x < -12) { b.x = this.vw + 12; wrappedX = true; }
       else if (b.x > this.vw + 12) { b.x = -12; wrappedX = true; }
-      if (wrappedX) b._renderPrevX = b.x;
-      if (wrappedY) b._renderPrevY = b.y;
+      if (wrappedX || wrappedY) {
+        const fields = [];
+        if (wrappedX) fields.push('x'); if (wrappedY) fields.push('y');
+        this.events.emit(GameEvents.RENDER_OBJECT_SNAPPED, { object: b, fields });
+      }
     }
   }
 
@@ -852,46 +836,10 @@ export class Engine {
     spawnMaintain(this, dt);
   }
 
-  visitRenderObjects(visitor) {
-    visitor(this.player);
-    for (const object of this.remotePlayers) visitor(object);
-    for (const object of this.creatures) visitor(object);
-    for (const object of this.food) visitor(object);
-    for (const object of this.worldItems) visitor(object);
-    for (const object of this.itemProjectiles) visitor(object);
-    for (const object of this.vehicles) visitor(object);
-    for (const object of this.particles) visitor(object);
-    for (const object of this.bubbles) visitor(object);
-    for (const object of this.eggs) visitor(object);
-    for (const object of this.fx) visitor(object);
-    for (const object of this.floaters) visitor(object);
-    for (const object of this.webs) visitor(object);
-    for (const object of this.flow) visitor(object);
-  }
-
-  /* Save the last authoritative positions so rendering above 60 FPS can blend
-     between simulation ticks without running AI/physics more often. */
-  captureRenderState() {
-    this._renderPrevTime = this.time;
-    this._renderPrevCamX = this.cam.x; this._renderPrevCamY = this.cam.y;
-    this.visitRenderObjects(captureRenderObject);
-  }
-
-  render(alpha = 1) {
-    alpha = clamp(alpha, 0, 1);
-    if (alpha >= 1 || !Number.isFinite(this._renderPrevTime)) { renderWorld(this); return; }
-
-    const liveTime = this.time, liveCamX = this.cam.x, liveCamY = this.cam.y;
-    this.time = lerp(this._renderPrevTime, liveTime, alpha);
-    this.cam.x = lerp(this._renderPrevCamX, liveCamX, alpha);
-    this.cam.y = lerp(this._renderPrevCamY, liveCamY, alpha);
-    this.visitRenderObjects(object => interpolateRenderObject(object, alpha));
-    try { renderWorld(this); }
-    finally {
-      this.visitRenderObjects(restoreRenderObject);
-      this.time = liveTime; this.cam.x = liveCamX; this.cam.y = liveCamY;
-    }
-  }
+  /* Compatibility methods used by multiplayer/debug callers. Runtime-owned
+     subscribers now capture and render without importing a renderer here. */
+  captureRenderState() { this.events.emit(GameEvents.RENDER_CAPTURE_REQUESTED, { engine: this }); }
+  render(alpha = 1) { this.events.emit(GameEvents.RENDER_FRAME_REQUESTED, { engine: this, alpha: clamp(alpha, 0, 1) }); }
 
   /* ---------------- HUD snapshots ---------------- */
 
@@ -947,7 +895,7 @@ export class Engine {
       time: Math.max(0, Math.ceil(pilotedVehicle.timeLeft || 0)),
       timeFrac: clamp((pilotedVehicle.timeLeft || 0) / VEHICLES[pilotedVehicle.type].duration, 0, 1),
     } : null;
-    this.onHud({
+    const snapshot = {
       hp: p ? p.hp : 0, maxHp: p ? p.maxHp : 1,
       level: p ? p.level : 1, xp: p ? Math.round(p.xp) : 0, xpNeed: p ? xpNeed(p.level) : 1,
       canEvolve: p ? (this.mp ? mpChoices.length > 0 : p.species.evolvesTo.length > 0) : false, showLevels: this.showLevels,
@@ -971,6 +919,7 @@ export class Engine {
       mpMap: this.mp ? mpMinimap(this) : null,
       mpDead: !!(this.mp && this.player && this.player.deadT > 0), mpRespawnIn: (this.mp && this.player) ? Math.ceil(this.player.deadT || 0) : 0,
       mpFeed: this.mp ? this.mp.feed.map(f => ({ id: f.id, text: f.text, color: f.color })) : null
-    });
+    };
+    this.events.emit(GameEvents.UI_HUD_UPDATED, snapshot);
   }
 }

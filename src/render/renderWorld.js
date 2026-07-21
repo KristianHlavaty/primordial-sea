@@ -30,6 +30,10 @@ const SPECIAL_NAMES = {
   edgePass: 'THREEFOLD CROSSING', fangCharge: 'FANG-LINE CHARGE', panderTail: 'TYRANT TAIL SLAP',
 };
 
+// Canvas ignores these hooks. The Pixi renderer uses them to route the same
+// procedural geometry into its retained scene layers during the parity phase.
+const useLayer = (E, name) => { if (E.setRenderLayer) E.setRenderLayer(name); };
+
 function drawWebFields(E) {
   const ctx = E.ctx;
   for (const w of E.webs || []) {
@@ -662,19 +666,24 @@ export function renderWorld(E) {
   const ctx = E.ctx;
   if (!E.vw) E.resize();
   ctx.clearRect(0, 0, E.vw, E.vh);
+  useLayer(E, 'background');
   drawBackground(E);
   drawCurrent(E);
   if (!E.player) return;
   const shX = (Math.random() * 2 - 1) * E.shake, shY = (Math.random() * 2 - 1) * E.shake;
-  ctx.save(); ctx.translate(shX, shY);
+  ctx.save();
+  if (E.setWorldShake) E.setWorldShake(shX, shY); else ctx.translate(shX, shY);
 
   // sea floor and the marked passages between connected ocean maps
+  useLayer(E, 'terrain');
   if (E.stage === 'sea') { drawSeaFloor(E); drawTopSeaPassage(E); drawSideSeaPassages(E); }
 
+  useLayer(E, 'fields');
   drawWebFields(E);
   drawBossTelegraphs(E);
 
   // plants
+  useLayer(E, 'pickups');
   for (const pl of E.plants) {
     const sx = pl.x - E.cam.x, sy = pl.y - E.cam.y; if (sx < -160 || sx > E.vw + 160) continue;
     ctx.save(); ctx.translate(sx, sy); drawPlant(ctx, pl, E.time); ctx.restore();
@@ -696,12 +705,16 @@ export function renderWorld(E) {
 
   // collectible items and their shared/authoritative attack visuals
   for (const item of E.worldItems) drawWorldItem(E, item);
+  useLayer(E, 'vehicles');
   for (const vehicle of E.vehicles) drawVehicle(E, vehicle);
   for (const projectile of E.itemProjectiles) {
     if (projectile.visual !== 'cat_attack' && projectile.visual !== 'cat_slash') drawItemProjectile(E, projectile);
   }
 
   // eggs (laid when an evolution is pending)
+  // They are drawn after vehicles/projectiles in the legacy order, so keep
+  // them in the current layer instead of jumping behind the vehicle layer.
+  useLayer(E, 'vehicles');
   for (const e of E.eggs) {
     const sx = e.x - E.cam.x, sy = e.y - E.cam.y; const pulse = 0.5 + 0.5 * Math.sin(e.t * 4);
     const gg = ctx.createRadialGradient(sx, sy, 1, sx, sy, 26); gg.addColorStop(0, withA('#8affd0', 0.4 * pulse)); gg.addColorStop(1, 'rgba(0,0,0,0)');
@@ -713,6 +726,7 @@ export function renderWorld(E) {
   }
 
   // creatures (with stun ring, hp bar and level label)
+  useLayer(E, 'actors');
   for (const c of E.creatures) {
     const sx = c.x - E.cam.x, sy = c.y - E.cam.y;
     if (sx < -90 || sx > E.vw + 90 || sy < -90 || sy > E.vh + 90) continue;
@@ -753,6 +767,7 @@ export function renderWorld(E) {
   }
 
   // miniboss decorations: aura, hardened shell, name + health bar
+  useLayer(E, 'actorOverlays');
   for (const c of E.creatures) {
     if (!c.boss) continue;
     const sx = c.x - E.cam.x, sy = c.y - E.cam.y;
@@ -783,6 +798,10 @@ export function renderWorld(E) {
   }
 
   // other players (multiplayer) — drawn beneath the local player's highlight
+  // Player bodies follow boss decorations in Canvas command order. Routing
+  // both through the overlay layer prevents the retained scene graph from
+  // forcing boss bars back above players that should cover them.
+  useLayer(E, 'actorOverlays');
   if (E.mp) drawRemotePlayers(E);
 
   // player indicator + power visuals (hidden while dead/respawning in multiplayer)
@@ -830,6 +849,7 @@ export function renderWorld(E) {
 
   // The summoned cat attacks in the foreground. Large bosses and players used
   // to cover it completely when all item effects shared the background pass.
+  useLayer(E, 'particles');
   for (const projectile of E.itemProjectiles) {
     if (projectile.visual === 'cat_attack' || projectile.visual === 'cat_slash') drawItemProjectile(E, projectile);
   }
@@ -869,6 +889,7 @@ export function renderWorld(E) {
   if (E.mp) drawPlayerTags(E);
   ctx.restore();
 
+  useLayer(E, 'screenFx');
   drawBubbles(E);
 
   // danger vignette

@@ -3,11 +3,11 @@
 import { html, useState, useRef, useEffect, Fragment } from '../react.js';
 import { ItemIcon } from './ItemIcon.js';
 
-export function ItemBar({ items, engine }) {
+export function ItemBar({ items, commands }) {
   const [dragging, setDragging] = useState(null);
   const dragSlot = useRef(null);
-  const itemsRef = useRef(items), engineRef = useRef(engine);
-  itemsRef.current = items; engineRef.current = engine;
+  const itemsRef = useRef(items), commandsRef = useRef(commands);
+  itemsRef.current = items; commandsRef.current = commands;
   const finishDrag = () => { dragSlot.current = null; setDragging(null); };
   const slotFromTransfer = transfer => {
     if (!transfer) return dragSlot.current;
@@ -29,7 +29,7 @@ export function ItemBar({ items, engine }) {
       if (dragSlot.current == null) return;
       event.preventDefault(); event.stopPropagation();
       const currentItems = itemsRef.current || [], slot = slotFromTransfer(event.dataTransfer);
-      if (slot != null && slot >= 0 && slot < currentItems.length && !currentItems[slot].empty) engineRef.current.dropItem(slot);
+      if (slot != null && slot >= 0 && slot < currentItems.length && !currentItems[slot].empty) commandsRef.current.dropItem(slot);
       finishDrag();
     };
     window.addEventListener('dragenter', allowDrop, true);
@@ -51,7 +51,7 @@ export function ItemBar({ items, engine }) {
     event.dataTransfer.setData('text/plain', String(slot));
     setDragging(slot);
   };
-  const discard = (event, slot) => { event.preventDefault(); event.stopPropagation(); engine.dropItem(slot); finishDrag(); };
+  const discard = (event, slot) => { event.preventDefault(); event.stopPropagation(); commands.dropItem(slot); finishDrag(); };
   return html`
     <${Fragment}>
       <div className="itembarWrap">
@@ -62,7 +62,7 @@ export function ItemBar({ items, engine }) {
             className=${'itemslot' + (item.empty ? ' empty' : '') + (item.modern ? ' modern' : '') + (item.rare ? ' rare' : '')}
             style=${item.empty ? null : { '--ic': item.color }}
             title=${item.empty ? 'Empty item slot' : item.name + ' — ' + item.desc + ' (drag or × to drop)'}
-            onClick=${() => item.empty ? null : engine.useItem(item.slot)}
+            onClick=${() => item.empty ? null : commands.useItem(item.slot)}
             onDragStart=${event => startDrag(event, item.slot)} onDragEnd=${finishDrag}>
             <span className="itemkey">${item.key}</span>
             ${item.empty ? html`<span className="itemempty">EMPTY</span>` : html`

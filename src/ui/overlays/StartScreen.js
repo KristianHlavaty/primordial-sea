@@ -6,6 +6,8 @@ import { SPECIES, stagePioneers } from '../../data/species.js';
 import { BRANCH_WORD } from '../../data/branches.js';
 import { frameRateLabel } from '../settings.js';
 
+const MODEL_LAB_URL = new URL('../../../model-lab.html', import.meta.url).href;
+
 export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onEditProfile, settings, onOpenSettings }) {
   const [view, setView] = useState('home');   // 'home' | 'single'
   const [showLand, setShowLand] = useState(false);
@@ -99,10 +101,9 @@ export function StartScreen({ onBegin, onSkipToLand, onMultiplayer, profile, onE
         <div className="subtitle">an evolution game · from the sea to the land</div>
         ${view === 'home' ? home : single}
       </div>
-      <button className="modelLabShortcut" type="button" aria-label="Open Model Lab"
-        onClick=${() => { window.location.href = 'model-lab.html'; }}>
+      <a className="modelLabShortcut" href=${MODEL_LAB_URL} aria-label="Open Model Lab">
         <span className="modelLabCog" aria-hidden="true">⚙</span>
         <span className="modelLabShortcutTip" aria-hidden="true">Model Lab</span>
-      </button>
+      </a>
     </div>`;
 }
