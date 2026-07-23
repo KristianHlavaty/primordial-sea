@@ -37,7 +37,9 @@ export class Creature extends Entity {
     return c;
   }
 
-  takeDamage(game, dmg, fromx, fromy, byPlayer) {
+  takeDamage(game, dmg, fromx, fromy, byPlayer) { return game.componentSystems.damageCreature(this, game, dmg, fromx, fromy, byPlayer); }
+
+  _takeDamage(game, dmg, fromx, fromy, byPlayer) {
     if (this.hardenT > 0) dmg *= 0.3;                    // hardened boss shell soaks most of it
     if (this.armorBreakT > 0) dmg *= 1.22;
     if (this.vulnerableT > 0) dmg *= 1.15;
@@ -48,10 +50,11 @@ export class Creature extends Entity {
       addFloater(game, { x: this.x + rand(-6, 6), y: this.y - this.radius - 4, vx: rand(-16, 16), vy: -48, text: '' + Math.round(dmg), life: 0.9, max: 0.9, color: big ? '#ffb14e' : '#ffffff', size: big ? 18 : 14 });
     }
     this.knockbackFrom(fromx, fromy, 140);
-    if (this.hp <= 0) this.die(game, byPlayer);
   }
 
-  die(game, byPlayer) {
+  die(game, byPlayer) { return game.componentSystems.killCreature(this, game, byPlayer); }
+
+  _die(game, byPlayer) {
     burst(game, this.x, this.y, withA(this.plan.body, 1), 12, 160);
     this.dropMeat(game);
     const idx = game.creatures.indexOf(this); if (idx >= 0) game.creatures.splice(idx, 1);
@@ -81,7 +84,7 @@ export class Creature extends Entity {
       this.poisonT -= dt; this.hp -= (this.poisonDps || 0) * dt; this.hpBarT = Math.max(this.hpBarT, 1.2);
       if (game.particles.length < 300 && Math.random() < dt * 6)
         game.particles.push({ x: this.x + rand(-6, 6), y: this.y + rand(-6, 6), vx: rand(-20, 20), vy: rand(-30, -6), life: 0.5, max: 0.5, size: 2, color: 'rgba(176,224,94,0.7)' });
-      if (this.hp <= 0) { this.die(game, true); return; }
+      if (this.hp <= 0) { game.componentSystems.killCreature(this, game, true); return; }
     }
     if (this.stunT > 0 && !this.boss) { this.integrate(game, dt, 5); return; }   // paralyzed by Shock/Engulf — frozen
     if (this.wanderT <= 0) { this.wanderT = rand(0.7, 2.0); this.wx = rand(-1, 1); this.wy = rand(-1, 1) - this.floaty; }

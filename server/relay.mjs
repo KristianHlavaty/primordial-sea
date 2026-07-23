@@ -255,6 +255,8 @@ function onMessage(conn, m) {
       const r = conn.roomId != null ? rooms.get(conn.roomId) : null;
       if (!r) break;
       const out = { t: 'relay', from: conn.id, data: m.data };
+      // Protocol v2 retains the compact S/I letters, so mixed-version rooms
+      // preserve the relay's backpressure behavior without parsing snapshots.
       const transient = m.data && (m.data.k === 'S' || m.data.k === 'I');
       const frame = encodeJson(out);   // serialize once, even for a room broadcast
       if (m.to != null) { const c = conns.get(m.to); if (c && c.roomId === r.id) c.sendFrame(frame, transient); }

@@ -114,7 +114,7 @@ src/
   engine/
     events.js           cross-subsystem subscriber-event names
     adapters/           command-event compatibility adapters for legacy simulation calls
-    components/         component world plus the temporary legacy presentation mirror
+    components/         component world plus the temporary legacy compatibility adapter
     Engine.js           simulation facade: world state, fixed updates, evolution, HUD snapshots
     audio.js            Sfx — tiny WebAudio beep synth
     mp.js               multiplayer netcode — host authority, snapshots, client replica, packets
@@ -125,9 +125,13 @@ src/
       RemotePlayer.js     extends Player — another player, steered by network input (host side)
       Boss.js             extends Creature — leashed guardian AI, perk drop
     systems/
+      CoreComponentSystems.js  ordered Phase 4 movement/world/progression systems
+      GameplayComponentSystems.js  Phase 5 combat/ability/item/vehicle/boss coordinator
       spawning.js         population control + world seeding
       abilities.js        what each active power actually does
       effects.js          particle bursts, floating text
+    net/
+      ComponentSnapshotProtocol.js  v1/v2 multiplayer schemas, negotiation and adapters
   render/
     canvas/             compatibility world renderer used until Pixi reaches visual parity
     pixi/               native Pixi world renderer, scene layers, geometry bridge and pools
@@ -152,8 +156,10 @@ src/
 
 `data/` is pure content — adding a species, power or boss is a data edit.
 `engine/` owns simulation state: `Engine.update()` advances one fixed step, and
-each legacy entity currently updates itself while behavior is moved in phases
-to the component world. `runtime/` composes the clock, event bus, inputs, audio,
+ordered component phases now own spatial/input, world resources, progression,
+combat, abilities, inventory, vehicles, and boss timelines. Compatibility
+entity methods preserve the current debug/render/network-facing object shape.
+`runtime/` composes the clock, event bus, inputs, audio,
 network ingress, immutable presentation projection and selected renderer.
 `render/` consumes presentation frames and knows nothing about React. `ui/` is
 React: it publishes commands and renders plain HUD snapshots received through
@@ -165,7 +171,10 @@ reviewed. Append `?renderer=pixi` to the game URL to run the complete Pixi world
 path; it draws native Pixi geometry/text and does not upload Canvas frames.
 
 The browser test pages are `tests/core.test.html` (architecture, catalogs and
-runtime), `tests/render.test.html` (all Pixi visual catalogs/scenarios), and
+runtime), `tests/gameplay-phase5.test.html` (all gameplay catalogs and fact
+streams), `tests/multiplayer-phase6.test.html` (versioned packets, paired
+host/client relay, ordering, maps/settings and reconnect/background behavior),
+`tests/render.test.html` (all Pixi visual catalogs/scenarios), and
 `tests/app-smoke.test.html` (real React startup and run flow). The deterministic
 visual page is `tests/render-smoke.test.html`; add `?renderer=pixi` and optionally
 `&map=spore_marsh` (or another map id). A passing run reports `PASS` in its title.

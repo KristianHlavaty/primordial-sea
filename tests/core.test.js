@@ -4,9 +4,11 @@ import { GameEvents } from '../src/engine/events.js';
 import { PixiApplication } from '../src/render/pixi/PixiApplication.js';
 import { GameRuntime } from '../src/runtime/GameRuntime.js';
 import { ComponentTypes } from '../src/engine/components/componentTypes.js';
+import { CoreSystemPhases } from '../src/engine/systems/CoreComponentSystems.js';
 import { ABILITIES, ABILITY_SETS, ACTIVE_TIMER } from '../src/data/abilities.js';
 import { SPECIES } from '../src/data/species.js';
-import { MAPS, OPPOSITE_EDGE, STAGES } from '../src/data/maps.js';
+import { EDGE_DWELL_TIME, MAPS, OPPOSITE_EDGE, STAGES } from '../src/data/maps.js';
+import { xpNeed } from '../src/data/progression.js';
 import { BOSSES, PERKS } from '../src/data/bosses.js';
 import { ITEMS } from '../src/data/items.js';
 import { VEHICLES } from '../src/data/vehicles.js';
@@ -99,6 +101,15 @@ test('ComponentWorld runs systems in explicit stable order', () => {
   equal(calls, ['early-a', 'early-b', 'late']);
 });
 
+test('ComponentWorld isolates explicitly ordered simulation phases', () => {
+  const world = new ComponentWorld(), calls = [];
+  world.addSystem(() => calls.push('main'), { order: 10 });
+  world.addSystem(() => calls.push('environment-late'), { phase: 'environment', order: 20 });
+  world.addSystem(() => calls.push('environment-early'), { phase: 'environment', order: 5 });
+  world.update(0); world.updatePhase('environment', 0);
+  equal(calls, ['main', 'environment-early', 'environment-late']);
+});
+
 test('ComponentWorld publishes complete lifecycle facts', () => {
   const bus = new EventBus(), world = new ComponentWorld({ events: bus }), calls = [];
   for (const event of [GameEvents.WORLD_ENTITY_CREATED, GameEvents.WORLD_COMPONENT_ADDED,
@@ -164,6 +175,31 @@ test('GameRuntime advances ordered component systems at the fixed-step boundary'
   runtime.destroy(); canvas.remove();
 });
 
+test('Phase 4 command streams produce deterministic component motion', async () => {
+  const runScenario = async () => {
+    const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
+    const runtime = new GameRuntime(canvas, { autoStartClock: false, attachInputHandlers: false });
+    await runtime.ready; runtime.startRun({ items: false }); runtime.render();
+    const engine = runtime.engine;
+    engine.stage = 'devonian'; engine.creatures.length = 0; engine.plants.length = 0; engine.food.length = 0;
+    engine.obstacles.length = 0; engine.spawnT = 999; engine.player.x = 1000; engine.player.y = 800;
+    engine.player.vx = 0; engine.player.vy = 0; engine.player.angle = 0; engine.player.faceTarget = 0;
+    engine.releaseInput(); engine.setKey('right', true);
+    for (let i = 0; i < 60; i++) runtime.step(1 / 60);
+    const entity = runtime.componentMirror.entityFor(engine.player);
+    const transform = runtime.componentWorld.requireComponent(entity, ComponentTypes.TRANSFORM);
+    const motion = runtime.componentWorld.requireComponent(entity, ComponentTypes.MOTION);
+    const previous = runtime.componentWorld.requireComponent(entity, ComponentTypes.PREVIOUS_TRANSFORM);
+    const result = [transform.x, transform.y, motion.vx, motion.vy, transform.angle, previous.x]
+      .map(value => Math.round(value * 1000) / 1000);
+    equal([engine.player.x, engine.player.y, engine.player.vx], [transform.x, transform.y, motion.vx]);
+    runtime.destroy(); canvas.remove(); return result;
+  };
+  const first = await runScenario(), second = await runScenario();
+  equal(first, second);
+  if (first[0] <= 1000 || first[2] <= 0 || first[5] >= first[0]) throw new Error(`Invalid movement fixture: ${JSON.stringify(first)}`);
+});
+
 test('Presentation interpolation never mutates authoritative entities', async () => {
   const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
   const runtime = new GameRuntime(canvas, { autoStartClock: false, attachInputHandlers: false });
@@ -184,7 +220,7 @@ test('Presentation interpolation never mutates authoritative entities', async ()
   runtime.destroy(); canvas.remove();
 });
 
-test('LegacyComponentMirror exposes stable presentation components', async () => {
+test('LegacyComponentAdapter exposes stable presentation components', async () => {
   const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
   const runtime = new GameRuntime(canvas, { autoStartClock: false, attachInputHandlers: false });
   await runtime.ready; runtime.startRun({ items: false }); runtime.render();
@@ -206,6 +242,80 @@ test('LegacyComponentMirror exposes stable presentation components', async () =>
   runtime.destroy(); canvas.remove();
 });
 
+test('Phase 4 component records are authoritative legacy-compatible state', async () => {
+  const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
+  const runtime = new GameRuntime(canvas, { autoStartClock: false, attachInputHandlers: false });
+  await runtime.ready; runtime.startRun({ items: false }); runtime.render();
+  const player = runtime.engine.player, entity = runtime.componentMirror.entityFor(player), world = runtime.componentWorld;
+  const transform = world.requireComponent(entity, ComponentTypes.TRANSFORM);
+  const motion = world.requireComponent(entity, ComponentTypes.MOTION);
+  const collider = world.requireComponent(entity, ComponentTypes.COLLIDER);
+  const health = world.requireComponent(entity, ComponentTypes.HEALTH);
+  const experience = world.requireComponent(entity, ComponentTypes.EXPERIENCE);
+  transform.x = 321; motion.vx = 47; collider.radius = 19; health.hp = 7; experience.xp = 5;
+  equal([player.x, player.vx, player.radius, player.hp, player.xp], [321, 47, 19, 7, 5]);
+  player.y = 654; player.vy = -23; player.maxHp = 81; player.level = 3;
+  equal([transform.y, motion.vy, health.maxHp, experience.level], [654, -23, 81, 3]);
+  const input = world.requireComponent(runtime.componentMirror.inputEntity(), ComponentTypes.PLAYER_INPUT);
+  input.pointer.x = 12; input.bite = true; input.keys.right = true;
+  equal([runtime.engine.mouse.x, runtime.engine.biteHeld, runtime.engine.keys.right], [12, true, true]);
+  const talents = world.requireComponent(runtime.componentMirror.inputEntity(), ComponentTypes.TALENTS);
+  const perks = world.requireComponent(runtime.componentMirror.inputEntity(), ComponentTypes.PERKS);
+  const evolution = world.requireComponent(runtime.componentMirror.inputEntity(), ComponentTypes.EVOLUTION);
+  if (talents.state !== runtime.engine.talent || talents.bonus !== runtime.engine.talentBonus || perks.state !== runtime.engine.perks) {
+    throw new Error('Run progression projections are not component-owned');
+  }
+  evolution.era = 4; evolution.pending = true;
+  equal([runtime.engine.era, runtime.engine.pendingEvolve], [4, true]);
+  runtime.destroy(); canvas.remove();
+});
+
+test('Phase 4 systems own resources, lifetimes, progression and map crossing', async () => {
+  const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
+  const runtime = new GameRuntime(canvas, { autoStartClock: false, attachInputHandlers: false });
+  await runtime.ready; runtime.startRun({ items: false }); runtime.render();
+  const engine = runtime.engine, systems = runtime.componentSystems;
+  engine.player.x = 400; engine.player.y = 400; engine.player.xp = 0; engine.player.level = 1;
+  const food = { x: 400, y: 400, vx: 0, vy: 0, value: 2, kind: 'meat', life: 1, r: 4 };
+  const plant = { kind: 'algae', x: 500, y: 500, amount: 0, max: 2, value: 1, regen: .01, eatCd: .01 };
+  const particle = { x: 2, y: 3, vx: 0, vy: 0, life: .01, max: .01, size: 2, color: '#fff' };
+  engine.food.push(food); engine.plants.push(plant); engine.particles.push(particle); runtime.render();
+  const foodEntity = runtime.componentMirror.entityFor(food), particleEntity = runtime.componentMirror.entityFor(particle);
+  systems.run(CoreSystemPhases.RESOURCES, engine, .1);
+  systems.run(CoreSystemPhases.LIFETIMES, engine, .1);
+  equal([engine.food.includes(food), plant.amount, engine.particles.includes(particle)], [false, 1, false]);
+  equal([runtime.componentWorld.hasEntity(foodEntity), runtime.componentWorld.hasEntity(particleEntity)], [false, false]);
+
+  const facts = [];
+  for (const event of [
+    GameEvents.PROGRESSION_LEVEL_CHANGED, GameEvents.PROGRESSION_XP_CHANGED,
+    GameEvents.PROGRESSION_EVOLUTION_OFFERED, GameEvents.PROGRESSION_EVOLUTION_CHOSEN,
+    GameEvents.WORLD_ENTITY_DIED, GameEvents.WORLD_ENTITY_RESPAWNED,
+  ]) runtime.events.subscribe(event, () => facts.push(event));
+  engine.player.xp = 0; engine.player.level = 1;
+  systems.addXp(engine.player, engine, xpNeed(1));
+  equal(engine.player.level, 2);
+  engine.triggerEvolve();
+  const evolutionChoice = engine.choices[0]; engine.chooseEvolution(evolutionChoice); runtime.render();
+  equal([engine.player.speciesId, engine.pendingEvolve], [evolutionChoice, false]);
+  engine.singlePlayerDied(engine.player); engine.player.deadT = .01;
+  systems.run(CoreSystemPhases.PRE_ACTORS, engine, .02);
+  equal([engine.player.deadT, engine.player.hp > 0, engine.player.spawnProtT], [0, true, 2.5]);
+  equal(facts, [
+    GameEvents.PROGRESSION_LEVEL_CHANGED, GameEvents.PROGRESSION_XP_CHANGED,
+    GameEvents.PROGRESSION_EVOLUTION_OFFERED, GameEvents.PROGRESSION_EVOLUTION_CHOSEN,
+    GameEvents.WORLD_ENTITY_DIED, GameEvents.WORLD_ENTITY_RESPAWNED,
+  ]);
+
+  engine.loadMap('sea_shallows'); runtime.render();
+  const gate = MAPS.sea_shallows.passages.right;
+  engine.player.x = engine.W - engine.player.radius; engine.player.y = engine.H * gate.center;
+  engine.transitionCd = 0; engine.edgeDwell = EDGE_DWELL_TIME;
+  systems.run(CoreSystemPhases.MAP_CROSSING, engine, 0);
+  equal(engine.mapId, 'fangwall_trench');
+  runtime.destroy(); canvas.remove();
+});
+
 test('Multiplayer client map changes publish the same map boundary event', async () => {
   const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
   const runtime = new GameRuntime(canvas, { autoStartClock: false, attachInputHandlers: false });
@@ -222,6 +332,27 @@ test('Multiplayer client map changes publish the same map boundary event', async
     theme: MAPS.starless_bloom.theme, era: 1, obstacles: [], plants: [], webs: [],
   });
   equal([runtime.engine.mapId, changes.length, changes[0]?.previousMapId, changes[0]?.mapId], ['starless_bloom', 1, 'sea_shallows', 'starless_bloom']);
+  runtime.destroy(); canvas.remove();
+});
+
+test('Multiplayer host actors retain component authority through a fixed step', async () => {
+  const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
+  const runtime = new GameRuntime(canvas, { autoStartClock: false, attachInputHandlers: false });
+  await runtime.ready;
+  runtime.startMpHost({
+    room: { map: 'sea_shallows', tier: 0, era: 0, fantasy: false, evolution: true, bosses: false, mapTransitions: true, items: false },
+    profile: { name: 'Host', color: '#8affd0' }, lobby: null, selfConn: 1,
+    roster: { 1: { species: 'protocell', name: 'Host' }, 2: { species: 'protocell', name: 'Remote' } },
+  });
+  runtime.receiveNetworkPacket(2, { k: 'I', tx: 1, ty: 0, m: true, b: false });
+  runtime.step(1 / 60);
+  const actors = [runtime.engine.player, runtime.engine.remotePlayers[0]];
+  for (const actor of actors) {
+    const entity = runtime.componentMirror.entityFor(actor);
+    const transform = runtime.componentWorld.requireComponent(entity, ComponentTypes.TRANSFORM);
+    const motion = runtime.componentWorld.requireComponent(entity, ComponentTypes.MOTION);
+    equal([actor.x, actor.y, actor.vx, actor.vy], [transform.x, transform.y, motion.vx, motion.vy]);
+  }
   runtime.destroy(); canvas.remove();
 });
 

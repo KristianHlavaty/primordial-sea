@@ -42,6 +42,39 @@ export const GameEvents = Object.freeze({
   WORLD_COMPONENT_CHANGED: 'world:component-changed',
   WORLD_COMPONENT_REMOVED: 'world:component-removed',
   WORLD_MAP_CHANGED: 'world:map-changed',
+  WORLD_ENTITY_DIED: 'world:entity-died',
+  WORLD_ENTITY_RESPAWNED: 'world:entity-respawned',
+
+  COMBAT_BITE_STARTED: 'combat:bite-started',
+  COMBAT_BITE_HIT: 'combat:bite-hit',
+  COMBAT_DAMAGED: 'combat:damaged',
+  COMBAT_DODGED: 'combat:dodged',
+  COMBAT_BLOCKED: 'combat:blocked',
+  COMBAT_KILLED: 'combat:killed',
+  COMBAT_STATUS_APPLIED: 'combat:status-applied',
+
+  ABILITY_ACTIVATED: 'ability:activated',
+  ITEM_USED: 'item:used',
+  ITEM_DROPPED: 'item:dropped',
+  ITEM_PICKED_UP: 'item:picked-up',
+  VEHICLE_ENTERED: 'vehicle:entered',
+  VEHICLE_EXITED: 'vehicle:exited',
+  VEHICLE_DAMAGED: 'vehicle:damaged',
+  VEHICLE_DESTROYED: 'vehicle:destroyed',
+  BOSS_TELEGRAPH_STARTED: 'boss:telegraph-started',
+  BOSS_TELEGRAPH_RESOLVED: 'boss:telegraph-resolved',
+  BOSS_DEFEATED: 'boss:defeated',
+
+  FX_BURST_CREATED: 'fx:burst-created',
+  FX_FLOATER_CREATED: 'fx:floater-created',
+  FX_SHAKE_APPLIED: 'fx:shake-applied',
+
+  PROGRESSION_XP_CHANGED: 'progression:xp-changed',
+  PROGRESSION_LEVEL_CHANGED: 'progression:level-changed',
+  PROGRESSION_EVOLUTION_OFFERED: 'progression:evolution-offered',
+  PROGRESSION_EVOLUTION_CHOSEN: 'progression:evolution-chosen',
+  PROGRESSION_TALENTS_CHANGED: 'progression:talents-changed',
+  PROGRESSION_PERK_GRANTED: 'progression:perk-granted',
 
   UI_HUD_UPDATED: 'ui:hud-updated',
 
@@ -51,6 +84,10 @@ export const GameEvents = Object.freeze({
   AUDIO_BACKGROUND_CHANGED: 'audio:background-changed',
 
   NET_PACKET_RECEIVED: 'net:packet-received',
+  NET_PACKET_DECODED: 'net:packet-decoded',
+  NET_PACKET_DROPPED: 'net:packet-dropped',
+  NET_PROTOCOL_NEGOTIATED: 'net:protocol-negotiated',
+  NET_SNAPSHOT_APPLIED: 'net:snapshot-applied',
 
   RENDERER_READY: 'renderer:ready',
   RENDERER_RESIZED: 'renderer:resized',

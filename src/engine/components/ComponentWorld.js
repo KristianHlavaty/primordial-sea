@@ -129,10 +129,11 @@ export class ComponentWorld {
     }
   }
 
-  addSystem(system, { order = 0 } = {}) {
+  addSystem(system, { order = 0, phase = 'main' } = {}) {
     const update = typeof system === 'function' ? system : system && system.update;
     if (typeof update !== 'function') throw new TypeError('A system must be a function or expose update()');
-    const entry = { system, update, order: Number.isFinite(order) ? order : 0, added: this.nextSystemOrder++ };
+    if (typeof phase !== 'string' || !phase) throw new TypeError('A system phase must be a non-empty string');
+    const entry = { system, update, phase, order: Number.isFinite(order) ? order : 0, added: this.nextSystemOrder++ };
     this.systems.push(entry);
     this.systems.sort((a, b) => a.order - b.order || a.added - b.added);
     if (typeof system.start === 'function') system.start(this);
@@ -148,11 +149,18 @@ export class ComponentWorld {
   }
 
   update(dt, context = null) {
+    this.updatePhase('main', dt, context);
+  }
+
+  updatePhase(phase, dt, context = null) {
     if (this.updating) throw new Error('ComponentWorld.update() cannot be nested');
     if (!Number.isFinite(dt) || dt < 0) throw new TypeError('ComponentWorld dt must be a non-negative finite number');
+    if (typeof phase !== 'string' || !phase) throw new TypeError('ComponentWorld phase must be a non-empty string');
     this.updating = true;
     try {
-      for (const entry of this.systems.slice()) entry.update.call(entry.system, this, dt, context);
+      for (const entry of this.systems.slice()) {
+        if (entry.phase === phase) entry.update.call(entry.system, this, dt, context);
+      }
     } finally {
       this.updating = false;
       this.flush();
@@ -194,4 +202,3 @@ export class ComponentWorld {
     if (typeof type !== 'string' || !type) throw new TypeError('Component type must be a non-empty string');
   }
 }
-

@@ -46,7 +46,7 @@ class SpiderCocoon extends Creature {
     burst(game, this.x, this.y, '#e8d9df', 34, 260); game.shake = Math.min(14, game.shake + 7); game.sfx.play('power');
   }
 
-  die(game) {
+  _dieEncounter(game) {
     burst(game, this.x, this.y, '#f4eee8', 22, 190);
     game.floaters.push({ x: this.x, y: this.y - 38, vx: 0, vy: -38, text: 'COCOON DESTROYED', life: 1.2, max: 1.2, color: '#a8ffd4', size: 14 });
     if (this.owner && this.owner.hp > 0) this.owner.abilT = Math.max(this.owner.abilT, 2.5);
@@ -82,7 +82,7 @@ class Spiderling extends Creature {
     this.integrate(game, dt, 2.8, this.maxSpeed);
   }
 
-  die(game) {
+  _dieEncounter(game) {
     burst(game, this.x, this.y, '#e08b9f', 8, 120);
     const idx = game.creatures.indexOf(this); if (idx >= 0) game.creatures.splice(idx, 1);
   }
@@ -118,7 +118,7 @@ class LumenOrb extends Creature {
     const idx = game.creatures.indexOf(this); if (idx >= 0) game.creatures.splice(idx, 1);
   }
 
-  die(game) { this.expire(game, false); }
+  _dieEncounter(game) { this.expire(game, false); }
 }
 
 export class Boss extends Creature {
@@ -143,6 +143,8 @@ export class Boss extends Creature {
     });
   }
 
+  update(game, dt) { return game.componentSystems.updateBoss(this, game, dt); }
+
   canFightTarget(target, targetDistance, homeDistance) {
     if (!target || target.hp <= 0 || target.deadT > 0) return false;
     // Once a wind-up starts it is committed. Previously, momentum could carry
@@ -164,7 +166,7 @@ export class Boss extends Creature {
     this.abilT = Math.max(this.abilT, .8);
   }
 
-  act(game, dt) {
+  _actBoss(game, dt) {
     const p = (game.mp && game.nearestPlayer(this.x, this.y)) || (game.worldPlayer ? game.worldPlayer() : game.player);
     if (!p) return;
     if (this.bossKind === 'panderodus') { this.actPanderodus(game, dt, p); return; }
@@ -179,8 +181,8 @@ export class Boss extends Creature {
       this.engaged = true; bx = bdx / (bd || 1); by = bdy / (bd || 1); bs = 1; this.faceTarget = Math.atan2(by, bx);
       if (this.telegraph) {
         this.telegraph.t -= dt; this.faceTarget = this.telegraph.angle; bs = 0.12; // the wind-up is a deliberate opening for the player
-        if (this.telegraph.t <= 0) this.resolveSpecial(game);
-      } else if (this.abilT <= 0) this.beginSpecial(game, p);
+        if (this.telegraph.t <= 0) game.componentSystems.resolveBossSpecial(game, this);
+      } else if (this.abilT <= 0) game.componentSystems.beginBossSpecial(game, this, p);
       const biteRate = this.bossKind === 'bulwark' ? 1.2 : this.bossKind === 'lumenara' ? 1.1 : this.bossKind === 'gilboa_matriarch' ? .85 : .7;
       if (!this.telegraph && bd < this.radius + p.radius + 16 && this.biteCd <= 0) {
         this.biteCd = biteRate; this.mouth = 1; p.takeHit(game, this.dmg, this.x, this.y, this); game.danger = 1;
@@ -235,15 +237,15 @@ export class Boss extends Creature {
         this.mouth = .58 + .42 * Math.sin(game.time * 18) ** 2;
       } else this.screamT = 0;
       this.angle = angLerp(this.angle, this.faceTarget, 1 - Math.exp(-dt * 8));
-      if (this.telegraph.t <= 0) this.resolvePanderodusSpecial(game);
+      if (this.telegraph.t <= 0) game.componentSystems.resolveBossSpecial(game, this);
       return;
     }
 
     this.screamT = 0;
     if (this.tailSlapCd <= 0 && distance < this.radius + p.radius + 190) {
-      this.beginPanderodusTail(game); return;
+      game.componentSystems.beginBossTail(game, this); return;
     }
-    if (this.abilT <= 0) { this.beginPanderodusSpecial(game, p); return; }
+    if (this.abilT <= 0) { game.componentSystems.beginBossSpecial(game, this, p); return; }
 
     this.faceTarget = Math.atan2(dy, dx);
     const slowM = this.slowT > 0 ? .45 : 1;
@@ -258,7 +260,7 @@ export class Boss extends Creature {
 
   panderodusCooldown() { return (this.hp < this.maxHp * .45 ? 4.2 : 5.8); }
 
-  beginPanderodusSpecial(game, target) {
+  _beginPanderodusSpecial(game, target) {
     const color = this.hp < this.maxHp * .45 ? '#ff5362' : this.plan.glow;
     if (this.specialCount % 2 === 0) {
       const lanes = MAPS[game.mapId].bossLanes || [.28, .5, .72];
@@ -284,7 +286,7 @@ export class Boss extends Creature {
     this.faceTarget = this.telegraph.angle; this.specialCount++;
   }
 
-  beginPanderodusTail(game) {
+  _beginPanderodusTail(game) {
     const color = this.hp < this.maxHp * .45 ? '#ff5362' : this.plan.glow;
     this.telegraph = {
       special: 'panderTail', shape: 'circle', x: this.x, y: this.y, ox: this.x, oy: this.y,
@@ -293,7 +295,7 @@ export class Boss extends Creature {
     this.tailSlapCd = this.hp < this.maxHp * .45 ? 2.7 : 3.8;
   }
 
-  resolvePanderodusSpecial(game) {
+  _resolvePanderodusSpecial(game) {
     const q = this.telegraph; if (!q) return;
     this.telegraph = null; this.screamT = 0;
     if (q.special === 'edgePass') {
@@ -423,7 +425,7 @@ export class Boss extends Creature {
     this.panderodusMode = 'hunt'; this.mouth = .2; this.abilT = this.panderodusCooldown();
   }
 
-  beginSpecial(game, target) {
+  _beginSpecial(game, target) {
     const p = target || (game.worldPlayer ? game.worldPlayer() : game.player), a = Math.atan2(p.y - this.y, p.x - this.x);
     const common = { t: 1.25, max: 1.25, x: p.x, y: p.y, ox: this.x, oy: this.y, angle: a, color: this.plan.accent };
     const alt = this.specialCount % 2 === 1;
@@ -455,7 +457,7 @@ export class Boss extends Creature {
     this.faceTarget = a; this.specialCount++;
   }
 
-  resolveSpecial(game) {
+  _resolveSpecial(game) {
     const q = this.telegraph; if (!q) return;
     const targets = game.mp ? game.allPlayers().filter(p => p && p.deadT <= 0) : [game.player];
     const heavy = q.special === 'charge' || q.special === 'shellRush' || q.special === 'abyssBeam';
@@ -505,7 +507,7 @@ export class Boss extends Creature {
     this.abilT = (this.bossKind === 'lumenara' ? 4.8 : this.bossKind === 'render' ? 4.6 : this.bossKind === 'gilboa_matriarch' ? 5.4 : 5.8) * (enraged ? .72 : 1);
   }
 
-  die(game, byPlayer) {
+  _dieBoss(game, byPlayer) {
     const n = 18, per = this.meatBiomass / n;
     for (let i = 0; i < n; i++) {
       const a = rand(0, Math.PI * 2), s = rand(30, 150);
@@ -517,5 +519,6 @@ export class Boss extends Creature {
     const bi = game.creatures.indexOf(this); if (bi >= 0) game.creatures.splice(bi, 1);
     if (byPlayer) game.kills++;
     game.sfx.play('evolve'); game.pushHud(true);
+    game.componentSystems.bossDefeated(game, this);
   }
 }

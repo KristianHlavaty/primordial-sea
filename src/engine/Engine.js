@@ -19,26 +19,25 @@ import { ABILITIES, ACTIVE_TIMER } from '../data/abilities.js';
 import { ITEMS, ITEM_KEYS } from '../data/items.js';
 import { VEHICLES } from '../data/vehicles.js';
 import { PERKS, BOSSES } from '../data/bosses.js';
-import { MAPS, STAGES, firstMapOf, OPPOSITE_EDGE, EDGE_TRIGGER_PAD, EDGE_PASSAGE_ASSIST, EDGE_DWELL_TIME } from '../data/maps.js';
+import { MAPS, STAGES, firstMapOf, OPPOSITE_EDGE } from '../data/maps.js';
 import { SPECIES, landPioneers, speciesStage } from '../data/species.js';
 import { MAX_LEVEL, xpNeed } from '../data/progression.js';
 import { freshTalentState, computeTalentBonus, talentValue, TALENT_TREES, TALENT_BY_ID, TREE_BY_ID } from '../data/talents.js';
-import { clamp, lerp, hyp } from '../core/math.js';
-import { spawnInitial, spawnMaintain, spawnRandomNpc } from './systems/spawning.js';
-import { activateAbility } from './systems/abilities.js';
-import { burst } from './systems/effects.js';
-import { updateItems, useHeldItem, dropHeldItem } from './systems/items.js';
-import { updateVehicles, toggleVehicle, exitVehicle } from './systems/vehicles.js';
-import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpRoster, mpMinimap, mpMaybeCrossMap, mpUpdateWorlds, mpActivateWorld, mpQueueEvolution, mpChooseEvolution, mpUseCheat, mpUseItem, mpDropItem, mpToggleVehicle } from './mp.js';
+import { clamp, lerp } from '../core/math.js';
+import { spawnInitial } from './systems/spawning.js';
+import { GameplaySystemPhases } from './systems/GameplayComponentSystems.js';
+import { mpStartHost, mpStartClient, mpClientUpdate, mpOnPacket, mpBroadcast, mpPrepareSnapshot, mpRoster, mpMinimap, mpMaybeCrossMap, mpUpdateWorlds, mpActivateWorld, mpQueueEvolution, mpChooseEvolution, mpUseCheat, mpUseItem, mpDropItem, mpToggleVehicle, mpSendPacket } from './mp.js';
+import { MultiplayerPacketKinds as PacketKinds } from './net/ComponentSnapshotProtocol.js';
 import { GameEvents } from './events.js';
 
 const CURRENT_SPEED = 165;   // sea-stage water current — px/s of drift at full strength
 
 export class Engine {
-  constructor({ events, componentWorld, audio } = {}) {
-    if (!events || !componentWorld || !audio) throw new Error('Engine requires runtime-owned events, componentWorld and audio');
+  constructor({ events, componentWorld, componentSystems, audio } = {}) {
+    if (!events || !componentWorld || !componentSystems || !audio) throw new Error('Engine requires runtime-owned events, componentWorld, componentSystems and audio');
     this.events = events;
     this.componentWorld = componentWorld;
+    this.componentSystems = componentSystems;
     this.sfx = audio;
 
     // current map / viewport
@@ -99,7 +98,7 @@ export class Engine {
   }
 
   makePlayer(speciesId) {
-    if (this.player && this.player.vehicle) exitVehicle(this, this.player, true);
+    if (this.player && this.player.vehicle) this.componentSystems.exitVehicle(this, this.player, true);
     this.player = new Player(speciesId, this.player, this);
   }
 
@@ -172,7 +171,7 @@ export class Engine {
      (player is centered). */
   loadMap(mapId, via) {
     const previousMapId = this.mapId;
-    for (const player of this.allPlayers()) if (player.vehicle) exitVehicle(this, player, true);
+    for (const player of this.allPlayers()) if (player.vehicle) this.componentSystems.exitVehicle(this, player, true);
     const m = MAPS[mapId];
     this.mapId = mapId; this.stage = m.stage; this.theme = m.theme; this.W = m.W; this.H = m.H;
     if (this.talent.trees[this.stage]) this.talent.trees[this.stage].unlocked = true;   // entering a stage unlocks its tree
@@ -245,6 +244,8 @@ export class Engine {
   startMpHost(opts) { mpStartHost(this, opts); this.notifyScheduleChange(); }
   startMpClient(opts) { mpStartClient(this, opts); this.notifyScheduleChange(); }
   updateReplica(dt) { mpClientUpdate(this, dt); }
+  prepareMultiplayerSnapshot() { mpPrepareSnapshot(this); }
+  broadcastMultiplayer(dt) { if (this.mp?.role === 'host') mpBroadcast(this, dt); }
   onNetPacket(from, data) { mpOnPacket(this, from, data); }
   queueMpEvolution(player) { mpQueueEvolution(this, player); }
   /* Keep the host's roster fresh so late joiners / colour edits resolve right. */
@@ -253,9 +254,15 @@ export class Engine {
     this.mp.roster = roster || {};
     if (this.mp.role === 'host') {
       const restoreMap = this.mapId;
-      for (const rp of this.remotePlayers) if (!(roster && roster[rp.connId]) && rp.vehicle) {
-        if (rp.mapId) mpActivateWorld(this, rp.mapId);
-        exitVehicle(this, rp, true);
+      for (const rp of this.remotePlayers) if (!(roster && roster[rp.connId])) {
+        if (rp.vehicle) {
+          if (rp.mapId) mpActivateWorld(this, rp.mapId);
+          this.componentSystems.exitVehicle(this, rp, true);
+        }
+        this.mp.peerProtocols?.delete(String(rp.connId));
+        this.mp.inputSequences?.delete(String(rp.connId));
+        this.mp.dirtyWorldFor?.delete(rp.connId);
+        this.mp.edgePrompts?.delete(rp.connId);
       }
       mpActivateWorld(this, restoreMap);
       this.remotePlayers = this.remotePlayers.filter(rp => roster && roster[rp.connId]);   // drop players who left the room
@@ -291,24 +298,13 @@ export class Engine {
   /* FFA death: put the victim on a respawn timer, credit the killer, post a feed line. */
   mpPlayerDied(victim, attacker) {
     if (!this.mp || victim.deadT > 0) return;
-    if (victim.vehicle) exitVehicle(this, victim, true);
-    victim.deadT = 3.5; victim.deaths = (victim.deaths || 0) + 1; victim.shield = 0; victim.forceFieldT = 0;
-    const killer = (attacker && attacker !== victim && this.allPlayers().includes(attacker)) ? attacker : null;
-    if (killer) killer.kills = (killer.kills || 0) + 1;
-    const text = killer ? (this.mpNameOf(killer) + ' ate ' + this.mpNameOf(victim)) : (this.mpNameOf(victim) + ' was eaten');
-    this.mpAddFeed(text, killer ? this.mpColorOf(killer) : '#cfd8e0');
-    if (this.mp.lobby) this.mp.lobby.raw({ t: 'relay', data: { k: 'K', text, color: killer ? this.mpColorOf(killer) : '#cfd8e0' } });
-    burst(this, victim.x, victim.y, '#ffd2d2', 26, 220); this.sfx.play('kill'); this.pushHud(true);
+    this.componentSystems.playerDied(this, victim, attacker, true);
   }
   /* Optional single-player death handling: preserve the run and current form,
      then reuse the same short, protected respawn cycle as multiplayer. */
   singlePlayerDied(victim) {
     if (this.mp || !this.respawnsEnabled || !victim || victim.deadT > 0) return;
-    if (victim.vehicle) exitVehicle(this, victim, true);
-    victim.hp = 0; victim.deadT = 3.5; victim.deaths = (victim.deaths || 0) + 1;
-    victim.shield = 0; victim.forceFieldT = 0;
-    this.releaseInput();
-    burst(this, victim.x, victim.y, '#ffd2d2', 26, 220); this.sfx.play('kill'); this.pushHud(true);
+    this.componentSystems.playerDied(this, victim, null, false);
   }
   mpNameOf(p) { return p === this.player ? this.mp.selfName : (p.name || 'Player'); }
   mpColorOf(p) { return p === this.player ? this.mp.selfColor : (p.color || '#8affd0'); }
@@ -338,15 +334,15 @@ export class Engine {
   }
   useItem(slot) {
     if ((this.mp ? this.mp.items === false : !this.itemsEnabled) || !this.playing || this.dead || this.paused || this.inputSuppressed || this.player.vehicleType || (!this.mp && this.pendingEvolve)) return;
-    if (this.mp) mpUseItem(this, slot); else useHeldItem(this, this.player, slot);
+    if (this.mp) mpUseItem(this, slot); else this.componentSystems.useItem(this, this.player, slot);
   }
   dropItem(slot) {
     if ((this.mp ? this.mp.items === false : !this.itemsEnabled) || !this.playing || this.dead || this.paused || this.inputSuppressed || this.player.vehicleType || (!this.mp && this.pendingEvolve)) return;
-    if (this.mp) mpDropItem(this, slot); else dropHeldItem(this, this.player, slot);
+    if (this.mp) mpDropItem(this, slot); else this.componentSystems.dropItem(this, this.player, slot);
   }
   toggleVehicle() {
     if (!this.playing || this.dead || this.paused || this.inputSuppressed || !this.player) return;
-    if (this.mp) mpToggleVehicle(this); else toggleVehicle(this, this.player);
+    if (this.mp) mpToggleVehicle(this); else this.componentSystems.toggleVehicle(this, this.player);
   }
 
   /* ---------------- talents ---------------- */
@@ -366,6 +362,9 @@ export class Engine {
     this.talentBonus = computeTalentBonus(this.talent.trees);
     const p = this.player;
     if (p) { const frac = p.maxHp > 0 ? p.hp / p.maxHp : 1; p.applyLevelStats(this); p.hp = Math.max(1, Math.min(p.maxHp, Math.round(p.maxHp * frac))); }
+    this.events.emit(GameEvents.PROGRESSION_TALENTS_CHANGED, {
+      stage: this.stage, available: this.talentUnspent(), bonus: { ...this.talentBonus },
+    });
     this.pushHud(true);
   }
 
@@ -445,10 +444,10 @@ export class Engine {
     if (this.player && this.player.vehicleType) return;
     if (this.mp) {
       if (this.player && this.player.mpEvolveChoices && this.player.mpEvolveChoices.length) return;
-      if (this.mp.role === 'client') { if (this.mp.lobby) this.mp.lobby.raw({ t: 'relay', to: this.mp.host, data: { k: 'A', i: idx } }); return; }
-      activateAbility(this, idx, this.player); return;   // host activates its own power
+      if (this.mp.role === 'client') { mpSendPacket(this, PacketKinds.ABILITY, { i: idx }); return; }
+      this.componentSystems.activateAbility(this, idx, this.player); return;   // host activates its own power
     }
-    activateAbility(this, idx);
+    this.componentSystems.activateAbility(this, idx);
   }
   webSlowAt(x, y) {
     let slow = 0;
@@ -467,48 +466,6 @@ export class Engine {
     const ang = t * 0.04 + Math.sin(x * 0.0011 + y * 0.0009 + t * 0.08) * 0.7;
     const mag = CURRENT_SPEED * (0.7 + 0.3 * Math.sin(x * 0.0015 - y * 0.0012 - t * 0.06));
     return { x: Math.cos(ang) * mag, y: Math.sin(ang) * mag };
-  }
-
-  /* Sweep the player, free creatures and drifting food along with the current.
-     Bosses are anchored to their leash spot and shrug it off. */
-  applyCurrent(dt) {
-    if (this.stage !== 'sea') return;
-    for (const player of this.allPlayers()) {
-      if (player.vehicle || player.deadT > 0) continue;
-      const current = this.currentAt(player.x, player.y);
-      player.x = clamp(player.x + current.x * dt, player.radius, this.W - player.radius);
-      player.y = clamp(player.y + current.y * dt, player.radius, this.H - player.radius);
-    }
-    for (const c of this.creatures) {
-      if (c.boss) continue;
-      const cc = this.currentAt(c.x, c.y);
-      c.x = clamp(c.x + cc.x * dt, c.radius, this.W - c.radius);
-      c.y = clamp(c.y + cc.y * dt, c.radius, this.H - c.radius);
-    }
-    for (const f of this.food) { const cf = this.currentAt(f.x, f.y); f.x += cf.x * dt * 0.8; f.y += cf.y * dt * 0.8; }
-  }
-
-  /* Push the player and creatures out of any land obstacle they overlap, and
-     kill the velocity component driving them into it (so they slide along). */
-  resolveObstacles() {
-    if (!this.obstacles.length) return;
-    const push = (e) => {
-      if (e.vehicleType === 'helicopter') return;
-      for (const o of this.obstacles) {
-        const dx = e.x - o.x, dy = e.y - o.y, d = Math.sqrt(dx * dx + dy * dy), min = e.radius + o.r;
-        if (d < min) {
-          const nx = d > 0.001 ? dx / d : 1, ny = d > 0.001 ? dy / d : 0, overlap = min - d;
-          e.x += nx * overlap; e.y += ny * overlap;
-          const vn = e.vx * nx + e.vy * ny;
-          if (vn < 0) {
-            const response = e.enrollT > 0 ? 1.78 : 1;
-            e.vx -= vn * nx * response; e.vy -= vn * ny * response;
-          }
-        }
-      }
-    };
-    for (const player of this.allPlayers()) push(player);
-    for (const c of this.creatures) push(c);
   }
 
   /* Advance the drifting flow streaks (a faint screen-space visual of the
@@ -606,20 +563,13 @@ export class Engine {
   }
 
   triggerEvolve() {
-    this.pendingEvolve = true; this.paused = true;
-    this.choices = this.player.species.evolvesTo.slice();
-    this.evolveMode = this.isStageAdvance() ? 'advance' : 'normal';
-    this.eggs.push({ x: this.player.x, y: this.player.y + this.player.radius + 10, t: 0 });
-    this.sfx.play('egg'); this.pushHud(true);
+    this.componentSystems.triggerEvolution(this, false);
   }
 
   /* Offer the crawl-ashore choice (auto the first time, or re-opened by the
      player after they chose to stay in the sea). */
   triggerAscend() {
-    this.pendingEvolve = true; this.paused = true; this.evolveMode = 'ascend';
-    this.choices = this.availablePioneers();
-    this.eggs.push({ x: this.player.x, y: this.player.y + this.player.radius + 10, t: 0 });
-    this.sfx.play('egg'); this.pushHud(true);
+    this.componentSystems.triggerEvolution(this, true);
   }
   openAscend() { if (this.playing && !this.dead && !this.pendingEvolve) this.triggerAscend(); }
   isStageAdvance() {
@@ -631,29 +581,12 @@ export class Engine {
   /* "Stay in the sea for now" — dismiss the crawl-ashore prompt but leave it
      re-openable so you can finish sea bosses first. */
   dismissAscend() {
-    this.pendingEvolve = false; this.paused = false; this.evolveMode = 'normal';
-    this.eggs.length = 0; this.choices = [];
-    this.ascendOffered = true; this.ascendAvailable = true;
-    this.pushHud(true);
+    this.componentSystems.dismissEvolution(this, 'ascend');
   }
 
   chooseEvolution(id) {
     if (this.mp) { mpChooseEvolution(this, id); return; }
-    if (!this.pendingEvolve) return;
-    const fromStage = this.stage, toStage = speciesStage(id);
-    this.makePlayer(id); this.era++;
-    this.pendingEvolve = false; this.paused = false; this.eggs.length = 0; this.choices = []; this.evolveMode = 'normal'; this.advanceAvailable = false;
-    if (toStage !== fromStage) {
-      // crawl ashore — enter the new stage's first map
-      this.ascendOffered = true; this.ascendAvailable = false;
-      this.loadMap(firstMapOf(toStage));
-      burst(this, this.player.x, this.player.y, '#c2e89a', 30, 240); this.shake = 10; this.sfx.play('evolve');
-    } else {
-      burst(this, this.player.x, this.player.y, '#8affd0', 30, 240); this.shake = 8; this.sfx.play('evolve');
-      // the world evolves with you: new species become available + harder population
-      for (let i = 0; i < 4; i++) spawnRandomNpc(this);
-    }
-    this.pushHud(true);
+    this.componentSystems.chooseEvolution(this, id);
   }
 
   /* ---------------- boss trophies ---------------- */
@@ -665,10 +598,11 @@ export class Engine {
     if (perk.webResist) this.perks.webResist = Math.min(.85, this.perks.webResist + perk.webResist);
     if (perk.shockAfterglow) this.perks.shockAfterglow = 1;
     if (!this.perks.list.some(x => x.id === id)) this.perks.list.push({ id, name: perk.name, icon: perk.icon, color: perk.color, blurb: perk.blurb });
+    this.events.emit(GameEvents.PROGRESSION_PERK_GRANTED, { id, bossTitle, name: perk.name });
     if (this.mp) {
       const text = bossTitle + ' defeated — ' + perk.name + ' gained';
       this.mpAddFeed(text, perk.color);
-      if (this.mp.lobby) this.mp.lobby.raw({ t: 'relay', data: { k: 'K', text, color: perk.color } });
+      mpSendPacket(this, PacketKinds.FEED, { text, color: perk.color }, { broadcast: true });
       this.pushHud(true);
       return;
     }
@@ -679,10 +613,7 @@ export class Engine {
   }
 
   dismissAdvance() {
-    if (this.evolveMode !== 'advance') return;
-    this.pendingEvolve = false; this.paused = false; this.evolveMode = 'normal';
-    this.eggs.length = 0; this.choices = []; this.advanceAvailable = true;
-    this.pushHud(true);
+    this.componentSystems.dismissEvolution(this, 'advance');
   }
   dismissAchievement() {
     if (!this.achievement) return;
@@ -699,31 +630,7 @@ export class Engine {
   /* Cross to a neighboring map when the player dwells against a connected edge.
      Returns true if a transition happened (caller skips the rest of the frame). */
   maybeCrossEdge(dt) {
-    if (this.transitionCd > 0) this.transitionCd -= dt;
-    const map = MAPS[this.mapId], nb = map.neighbors, p = this.player;
-    const throughPassage = edge => {
-      const gate = map.passages && map.passages[edge]; if (!gate) return true;
-      const horizontalEdge = edge === 'top' || edge === 'bottom';
-      const pos = horizontalEdge ? p.x : p.y, span = horizontalEdge ? this.W : this.H;
-      return Math.abs(pos - span * gate.center) <= gate.width * 0.5 + Math.min(EDGE_PASSAGE_ASSIST, p.radius);
-    };
-    let via = null;
-    if (nb.left && throughPassage('left') && p.x <= p.radius + EDGE_TRIGGER_PAD) via = 'left';
-    else if (nb.right && throughPassage('right') && p.x >= this.W - p.radius - EDGE_TRIGGER_PAD) via = 'right';
-    else if (nb.top && throughPassage('top') && p.y <= p.radius + EDGE_TRIGGER_PAD) via = 'top';
-    else if (nb.bottom && throughPassage('bottom') && p.y >= this.H - p.radius - EDGE_TRIGGER_PAD) via = 'bottom';
-    this.nearEdge = via ? MAPS[nb[via]].name : null;
-    if (via && this.transitionCd <= 0) {
-      // Remove Entity.integrate's reflected edge velocity inside a real exit,
-      // otherwise it can nudge the player away and reset the crossing hold.
-      if (via === 'left') p.vx = Math.min(0, p.vx);
-      else if (via === 'right') p.vx = Math.max(0, p.vx);
-      else if (via === 'top') p.vy = Math.min(0, p.vy);
-      else if (via === 'bottom') p.vy = Math.max(0, p.vy);
-      this.edgeDwell += dt;
-      if (this.edgeDwell >= EDGE_DWELL_TIME) { this.loadMap(nb[via], via); return true; }
-    } else this.edgeDwell = 0;
-    return false;
+    return !!this.componentSystems.run(GameplaySystemPhases.MAP_CROSSING, this, dt).mapChanged;
   }
 
   update(dt) {
@@ -734,16 +641,14 @@ export class Engine {
     } else this.updateActiveWorld(dt);
     if (this.mp) {
       if (this.mp.feed.length) this.mp.feed = this.mp.feed.filter(f => this.time - f.t < 5);
-      if (this.mp.role === 'host') mpBroadcast(this, dt);
     }
     this.pushHud();
   }
 
   updateActiveWorld(dt) {
     const p = this.worldPlayer(); if (!p) return;
-    if (p === this.player) {
-      this.worldMouse.x = this.cam.x + this.mouse.x; this.worldMouse.y = this.cam.y + this.mouse.y;
-    }
+    this.componentSystems.prepare(this);
+    this.componentSystems.run(GameplaySystemPhases.PRE_ACTORS, this, dt);
 
     for (const player of this.allPlayers()) player.update(this, dt);
 
@@ -753,75 +658,13 @@ export class Engine {
     this.danger = Math.max(0, this.danger - dt * 0.6);
     for (const c of this.creatures) c.update(this, dt);
 
-    this.applyCurrent(dt);   // sea current sweeps player + free creatures + food
-    this.resolveObstacles(); // keep player + creatures out of land blockers
-    updateItems(this, dt);
-    updateVehicles(this, dt);
-
-    // Food is host-authoritative in multiplayer. Let every living player pull
-    // and collect pellets; if ranges overlap, the closest player gets them.
-    const foodCollectors = this.mp && this.mp.role === 'host' ? this.allPlayers() : [p];
-    for (let i = this.food.length - 1; i >= 0; i--) {
-      const f = this.food[i]; f.life -= dt; f.vx *= Math.exp(-dt * 2); f.vy *= Math.exp(-dt * 2);
-      let eater = null, eatD2 = Infinity;
-      let pullTarget = null, pullD2 = Infinity, pullR = 0, pullDx = 0, pullDy = 0;
-      for (const candidate of foodCollectors) {
-        if (!candidate || candidate.deadT > 0) continue;
-        const dx = candidate.x - f.x, dy = candidate.y - f.y, d2 = dx * dx + dy * dy;
-        const eatR = candidate.radius + 6;
-        if (d2 < eatR * eatR && d2 < eatD2) { eater = candidate; eatD2 = d2; }
-        const candidatePullR = candidate.hasAbility('filter') ? 230 : 130;
-        if (d2 < candidatePullR * candidatePullR && d2 < pullD2) {
-          pullTarget = candidate; pullD2 = d2; pullR = candidatePullR; pullDx = dx; pullDy = dy;
-        }
-      }
-      if (!eater && pullTarget) {
-        const d = Math.sqrt(pullD2), pull = (1 - d / pullR) * 520;
-        f.vx += pullDx / (d || 1) * pull * dt; f.vy += pullDy / (d || 1) * pull * dt;
-      }
-      f.x += f.vx * dt; f.y += f.vy * dt;
-      if (eater) {
-        const filterFeed = eater.hasAbility('filter');
-        if (filterFeed) { eater.filterCombo = Math.min(5, (eater.filterCombo || 0) + 1); eater.filterComboT = 2; }
-        const combo = filterFeed ? eater.filterCombo : 0;
-        eater.addXp(this, f.value * (1 + combo * .06)); eater.hp = Math.min(eater.maxHp, eater.hp + (filterFeed ? 4 + combo : 3));
-        burst(this, f.x, f.y, f.kind === 'meat' ? '#ff9a8a' : '#8fe89a', 5, 80);
-        this.sfx.play('eat'); this.food.splice(i, 1); continue;
-      }
-      if (f.life <= 0) this.food.splice(i, 1);
-    }
-
-    // plants regrow slowly
-    for (const pl of this.plants) {
-      if (pl.eatCd > 0) pl.eatCd -= dt;
-      if (pl.amount < pl.max) { pl.regen -= dt; if (pl.regen <= 0) { pl.amount = Math.min(pl.max, pl.amount + 1); pl.regen = 14; } }
-    }
-
-    // Cosmetic collections do not need advancing while a host tab is hidden.
-    if (!this.backgrounded) {
-      for (let i = this.particles.length - 1; i >= 0; i--) {
-        const q = this.particles[i]; q.life -= dt; q.vx *= Math.exp(-dt * 3); q.vy *= Math.exp(-dt * 3);
-        q.x += q.vx * dt; q.y += q.vy * dt; q.angle = (q.angle || 0) + (q.spin || 0) * dt;
-        if (q.shape === 'tooth') q.vy += 150 * dt;
-        if (q.life <= 0) this.particles.splice(i, 1);
-      }
-      for (let i = this.fx.length - 1; i >= 0; i--) { this.fx[i].t += dt; if (this.fx[i].t >= this.fx[i].max) this.fx.splice(i, 1); }
-      for (let i = this.floaters.length - 1; i >= 0; i--) {
-        const ft = this.floaters[i]; ft.x += ft.vx * dt; ft.y += ft.vy * dt;
-        ft.vy *= Math.exp(-dt * 2.4); ft.vx *= Math.exp(-dt * 3); ft.life -= dt;
-        if (ft.life <= 0) this.floaters.splice(i, 1);
-      }
-    } else { this.particles.length = 0; this.fx.length = 0; this.floaters.length = 0; }
-    for (const e of this.eggs) e.t += dt;
-    for (let i = this.webs.length - 1; i >= 0; i--) { const w = this.webs[i]; if (w.life == null) continue; w.life -= dt; if (w.life <= 0) this.webs.splice(i, 1); }
-    if (!this.backgrounded) {
-      this.updateFlow(dt);
-      this.updateBubbles(dt);
-    }
-
-    // max level: evolve within the stage, or (sea apex) offer to crawl ashore
-    if (!this.mp && !this.pendingEvolve && !this.dead && !this.advanceAvailable && p.level >= MAX_LEVEL && p.species.evolvesTo.length) this.triggerEvolve();
-    else if (!this.mp && !this.pendingEvolve && !this.dead && !this.ascendOffered && this.isSeaApex()) this.triggerAscend();
+    this.componentSystems.run(GameplaySystemPhases.ENVIRONMENT, this, dt);
+    this.componentSystems.run(GameplaySystemPhases.ITEMS, this, dt);
+    this.componentSystems.run(GameplaySystemPhases.VEHICLES, this, dt);
+    this.componentSystems.run(GameplaySystemPhases.STATUS_FACTS, this, dt);
+    this.componentSystems.run(GameplaySystemPhases.RESOURCES, this, dt);
+    this.componentSystems.run(GameplaySystemPhases.LIFETIMES, this, dt);
+    this.componentSystems.run(GameplaySystemPhases.PROGRESSION, this, dt);
 
     // The host camera follows only the host's own map while other occupied
     // maps continue simulating off-screen.
@@ -833,7 +676,7 @@ export class Engine {
       this.shake *= Math.exp(-dt * 8);
     }
 
-    spawnMaintain(this, dt);
+    this.componentSystems.run(GameplaySystemPhases.SPAWNING, this, dt);
   }
 
   /* Compatibility methods used by multiplayer/debug callers. Runtime-owned

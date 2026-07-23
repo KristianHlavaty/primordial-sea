@@ -5,12 +5,10 @@ import { Entity } from './Entity.js';
 import { SPECIES } from '../../data/species.js';
 import { ABILITY_SETS } from '../../data/abilities.js';
 import { ITEM_SLOT_COUNT } from '../../data/items.js';
-import { MAX_LEVEL, XP_MULT, xpNeed } from '../../data/progression.js';
 import { TAU, hyp, rand, angLerp } from '../../core/math.js';
 import { withA } from '../../core/color.js';
 import { burst, addFloater, shakeForPlayer } from '../systems/effects.js';
-import { updatePilotedVehicle, damageOccupiedVehicle } from '../systems/vehicles.js';
-import { abilityBody, abilityHit, abilityTargets, afterAbilityBite, biteAbilityMultiplier, notePlayerDamage, releaseShellEnergy, updateAbilityRuntime } from '../systems/abilityRuntime.js';
+import { abilityBody, abilityHit, abilityTargets, afterAbilityBite, biteAbilityMultiplier, notePlayerDamage, releaseShellEnergy } from '../systems/abilityRuntime.js';
 
 export class Player extends Entity {
   /* `prev` (the pre-evolution player) carries position and heading over. */
@@ -76,26 +74,7 @@ export class Player extends Entity {
   wantsBite(game) { return game.biteHeld; }
 
   /* Pop back in at a random spot with brief spawn immunity. */
-  respawn(game) {
-    this.hp = this.maxHp; this.shield = 0; this.shieldT = 0; this.forceFieldT = 0; this.vx = 0; this.vy = 0;
-    this.biteT = 0; this.cd = 0; this.hitSet = null;
-    this.enrollT = this.burstT = this.frenzyT = this.withdrawT = this.stealthT = 0;
-    this.ramT = this.jetT = this.bloomT = this.vortexT = this.burrowT = this.sprintT = this.graspT = 0;
-    this.engulfT = this.engulfSwallowT = this.shockVisualT = this.inkCloudT = this.impaleT = this.crushT = 0;
-    this.leapT = this.stompT = this.tailSweepT = this.webT = this.sprintMomentum = this.rebirthT = 0;
-    this.engulfTarget = this.impaleTarget = this.hookTarget = null; this.burrowActive = this.hardenActive = 0;
-    this.pinnedTarget = null; this.pinT = 0; this.vortexActive = 0; this.vortexReleased = 1;
-    this.hardenStored = this.withdrawStored = this.filterCombo = this.camoCharge = this.fortify = this.sailHeat = this.barbCharge = 0;
-    this.armorPlates = this.hasAbility('thickhide') ? 3 : 0; this.poisonT = this.poisonDps = this.poisonTick = this.venomStacks = this.venomMarkT = 0; this.poisonOwner = null;
-    this.stunT = this.slowT = this.armorBreakT = this.vulnerableT = 0;
-    this.castAbility = null; this.castT = 0; this.ramHit = null;
-    this.rebirthUsed = false;
-    this.vehicle = null; this.vehicleType = null; this.vehicleNetId = null; this.vehicleCreatureRadius = null;
-    this.x = game.W * (0.2 + Math.random() * 0.6);
-    this.y = game.H * (0.2 + Math.random() * 0.6);
-    this.spawnProtT = 2.5;
-    burst(game, this.x, this.y, '#a0ffd8', 20, 200);
-  }
+  respawn(game) { game.componentSystems.respawnPlayer(this, game); }
 
   applyLevelStats(game) {
     const st = this.species.stats, L = this.level - 1;
@@ -105,28 +84,14 @@ export class Player extends Entity {
     this.spdMul = (1 + L * 0.02) * b.spdMul;
   }
 
-  addXp(game, v) {
-    if (game.pendingEvolve || game.dead || this.level >= MAX_LEVEL) return;
-    this.xp += v * XP_MULT * (game.talentBonus ? game.talentBonus.xpMul : 1);
-    while (this.level < MAX_LEVEL && this.xp >= xpNeed(this.level)) { this.xp -= xpNeed(this.level); this.level++; this.levelUp(game); }
-    if (this.level >= MAX_LEVEL) {
-      this.xp = 0;
-      if (game.mp && game.mp.role === 'host') game.queueMpEvolution(this);
-      else if (this.species.evolvesTo.length && !game.mp) game.triggerEvolve();
-    }
-  }
+  addXp(game, value) { game.componentSystems.addXp(this, game, value); }
 
-  levelUp(game) {
-    const old = this.maxHp; this.applyLevelStats(game);
-    this.hp = Math.min(this.maxHp, this.hp + (this.maxHp - old) + this.maxHp * 0.15);   // heal the added HP + a bonus
-    if (!game.mp) game.gainTalentPoint();   // a talent point for this stage's tree (single-player only)
-    game.fx.push({ x: this.x, y: this.y, t: 0, max: 0.6, R: this.radius + 42, color: '#ffe27a', dir: 'out', width: 4 });
-    game.floaters.push({ x: this.x, y: this.y - this.radius - 12, vx: 0, vy: -34, text: 'LEVEL ' + this.level, life: 1.5, max: 1.5, color: '#ffe27a', size: 16 });
-    game.shake = Math.min(10, game.shake + 3); game.sfx.play('power');
-  }
+  levelUp(game) { game.componentSystems.levelUp(this, game); }
 
   /* Bite = a short lunge with an active hit window (biteT). */
-  bite(game) {
+  bite(game) { return game.componentSystems.startBite(this, game); }
+
+  _startBite(game) {
     if (this.cd > 0) return;
     const st = this.species.stats;
     const frenzy = this.frenzyT > 0;
@@ -138,7 +103,9 @@ export class Player extends Entity {
 
   /* While the bite window is open, hit everything in the forward arc once
      (hitSet prevents multi-hits from a single bite). */
-  resolveBite(game) {
+  resolveBite(game) { return game.componentSystems.resolveBite(this, game); }
+
+  _resolveBite(game) {
     if (this.biteT <= 0) return;
     const st = this.species.stats;
     const hooked = this.hasAbility('hookarms'), frenzy = this.frenzyT > 0;
@@ -204,12 +171,14 @@ export class Player extends Entity {
   // another retaliation chain.
   takeDamage(game, dmg, fromx, fromy) { this.takeHit(game, dmg, fromx, fromy, null); }
 
-  takeHit(game, dmg, fromx, fromy, attacker) {
+  takeHit(game, dmg, fromx, fromy, attacker) { return game.componentSystems.damagePlayer(this, game, dmg, fromx, fromy, attacker); }
+
+  _takeHit(game, dmg, fromx, fromy, attacker) {
     if (this.hp <= 0 || this.deadT > 0) return;
     if (this.rebirthT > 0) { burst(game, this.x, this.y, '#a0ffd8', 4, 55); return; }
     if (this.spawnProtT > 0 || (this.mpEvolveChoices && this.mpEvolveChoices.length)) { burst(game, this.x, this.y, '#a0ffd8', 3, 45); return; }   // respawning or choosing an evolution
     if (game.mp ? this.mpInvincible : game.invincible) { burst(game, this.x, this.y, '#ff5d68', 3, 45); return; }
-    if (this.vehicle && damageOccupiedVehicle(game, this, dmg)) return;
+    if (this.vehicle && game.componentSystems.damageOccupiedVehicle(game, this, dmg)) return;
     if (this.enrollT > 0) { burst(game, this.x, this.y, '#ffe6b0', 4, 60); return; }
     if (this.burrowT > 0) { burst(game, this.x, this.y, '#c79a5e', 4, 60); return; }   // underground — untouchable
     const ampReady = this.hasAbility('ampullae') && this.senseCd <= 0, silkReady = this.hasAbility('silksense') && this.senseCd <= 0;
@@ -297,11 +266,7 @@ export class Player extends Entity {
   }
 
   update(game, dt) {
-    if (this.deadT > 0) {              // dead & respawning — inert until the timer ends
-      this.deadT = Math.max(0, this.deadT - dt);
-      if (this.deadT > 0) return;
-      this.respawn(game);
-    }
+    if (this.deadT > 0) return;         // RespawnSystem owns the timer and reset.
     if (this.spawnProtT > 0) this.spawnProtT = Math.max(0, this.spawnProtT - dt);
     const st = this.species.stats;
     for (const id in this.acd) { if (this.acd[id] > 0) this.acd[id] = Math.max(0, this.acd[id] - dt); }
@@ -323,7 +288,7 @@ export class Player extends Entity {
     this.stunT = Math.max(0, (this.stunT || 0) - dt); this.slowT = Math.max(0, (this.slowT || 0) - dt);
     if (wasWithdrawn && this.withdrawT <= 0) releaseShellEnergy(game, this, 'withdraw');
     if (this.vehicle) {
-      updatePilotedVehicle(game, this, dt);
+      game.componentSystems.updatePilotedVehicle(game, this, dt);
       this.cd = Math.max(0, this.cd - dt); this.biteT = Math.max(0, this.biteT - dt);
       return;
     }
@@ -434,7 +399,7 @@ export class Player extends Entity {
       }
     }
 
-    updateAbilityRuntime(game, this, dt);
+    game.componentSystems.updateAbilityRuntime(game, this, dt);
 
     // passive regen once out of combat
     if (game.time - this.lastHurtT > 3 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 6 * dt);

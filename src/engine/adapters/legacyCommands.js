@@ -6,9 +6,6 @@ export function attachLegacyCommandHandlers(engine, events, { resize = null } = 
   const on = (event, listener) => events.subscribe(event, listener);
   const unsubscribers = [
     on(GameEvents.INPUT_RESIZE_REQUESTED, () => resize && resize()),
-    on(GameEvents.INPUT_POINTER_MOVED, ({ x, y }) => engine.setMouse(x, y)),
-    on(GameEvents.INPUT_MOVE_CHANGED, ({ direction, pressed }) => engine.setKey(direction, pressed)),
-    on(GameEvents.INPUT_BITE_CHANGED, ({ pressed }) => engine.setBite(pressed)),
     on(GameEvents.INPUT_ABILITY_REQUESTED, ({ index }) => engine.useAbility(index)),
     on(GameEvents.INPUT_ITEM_REQUESTED, ({ slot }) => engine.useItem(slot)),
     on(GameEvents.INPUT_ITEM_DROP_REQUESTED, ({ slot }) => engine.dropItem(slot)),
@@ -16,9 +13,7 @@ export function attachLegacyCommandHandlers(engine, events, { resize = null } = 
     on(GameEvents.INPUT_PAUSE_REQUESTED, () => engine.togglePause()),
     on(GameEvents.INPUT_MUTE_REQUESTED, () => engine.toggleMute()),
     on(GameEvents.INPUT_LEVELS_REQUESTED, () => engine.toggleLevels()),
-    on(GameEvents.INPUT_RELEASED, () => engine.releaseInput()),
     on(GameEvents.FLOW_PAUSED_CHANGED, ({ paused }) => engine.setPaused(paused)),
-    on(GameEvents.FLOW_INPUT_SUPPRESSION_CHANGED, ({ suppressed }) => engine.setInputSuppressed(suppressed)),
     on(GameEvents.FLOW_ASCEND_REQUESTED, () => engine.openAscend()),
     on(GameEvents.FLOW_ADVANCE_REQUESTED, () => engine.openAdvance()),
     on(GameEvents.FLOW_ASCEND_DISMISSED, () => engine.dismissAscend()),

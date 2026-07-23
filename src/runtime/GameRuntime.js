@@ -2,7 +2,8 @@ import { EventBus } from '../core/EventBus.js';
 import { Engine } from '../engine/Engine.js';
 import { Sfx } from '../engine/audio.js';
 import { ComponentWorld } from '../engine/components/ComponentWorld.js';
-import { LegacyComponentMirror } from '../engine/components/LegacyComponentMirror.js';
+import { LegacyComponentAdapter } from '../engine/components/LegacyComponentMirror.js';
+import { GameplayComponentSystems } from '../engine/systems/GameplayComponentSystems.js';
 import { attachLegacyCommandHandlers } from '../engine/adapters/legacyCommands.js';
 import { GameEvents } from '../engine/events.js';
 import { CanvasWorldRenderer } from '../render/canvas/CanvasWorldRenderer.js';
@@ -39,9 +40,16 @@ export class GameRuntime {
     this.componentWorld = new ComponentWorld({ events: this.events });
     this.audio = new Sfx();
     this.audioPort = new AudioPort(this.events);
-    this.engine = new Engine({ events: this.events, componentWorld: this.componentWorld, audio: this.audioPort });
+    this.componentAdapter = new LegacyComponentAdapter(this.componentWorld);
+    this.componentMirror = this.componentAdapter; // compatibility name for Phase 2 debug consumers
+    this.componentSystems = new GameplayComponentSystems(this.componentWorld, this.componentAdapter);
+    this.coreComponentSystems = this.componentSystems; // compatibility name for early Phase 4 tooling
+    this.engine = new Engine({
+      events: this.events, componentWorld: this.componentWorld,
+      componentSystems: this.componentSystems, audio: this.audioPort,
+    });
+    this.componentAdapter.syncRuntime(this.engine);
     this.presenter = new PresentationProjector();
-    this.componentMirror = new LegacyComponentMirror(this.componentWorld);
     this.rendererMode = rendererMode;
     this.renderer = makeRenderer(rendererMode, canvas, this.events);
     this.rendererReady = false;
@@ -75,6 +83,7 @@ export class GameRuntime {
     this.unsubscribers = [];
 
     this.unsubscribers.push(attachAudioSubscriber(this.events, this.audio));
+    this.unsubscribers.push(this.componentSystems.attachInput(this.events, this.engine));
     this.unsubscribers.push(attachLegacyCommandHandlers(this.engine, this.events, { resize: () => this.resize() }));
     this.unsubscribers.push(this.events.subscribe(GameEvents.RENDER_CAPTURE_REQUESTED, () => this.capturePresentation()));
     this.unsubscribers.push(this.events.subscribe(GameEvents.RENDER_FRAME_REQUESTED, ({ alpha }) => this.render(alpha)));
@@ -115,7 +124,9 @@ export class GameRuntime {
   step(dt) {
     if (this.engine.mp && this.engine.mp.role === 'client') this.engine.updateReplica(dt);
     else this.engine.update(dt);
+    this.engine.prepareMultiplayerSnapshot();
     this.componentMirror.sync(this.engine);
+    this.engine.broadcastMultiplayer(dt);
     this.componentWorld.update(dt, { runtime: this, engine: this.engine });
   }
 
@@ -134,10 +145,10 @@ export class GameRuntime {
   }
 
   attachNetwork(transport) { this.network.transport = transport || null; }
-  startRun(options) { this.engine.start(options); }
-  startAt(speciesId, options) { this.engine.startAt(speciesId, options); }
-  startMpHost(options) { this.attachNetwork(options.lobby); this.engine.startMpHost(options); }
-  startMpClient(options) { this.attachNetwork(options.lobby); this.engine.startMpClient(options); }
+  startRun(options) { this.engine.start(options); this.componentAdapter.sync(this.engine); }
+  startAt(speciesId, options) { this.engine.startAt(speciesId, options); this.componentAdapter.sync(this.engine); }
+  startMpHost(options) { this.attachNetwork(options.lobby); this.engine.startMpHost(options); this.componentAdapter.sync(this.engine); }
+  startMpClient(options) { this.attachNetwork(options.lobby); this.engine.startMpClient(options); this.componentAdapter.sync(this.engine); }
   setRoster(roster) { this.engine.mpSetRoster(roster); }
   returnToMenu() { this.attachNetwork(null); this.engine.returnToMenu(); }
 
@@ -146,7 +157,8 @@ export class GameRuntime {
     this.destroyed = true;
     this.clock.stop();
     if (this.detachInput) this.detachInput();
-    this.componentMirror.destroy();
+    this.componentSystems.destroy();
+    this.componentAdapter.destroy();
     for (const unsubscribe of this.unsubscribers.splice(0).reverse()) unsubscribe();
     if (this.rendererReady) this.renderer.destroy();
     this.componentWorld.destroy();
