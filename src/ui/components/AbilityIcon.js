@@ -1,14 +1,14 @@
-/* A small canvas rendering one power's vector icon. */
-import { html, useRef, useLayoutEffect } from '../react.js';
-import { drawAbilityIcon } from '../../render/drawAbilityIcon.js';
+/* A power icon rendered by the shared Pixi overlay. */
+import { html, useMemo } from '../react.js';
+import { drawAbilityIconVisual } from '../../render/pixi/PixiVisualFactory.js';
+import { PixiPreview } from './PixiPreview.js';
 
 export function AbilityIcon({ id, color }) {
-  const ref = useRef(null);
-  useLayoutEffect(() => {
-    const cv = ref.current; if (!cv) return;
-    const c = cv.getContext('2d');
-    c.clearRect(0, 0, cv.width, cv.height);
-    drawAbilityIcon(c, id, cv.width, color);
-  }, [id, color]);
-  return html`<canvas width="40" height="40" ref=${ref}/>`;
+  const draw = useMemo(() => (ctx, frame) => drawAbilityIconVisual(ctx, {
+    id, color, width: frame.width, height: frame.height,
+  }), [id, color]);
+  return html`<${PixiPreview}
+    draw=${draw} width=${40} height=${40} className="pixiAbilityIcon"
+    ariaLabel=${`${id} ability icon`}
+  />`;
 }

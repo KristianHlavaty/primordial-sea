@@ -1,11 +1,11 @@
-import { GameRuntime, rendererModeFromLocation } from '../src/runtime/GameRuntime.js';
+import { GameRuntime } from '../src/runtime/GameRuntime.js';
 import { MAPS } from '../src/data/maps.js';
 
 let seed = 0x51f15e;
 Math.random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 0x100000000; };
 
 try {
-  const mode = rendererModeFromLocation();
+  const mode = 'pixi';
   const runtime = new GameRuntime(document.getElementById('game'), { rendererMode: mode, autoStartClock: false, attachInputHandlers: false });
   await runtime.ready; runtime.resize(innerWidth, innerHeight, devicePixelRatio || 1);
   runtime.startRun({ fantasyEvolution: true, items: true, funItems: true, cheats: true });

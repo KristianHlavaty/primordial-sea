@@ -2,11 +2,18 @@
    The AudioContext is created lazily and resumed on the first user gesture
    (Engine.start calls unlock()). */
 export class Sfx {
-  constructor() { this.ac = null; this.muted = false; this.backgrounded = false; }
+  constructor() {
+    this.ac = null;
+    this.muted = false;
+    this.backgrounded = false;
+    this.timers = new Set();
+    this.destroyed = false;
+  }
 
   setBackgrounded(value) { this.backgrounded = !!value; }
 
   unlock() {
+    if (this.destroyed) return;
     try {
       if (!this.ac) this.ac = new (window.AudioContext || window.webkitAudioContext)();
       if (this.ac.state === 'suspended') this.ac.resume();
@@ -14,7 +21,7 @@ export class Sfx {
   }
 
   play(type) {
-    if (this.muted || this.backgrounded) return;
+    if (this.destroyed || this.muted || this.backgrounded) return;
     try {
       if (!this.ac) this.ac = new (window.AudioContext || window.webkitAudioContext)();
       const now = this.ac.currentTime;
@@ -30,7 +37,15 @@ export class Sfx {
       else if (type === 'plant') beep(360, 0.1, 0.05, 'sine', 520);
       else if (type === 'hurt') beep(160, 0.2, 0.09, 'sawtooth', 70);
       else if (type === 'kill') beep(300, 0.16, 0.07, 'square', 90);
-      else if (type === 'evolve') { [330, 440, 554, 740].forEach((f, i) => setTimeout(() => beep(f, 0.25, 0.06, 'triangle', f * 1.3), i * 90)); }
+      else if (type === 'evolve') {
+        [330, 440, 554, 740].forEach((f, i) => {
+          const timer = setTimeout(() => {
+            this.timers.delete(timer);
+            if (!this.destroyed) beep(f, 0.25, 0.06, 'triangle', f * 1.3);
+          }, i * 90);
+          this.timers.add(timer);
+        });
+      }
       else if (type === 'egg') beep(520, 0.3, 0.05, 'sine', 300);
       else if (type === 'power') beep(300, 0.14, 0.06, 'triangle', 620);
       else if (type === 'frenzy') { beep(115, 0.42, 0.075, 'sawtooth', 58); beep(260, 0.24, 0.04, 'square', 125); }
@@ -68,5 +83,17 @@ export class Sfx {
       else if (type === 'dodge') beep(760, 0.08, 0.045, 'sine', 1180);
       else if (type === 'shieldhit') beep(240, 0.09, 0.05, 'triangle', 380);
     } catch (e) { /* ignore audio errors */ }
+  }
+
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    for (const timer of this.timers) clearTimeout(timer);
+    this.timers.clear();
+    const context = this.ac;
+    this.ac = null;
+    if (context && typeof context.close === 'function') {
+      try { context.close().catch?.(() => {}); } catch { }
+    }
   }
 }

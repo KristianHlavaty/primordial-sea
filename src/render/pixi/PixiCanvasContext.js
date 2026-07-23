@@ -137,9 +137,9 @@ export class PixiLayerSurface {
     this.currentParent.addChild(view);
     view.visible = true;
     view.text = spec.text;
-    if (view._legacyStyleKey !== spec.styleKey) {
+    if (view._styleKey !== spec.styleKey) {
       view.style = spec.style;
-      view._legacyStyleKey = spec.styleKey;
+      view._styleKey = spec.styleKey;
     }
     view.anchor.set(spec.anchorX, .8);
     view.setFromMatrix(spec.matrix);

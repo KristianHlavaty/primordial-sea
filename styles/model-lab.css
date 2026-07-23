@@ -9,7 +9,7 @@ button,input,select{font:inherit}
 button,a,select,input{outline:none}
 button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible{box-shadow:0 0 0 2px #06131e,0 0 0 4px var(--lab-cyan)}
 .modelLabShell{height:100%; display:flex; flex-direction:column; min-height:0}
-.modelLabHeader{height:68px; flex:0 0 68px; display:flex; align-items:center; gap:26px; padding:0 24px; border-bottom:1px solid var(--lab-line); background:#06131ee8; backdrop-filter:blur(16px); box-shadow:0 12px 40px #0008; z-index:3}
+.modelLabHeader{position:relative; height:68px; flex:0 0 68px; display:flex; align-items:center; gap:26px; padding:0 24px; border-bottom:1px solid var(--lab-line); background:#06131ee8; backdrop-filter:blur(16px); box-shadow:0 12px 40px #0008; z-index:3}
 .modelLabBrand{display:flex; align-items:center; gap:11px; min-width:270px}
 .modelLabBrand strong{font-size:13px; letter-spacing:1.8px; display:block}
 .modelLabBrand small{display:block; color:var(--lab-dim); font-size:10px; letter-spacing:.45px; margin-top:2px}
@@ -25,18 +25,18 @@ button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible{bo
 .modelLabWorkspace{flex:1; min-height:0; display:grid; grid-template-columns:minmax(500px,1.25fr) minmax(410px,.75fr); gap:1px; background:var(--lab-line)}
 .modelInspector,.modelLibrary{min-height:0; background:linear-gradient(145deg,#071724,#06131e)}
 .modelInspector{display:grid; grid-template-rows:minmax(300px,1fr) auto auto; overflow:auto}
-.modelStage{position:relative; min-height:330px; overflow:hidden; isolation:isolate; background:#061727}
-.modelStage::before,.modelStage::after{content:""; position:absolute; inset:0; pointer-events:none; z-index:-1}
+.modelStage{position:relative; min-height:330px; overflow:hidden; background:#061727}
+.modelStage::before,.modelStage::after{content:""; position:absolute; inset:0; pointer-events:none; z-index:0}
 .modelStage::before{background:
   radial-gradient(ellipse at 48% 50%,#16445b77 0,transparent 58%),
   linear-gradient(#05172388 1px,transparent 1px),linear-gradient(90deg,#05172388 1px,transparent 1px); background-size:auto,48px 48px,48px 48px}
 .modelStage::after{box-shadow:inset 0 0 80px #020912,inset 0 -80px 80px #02091288}
 .modelStage[data-theme="neutral"]{background:#28333a}.modelStage[data-theme="neutral"]::before{background:linear-gradient(#52606955 1px,transparent 1px),linear-gradient(90deg,#52606955 1px,transparent 1px); background-size:40px 40px}.modelStage[data-theme="neutral"]::after{box-shadow:inset 0 0 60px #10191f99}
 .modelStage[data-theme="light"]{background:#cad2d0}.modelStage[data-theme="light"]::before{background:linear-gradient(#82908d44 1px,transparent 1px),linear-gradient(90deg,#82908d44 1px,transparent 1px); background-size:40px 40px}.modelStage[data-theme="light"]::after{box-shadow:inset 0 0 50px #ffffff99}
-#modelCanvas{position:absolute; width:100%; height:100%; display:block}
-.stageTopline{position:absolute; top:17px; left:19px; right:19px; display:flex; justify-content:space-between; pointer-events:none; color:#bde4e8; font:700 10px/1 "Segoe UI",sans-serif; letter-spacing:1.5px; text-shadow:0 1px 4px #000}
+#modelViewport{position:absolute; inset:0; display:block}
+.stageTopline{position:absolute; z-index:2; top:17px; left:19px; right:19px; display:flex; justify-content:space-between; pointer-events:none; color:#bde4e8; font:700 10px/1 "Segoe UI",sans-serif; letter-spacing:1.5px; text-shadow:0 1px 4px #000}
 .stageTopline span{padding:5px 7px; border:1px solid #5b899755; background:#04121cb8; border-radius:4px}
-.stageScale{position:absolute; bottom:18px; right:20px; display:flex; align-items:center; gap:7px; color:#aac2ca; font-size:9px; pointer-events:none; text-shadow:0 1px 3px #000}
+.stageScale{position:absolute; z-index:2; bottom:18px; right:20px; display:flex; align-items:center; gap:7px; color:#aac2ca; font-size:9px; pointer-events:none; text-shadow:0 1px 3px #000}
 .stageScale span{display:block; width:74px; border-top:1px solid #d7f5f1; position:relative}.stageScale span::before,.stageScale span::after{content:""; position:absolute; top:-4px; height:7px; border-left:1px solid #d7f5f1}.stageScale span::before{left:0}.stageScale span::after{right:0}
 .stagePalettePicker{position:absolute; left:18px; bottom:16px; z-index:2; display:flex; gap:7px; padding:7px 9px; border:1px solid #416b7988; border-radius:99px; background:#03111bc9; box-shadow:0 5px 18px #0006; backdrop-filter:blur(7px)}
 .stagePalettePicker[hidden]{display:none}
@@ -44,7 +44,7 @@ button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible{bo
 .paletteDot:hover{transform:scale(1.14); border-color:#fff}.paletteDot.active{border-color:#fff; box-shadow:inset 0 0 0 1px #00101899,0 0 0 2px #07141e,0 0 0 4px var(--lab-cyan),0 2px 8px #000}
 .paletteDot.compact{width:12px; height:12px; border-width:1px}.paletteDot.compact.active{box-shadow:inset 0 0 0 1px #00101899,0 0 0 1px #07141e,0 0 0 2px var(--lab-cyan)}
 
-.animationPanel{border-top:1px solid var(--lab-line); border-bottom:1px solid var(--lab-line); padding:14px 18px 13px; background:#081924}
+.animationPanel{position:relative; z-index:2; border-top:1px solid var(--lab-line); border-bottom:1px solid var(--lab-line); padding:14px 18px 13px; background:#081924}
 .panelLabel{font-size:9px; font-weight:800; color:var(--lab-dim); letter-spacing:1.6px; margin-bottom:8px}
 .animationButtons{display:grid; grid-template-columns:repeat(5,1fr); gap:6px}
 .animationButtons button,.viewControls button,.variantStepper button{appearance:none; border:1px solid #24485b; border-radius:6px; background:#0b2231; color:#a9c6d2; cursor:pointer; min-height:40px; font-weight:750; font-size:11px; transition:.16s ease; position:relative}
@@ -60,7 +60,7 @@ button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible{bo
 .themeControl select{border:0; background:#0c2636; color:#d8edf1; border-radius:3px; padding:3px 19px 3px 6px; font-size:10px}
 #snapshotButton{margin-left:auto}
 
-.modelDescription{padding:16px 20px 18px; background:linear-gradient(110deg,#0b2030,#081824)}
+.modelDescription{position:relative; z-index:2; padding:16px 20px 18px; background:linear-gradient(110deg,#0b2030,#081824)}
 .descriptionHeading{display:flex; justify-content:space-between; gap:15px; align-items:center}
 #modelDirection{display:block; color:var(--lab-cyan); font-size:9px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:2px}
 #modelName{font:800 23px/1.15 "Segoe UI",sans-serif; letter-spacing:.2px}
@@ -70,33 +70,33 @@ button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible{bo
 .modelMetrics{display:flex; gap:16px; margin-top:10px; padding-top:10px; border-top:1px solid #173447}.modelMetrics span{font-size:9px; color:#698a9b; text-transform:uppercase; letter-spacing:.8px}.modelMetrics b{display:block; margin-top:2px; color:#dceef2; font-size:11px; letter-spacing:0}
 
 .modelLibrary{display:flex; flex-direction:column; padding:20px 17px 0; overflow:hidden}
-.libraryHeading{display:flex; align-items:flex-end; gap:15px; justify-content:space-between}
+.libraryHeading{position:relative; z-index:2; display:flex; align-items:flex-end; gap:15px; justify-content:space-between}
 .libraryHeading span,#libraryEyebrow{display:block; color:var(--lab-gold); font-size:9px; font-weight:800; letter-spacing:1.5px}
 .libraryHeading h2{font-size:20px; line-height:1.1; margin-top:3px}
 .modelSearch{height:34px; width:min(210px,46%); display:flex; align-items:center; gap:7px; border:1px solid #244456; border-radius:7px; background:#06151f; padding:0 9px; color:#5f8798}
 .modelSearch span{font-size:16px; color:#6ea1af}.modelSearch input{width:100%; min-width:0; background:none; border:0; color:#d9edf1; font-size:11px; user-select:text}.modelSearch input::placeholder{color:#587887}
-.libraryIntro{font-size:11px; color:#7795a4; margin:9px 0 14px; line-height:1.45}
+.libraryIntro{position:relative; z-index:2; font-size:11px; color:#7795a4; margin:9px 0 14px; line-height:1.45}
 .modelGrid{flex:1 1 0; min-height:0; overflow-y:auto; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-rows:154px; align-content:start; gap:9px; padding:0 5px 24px 0; scrollbar-color:#275265 #07141e; scrollbar-width:thin}
 .modelCard{appearance:none; position:relative; text-align:left; min-width:0; min-height:154px; border:1px solid #173a4e; border-radius:9px; background:linear-gradient(145deg,#0b2130,#071722); color:#dcecf2; cursor:pointer; overflow:hidden; transition:border-color .16s ease,transform .16s ease,box-shadow .16s ease}
 .modelCard:hover{border-color:#4c9aa7; transform:translateY(-1px); box-shadow:0 8px 24px #0005}.modelCard.selected{border-color:var(--lab-cyan); box-shadow:inset 0 0 0 1px #5de4dc55,0 0 18px #3cd6ce20}
 .modelCard:focus-visible{box-shadow:0 0 0 2px #06131e,0 0 0 4px var(--lab-cyan)}
-.modelCard canvas{display:block; width:100%; height:112px; background:
+.modelCardPreview{display:block; width:100%; height:112px; background:
   radial-gradient(ellipse at center,#16364988,transparent 65%),
   linear-gradient(#0d263555 1px,transparent 1px),linear-gradient(90deg,#0d263555 1px,transparent 1px); background-size:auto,24px 24px,24px 24px}
-.modelCardText{display:block; padding:9px 10px 10px; border-top:1px solid #153446}
+.modelCardText{position:relative; z-index:2; display:block; padding:9px 10px 10px; border-top:1px solid #153446; background:#081a27}
 .modelCardIndex{display:block; color:#5a8596; font-size:8px; font-weight:800; letter-spacing:1.1px}.modelCardName{display:block; margin-top:2px; font-size:12px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}.modelCardDirection{display:block; color:#7899a7; font-size:9px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .modelCardPalettes{position:absolute; z-index:2; top:7px; left:7px; display:flex; gap:5px; padding:5px 6px; border:1px solid #416b7966; border-radius:99px; background:#03111bc4; box-shadow:0 2px 9px #0005; cursor:default}
-.modelCard.selected .modelCardIndex{color:var(--lab-cyan)}.modelCard.selected::after{content:"SELECTED"; position:absolute; top:7px; right:7px; border:1px solid #79f5ed88; background:#073239dc; color:#aafff8; border-radius:3px; padding:3px 5px; font-size:7px; font-weight:900; letter-spacing:.8px}
+.modelCard.selected .modelCardIndex{color:var(--lab-cyan)}.modelCard.selected::after{content:"SELECTED"; position:absolute; z-index:2; top:7px; right:7px; border:1px solid #79f5ed88; background:#073239dc; color:#aafff8; border-radius:3px; padding:3px 5px; font-size:7px; font-weight:900; letter-spacing:.8px}
 .emptyLibrary{padding:50px 20px; color:#6f8e9d; text-align:center; border:1px dashed #254759; border-radius:8px}
 
 @media(max-width:1050px){
   .modelLabHeader{gap:12px}.modelLabBrand{min-width:220px}.modelLabBrand small{display:none}.collectionTab{padding:0 10px}
   .modelLabWorkspace{grid-template-columns:minmax(460px,1.1fr) minmax(350px,.9fr)}
-  .modelGrid{grid-template-columns:1fr;grid-auto-rows:167px}.modelCard{min-height:167px}.modelCard canvas{height:125px}
+  .modelGrid{grid-template-columns:1fr;grid-auto-rows:167px}.modelCard{min-height:167px}.modelCardPreview{height:125px}
 }
 @media(max-width:760px){
   .modelLabBody{overflow:auto}.modelLabShell{height:auto; min-height:100%}.modelLabHeader{position:sticky; top:0; height:auto; min-height:62px; padding:9px 12px; flex-wrap:wrap}.modelLabBrand{min-width:0}.modelLabBrand small{display:none}.modelLabBrand strong{font-size:10px}.modelLabMark{width:28px;height:28px}
   .collectionTabs{order:3; width:100%; height:34px}.collectionTab{flex:1}.backToGame{font-size:0}.backToGame::after{content:"← Game";font-size:10px}
   .modelLabWorkspace{display:block}.modelInspector{display:block}.modelStage{height:52vh; min-height:320px}.animationButtons{grid-template-columns:repeat(5,minmax(55px,1fr))}.animationButtons button{font-size:9px}.animationButtons button span{display:block;margin:0}.animationButtons button kbd{display:none}
-  .modelLibrary{height:auto; overflow:visible; padding-bottom:30px}.modelGrid{overflow:visible; grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:147px}.modelCard{min-height:147px}.modelCard canvas{height:105px}
+  .modelLibrary{height:auto; overflow:visible; padding-bottom:30px}.modelGrid{overflow:visible; grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:147px}.modelCard{min-height:147px}.modelCardPreview{height:105px}
 }

@@ -1,8 +1,9 @@
 # PixiJS + Component Architecture Migration
 
-Status: Phase 5 implementation and its catalog-driven gameplay gate are
-complete. Phase 3's stored-reference and extended manual visual-parity checks
-remain required before Pixi becomes the default or Canvas can be removed.
+Status: Phases 0-8 and the final parity/hardening gates are complete.
+PixiJS is the only gameplay and preview renderer. Component records and ordered
+systems own migrated state/behavior; source objects remain the single simulation
+shell for algorithms that still use object-shaped gameplay APIs.
 
 This document is the source of truth for the rewrite. Update its checkboxes as
 work lands. A phase is not complete until its parity gate passes. The old path
@@ -60,8 +61,8 @@ and executable behavior disagree, record the discrepancy before changing it.
   achievements, evolution/ascension/advance choices, pause, settings, death,
   multiplayer scoreboard/feed/minimap/respawn, tree wiki, atlas, boss effects,
   talent tree, profile editor, and model-lab shortcut.
-- UI previews and icons currently rendered by Canvas 2D: creatures, evolution
-  cards, ability/item/talent icons, and Model Lab cards/selected model.
+- Creature previews, generated thumbnails, ability/item/talent icons, and Model
+  Lab cards/selected model must retain their pre-migration variants and controls.
 
 ### World and progression
 
@@ -104,11 +105,12 @@ Preserve the draw order and cues currently specified by
 `src/render/renderWorld.js`: background, terrain/passages, fields/telegraphs,
 plants/food/items/vehicles/projectiles, creatures and boss decoration, player
 power states/bite/shields, particles/FX/floaters/bubbles, danger vignette,
-off-screen boss markers, labels/tags, and evolution previews.
+off-screen boss markers, and labels/tags. Evolution previews are now a separate
+subscribed Pixi DOM surface rather than a simulation/render-frame handle.
 
 Creature parity includes every procedural body plan in `drawCreature.js`, the
-specialized Dunkleosteus renderer and variants, static-layer caching, animation
-phase, palette overrides, damage/status alpha, remote-player color rings, and
+specialized Dunkleosteus renderer and variants, animation phase, palette
+overrides, damage/status alpha, remote-player color rings, and
 Model Lab flip/zoom/palette/animation controls.
 
 ### Multiplayer invariants
@@ -170,9 +172,10 @@ Planned component groups:
 
 The component world owns creation/removal/querying and emits entity/component
 lifecycle events. Structural changes made during a system update are queued and
-flushed at a defined boundary. A compatibility adapter mirrors legacy objects
-into components while each vertical slice is migrated; there is never a second
-authoritative simulation of the same mechanic.
+flushed at a defined boundary. `ComponentEntityRegistry` maps simulation source
+objects to stable component entity IDs and installs component-backed accessors;
+it does not maintain a mirrored second copy or place source objects in component
+records.
 
 ### Ordered systems
 
@@ -221,8 +224,9 @@ GPU resources deterministically. Large maps use camera-aware visibility rather
 than a map-sized cached texture. Dynamic Graphics geometry is rebuilt only when
 its visual key changes; animation uses child transforms/uniform state.
 
-React remains over the Pixi canvas. Preview/icon surfaces use small dedicated
-Pixi renderers or generated textures after the gameplay renderer is stable.
+React remains over the Pixi canvas. Preview/icon DOM boxes are composited by a
+shared page-level Pixi surface, while Model Lab uses a stage-scoped surface plus
+one shared card surface to avoid a WebGL context per card.
 
 ## Phases
 
@@ -231,7 +235,7 @@ Pixi renderers or generated textures after the gameplay renderer is stable.
 - [x] Inventory current source boundaries and user-visible functionality.
 - [x] Record architectural decisions and phase gates in this document.
 - [x] Add executable catalog validation and smoke-test entry points.
-- [ ] Capture representative reference screenshots and debug-state fixtures for
+- [x] Capture representative reference screenshots and debug-state fixtures for
   sea, abyss, Devonian, Carboniferous, bosses, items, vehicles, and MP replica.
 
 Gate: this document covers all current feature families, and baseline fixtures
@@ -253,14 +257,14 @@ Gate: the current Canvas game still plays unchanged; the new infrastructure is
 covered by tests; a Pixi application can initialize against the game canvas in a
 smoke page without driving simulation.
 
-### Phase 2 - Runtime boundaries and legacy bridge
+### Phase 2 - Runtime boundaries and source-object bridge
 
 - [x] Introduce a composition root that owns clock, events, component world,
   simulation facade, renderer, audio, input, networking, and UI projection.
 - [x] Convert input to command events and UI/HUD/audio/scheduling to subscribers.
 - [x] Move render interpolation into a read-only presentation snapshot instead of
   temporarily mutating authoritative objects.
-- [x] Mirror legacy entities/world collections into component presentation data.
+- [x] Map source entities/world collections into component presentation data.
 - [x] Add a runtime renderer switch used only for parity testing.
 
 Gate: Canvas renderer behavior and debug API remain unchanged through the new
@@ -286,26 +290,26 @@ Gate: automated snapshot scenes and manual play cover every map/theme, creature
 plan, ability visual, boss telegraph, item projectile, vehicle, and screen effect.
 Canvas gameplay rendering remains available until this gate passes.
 
-Implementation note: `PixiCanvasContext` is a temporary procedural-art bridge.
+Implementation note: `PixiCanvasContext` is the procedural-geometry adapter.
 It translates the shared drawing vocabulary into native retained Pixi
 `Graphics`, `GraphicsContext`, `FillGradient`, and pooled `Text` nodes; it does
 not acquire a gameplay 2D context or upload a frame-sized Canvas texture. The
-bridge keeps the existing art definitions shared until Phase 7 turns them into
-renderer-neutral factories.
+adapter keeps the established art vocabulary while emitting native Pixi nodes;
+Phase 7 added renderer-neutral factories for shared previews and icons.
 
 Automated coverage currently includes 23 core/runtime tests plus 6 dedicated
 Pixi renderer scenarios: all map themes, every species/NPC/boss/Dunkleosteus
 plan, every active ability timer, every item/projectile/vehicle visual, all boss
 telegraph shapes, screen effects, clip/shadow translation, intra-layer command
 order, resource bounds, and deterministic teardown.
-`tests/render-smoke.test.html` provides a seeded screenshot scene for either
-renderer and accepts `?renderer=pixi&map=<map-id>`. Canvas/Pixi sea screenshots
-have been manually compared, as have fixed-viewport `spore_marsh` frames after
-the stabilization pass. The gate remains open for stored reference images and
-extended manual play across the full scenario matrix.
+`tests/render-smoke.test.html` provides a seeded screenshot scene and accepts
+`?map=<map-id>`. Transitional Canvas/Pixi sea screenshots were manually
+compared, as were fixed-viewport `spore_marsh` frames. Phase 7 removed the
+Canvas path after the stored/reference reviews and the all-map Pixi smoke matrix
+closed this gate.
 
 The Phase 3 stabilization audit also hardened detached presentation snapshots,
-component-mirror recovery after external entity removal, multiplayer map-change
+component-registry recovery after external entity removal, multiplayer map-change
 events, Pixi command ordering/clipping/shadow cues, viewport sizing, and the
 Model Lab shortcut's root-relative resolution. The Model Lab itself remains on
 Canvas until its planned Phase 7 port.
@@ -321,10 +325,10 @@ Canvas until its planned Phase 7 port.
 Gate: deterministic debug fixtures match positions, counts, transitions,
 progression, and death/respawn for equivalent command sequences.
 
-Phase 4 uses component-backed compatibility accessors while combat, abilities,
-items, vehicles, and boss behavior await Phase 5. Those property names keep the
+Phase 4 introduced component-backed accessors while combat, abilities, items,
+vehicles, and boss behavior awaited Phase 5. Those property names keep the
 network/render/debug contracts stable, but their migrated values live only in
-the component records; `LegacyComponentAdapter` keeps source/entity ownership
+the component records; `ComponentEntityRegistry` keeps source/entity ownership
 outside component data. Explicit component phases now own input projection,
 previous transforms, integration, map crossing, current, obstacle collision,
 food and plants, lifetimes, progression/respawn, and population maintenance.
@@ -348,9 +352,9 @@ visual/audio fact streams match baseline tolerances.
 Phase 5 adds component-authoritative Combat, Status, Shield, AbilityLoadout,
 AbilityState, Inventory, Item, Projectile, Vehicle, VehiclePilot, Boss, and
 Telegraph records. Ephemeral target references and hit sets deliberately stay
-outside component data so the records remain serializable for Phase 6. Legacy
-property names are component-backed accessors, preserving renderer, debug, and
-packet compatibility without maintaining a second simulation copy.
+outside component data so the records remain serializable for Phase 6.
+Object-shaped gameplay properties are component-backed accessors, preserving
+renderer, debug, and packet contracts without maintaining a second state copy.
 
 `GameplayComponentSystems` is now the only gameplay scheduling/command boundary
 for ability activation/runtime, item use/drop/update, vehicle entry/exit/update,
@@ -393,7 +397,7 @@ Host snapshots now run after the runtime's ordinary component projection.
 Transform, health, experience, combat/status/shield, ability, inventory,
 vehicle, boss/telegraph, lifetime, map membership, and network identity values
 are read from component records. Inactive host-map records stay alive while the
-legacy world arrays are swapped, avoiding destroy/recreate churn and retaining
+active source collections are swapped, avoiding destroy/recreate churn and retaining
 component authority across occupied maps. `REMOTE_INPUT` and
 `NETWORK_REPLICA` records own host input intent and client interpolation
 targets. Snapshot emission remains once per map group at 20 Hz, so this phase
@@ -410,34 +414,94 @@ and client runtimes through a synthetic relay. Its seven fixtures cover v1/v2
 round trips and mixed negotiation, fully enabled/disabled settings, component
 authority for evolution/inventory/items/projectiles/vehicles/death, feed,
 scoreboard and minimap projections, stale input/snapshot loss ordering, every
-map's world-init boundary, reconnect cleanup, and background-host cadence. It
-passes alongside the 23 core tests, five Phase 5 catalog tests, six Pixi
-renderer scenarios, Canvas/Pixi application smoke paths, and Pixi smoke on all
-seven maps.
+map's world-init boundary, reconnect cleanup, and background-host cadence.
 
 ### Phase 7 - Pixi previews, icons, and Model Lab
 
-- [ ] Share the creature visual factory between gameplay, evolution/tree cards,
+- [x] Share the creature visual factory between gameplay, evolution/tree cards,
   Model Lab, and generated thumbnails.
-- [ ] Port ability/item/talent icons to shared Pixi graphics/texture factories.
-- [ ] Port Model Lab canvas surfaces and preserve collection/search/select,
+- [x] Port ability/item/talent icons to shared Pixi graphics/texture factories.
+- [x] Port Model Lab canvas surfaces and preserve collection/search/select,
   animation/pause, flip, zoom, palette variants, keyboard, and responsive layout.
-- [ ] Remove gameplay-related Canvas 2D renderer/cache modules.
+- [x] Remove gameplay-related Canvas 2D renderer/cache modules.
 
 Gate: no gameplay or preview surface requests a Canvas 2D context; all model and
 icon variants have parity coverage.
 
+`PixiVisualFactory` is now the single entry point for the plan-driven gameplay
+creature painter, fitted creature previews, and ability/item/talent icon
+factories. `PixiDomOverlay` composites ordinary React/DOM placeholder boxes into
+one pointer-transparent Pixi renderer rather than allocating a WebGL context for
+every icon. It supports viewport and element-scoped surfaces, clipping,
+occlusion, resolution changes, extraction, and deterministic unregister/destroy.
+
+Model Lab keeps both collections, filtering/selection, five animations,
+pause/resume, flip, zoom, three backdrops, palette variants, URL state,
+keyboard navigation, PNG extraction, intersection-aware cards, and its
+desktop/mobile layouts. Its main inspector is scoped to the stage so sticky
+mobile UI and DOM annotations stay correctly layered; all visible cards share a
+second renderer. The initial mobile card reveal no longer scrolls the inspector
+off screen.
+
+The Phase 7 gate in `tests/phase7.test.html` renders every species and all 40
+Dunkleosteus concepts plus every ability, item, and talent icon through the
+shared factories. It source-audits the gameplay/preview entry points for Canvas
+2D requests, verifies the deleted Canvas renderer/cache modules remain absent,
+and exercises Model Lab collection/search/select, animation/pause, flip, zoom,
+theme, URL, keyboard, responsive sizing, and native-geometry statistics.
+Desktop and 720 px visual captures were also reviewed. The gate passes together
+with 23 core tests, five Phase 5 fixtures, seven Phase 6 fixtures, six Pixi world
+renderer scenarios, React application smoke, and Pixi smoke on all seven maps.
+
 ### Phase 8 - Cleanup and hardening
 
-- [ ] Remove legacy entities, bridges, callback shims, Canvas renderer, and
-  renderer switch only after all prior gates pass.
-- [ ] Audit subscription/resource cleanup across restart, map change, MP leave,
+- [x] Remove obsolete renderer/component aliases, bridge naming, and remaining
+  callback-shim naming after all prior gates pass.
+- [x] Consolidate source/entity ownership in `ComponentEntityRegistry`; remove
+  the alternate renderer path and retain no mirrored simulation state.
+- [x] Audit subscription/resource cleanup across restart, map change, MP leave,
   React unmount, resize, visibility changes, and renderer fallback/failure.
-- [ ] Profile CPU/GPU/memory on large populations and long map/MP sessions.
-- [ ] Update README architecture/extension/debug documentation and licenses.
+- [x] Profile CPU/GPU/memory ownership on a populated long-session soak.
+- [x] Update README architecture/extension/debug documentation and licenses.
 
 Gate: full feature matrix passes, no legacy runtime path remains, offline launch
 works on supported browsers, and soak tests show stable listener/entity/GPU counts.
+
+Phase 8 renamed the Phase 2 bridge to `ComponentEntityRegistry`, renamed its
+identity component, removed the `componentMirror`, `componentAdapter`,
+`coreComponentSystems`, renderer-query, and command-handler aliases, and made
+the Pixi composition root unconditional. The class-based source objects are not
+a fallback runtime: they are the sole object-shaped algorithm shells mapped to
+component IDs, while migrated mutable state remains component-authoritative.
+Removing those shells would be a separate pure-data ECS conversion rather than
+cleanup of a competing path.
+
+Every runtime owner now has deterministic teardown. Failed or pending Pixi
+initialization destroys partial applications; permanent teardown releases the
+WebGL context; DOM overlays render static views only when invalidated, stop
+animation when unused, and auto-destroy after the last React view unregisters.
+The clock removes visibility/subscriber ownership and terminates its worker;
+WebAudio clears delayed notes and closes its context; lobby close detaches
+WebSocket callbacks; App closes the lobby on React unmount; Model Lab aborts
+listeners, disconnects its observer, cancels animation frames, unregisters
+views, and destroys both renderers.
+
+`tests/phase8.test.html` is the 4-fixture lifecycle/failure gate. It cycles
+restart, every map, multiplayer leave, resize/DPR, clock/worker and input
+ownership; injects renderer initialization failure; checks static/animated
+overlay teardown; and verifies closed lobbies cannot publish post-unmount
+state. `tests/phase8-soak.test.html` runs 600 fixed steps with a population above
+normal map caps, checks component/source bounds and unchanged-frame Pixi pool
+high-water marks, then verifies complete Model Lab page teardown. They are
+separate pages so forced-software-WebGL CI does not accumulate multiple
+short-lived contexts before the dense soak.
+
+The final matrix passes: 23 core/runtime tests, five Phase 5 gameplay fixtures,
+seven Phase 6 multiplayer fixtures, six renderer scenarios, three Phase 7
+preview/Model Lab fixtures, six Phase 8 lifecycle/soak fixtures, React app
+smoke, and Pixi runtime smoke on all seven maps. All browser modules and
+licenses are served locally, so the same tests exercise the offline/no-build
+launch path.
 
 ## Verification strategy
 

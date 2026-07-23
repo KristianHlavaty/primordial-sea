@@ -28,9 +28,9 @@ export function shakeForPlayer(game, actor, amount) {
   if (game.mp && game.mp.role === 'host' && actor !== game.player) {
     actor.cameraShakeSeq = (actor.cameraShakeSeq || 0) + 1;
     actor.cameraShakePower = amount;
-    game.events?.emit(GameEvents.FX_SHAKE_APPLIED, { entity: game.componentSystems?.adapter?.entityFor(actor) || null, amount, remote: true });
+    game.events?.emit(GameEvents.FX_SHAKE_APPLIED, { entity: game.componentSystems?.registry?.entityFor(actor) || null, amount, remote: true });
     return;
   }
   game.shake = Math.min(22, game.shake + amount);
-  game.events?.emit(GameEvents.FX_SHAKE_APPLIED, { entity: game.componentSystems?.adapter?.entityFor(actor) || null, amount, remote: false });
+  game.events?.emit(GameEvents.FX_SHAKE_APPLIED, { entity: game.componentSystems?.registry?.entityFor(actor) || null, amount, remote: false });
 }

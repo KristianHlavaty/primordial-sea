@@ -191,6 +191,16 @@ export class ComponentWorld {
     if (this.ownsEvents) this.events.clear();
   }
 
+  stats() {
+    return {
+      entities: this.alive.size,
+      componentTypes: this.components.size,
+      components: [...this.components.values()].reduce((total, store) => total + store.size, 0),
+      systems: this.systems.length,
+      pending: this.pending.length,
+    };
+  }
+
   shouldDefer() { return this.updating || this.flushing; }
   isKnown(entity) { return this.alive.has(entity) || this.pendingCreates.has(entity); }
 

@@ -46,7 +46,7 @@
 .tnode.capstone{background:linear-gradient(#241d0e,#0d1a29); border-color:#7a5f28}
 .tnode.capstone.has,.tnode.capstone.maxed{border-color:#f2c15e; box-shadow:0 0 18px -3px #f2c15e88}
 .tnicon{width:44px; height:44px; display:flex; align-items:center; justify-content:center; margin-bottom:2px}
-.tnicon canvas{width:40px; height:40px}
+.tnicon .pixiTalentIcon{width:40px; height:40px}
 .tninfo b{font-size:13px; font-weight:800; color:#eaf2fb; display:block; line-height:1.15}
 .tninfo b .star{color:#f2c15e; font-size:11px; margin-left:3px}
 .tnblurb{display:block; font-size:10px; color:var(--dim); line-height:1.28; margin-top:3px}

@@ -20,7 +20,7 @@ const makeRuntime = async () => {
   await runtime.ready; runtime.startRun({ items: true, funItems: true, cheats: true });
   runtime.engine.creatures.length = 0; runtime.engine.plants.length = 0;
   runtime.engine.worldItems.length = 0; runtime.engine.itemProjectiles.length = 0;
-  runtime.componentAdapter.sync(runtime.engine);
+  runtime.componentRegistry.sync(runtime.engine);
   return { runtime, engine: runtime.engine, player: runtime.engine.player, canvas };
 };
 const destroy = ({ runtime, canvas }) => { runtime.destroy(); canvas.remove(); };
@@ -29,8 +29,8 @@ test('Phase 5 combat state is component-authoritative and publishes facts', asyn
   const fixture = await makeRuntime(), { runtime, engine, player } = fixture;
   const target = Creature.spawn('amoeba', player.x + player.radius + 12, player.y, 0);
   target.hp = target.maxHp = 500; engine.creatures.push(target); player.angle = 0;
-  runtime.componentAdapter.sync(engine);
-  const entity = runtime.componentAdapter.entityFor(player), world = runtime.componentWorld;
+  runtime.componentRegistry.sync(engine);
+  const entity = runtime.componentRegistry.entityFor(player), world = runtime.componentWorld;
   const combat = world.requireComponent(entity, C.COMBAT), status = world.requireComponent(entity, C.STATUS);
   const shield = world.requireComponent(entity, C.SHIELD), loadout = world.requireComponent(entity, C.ABILITY_LOADOUT);
   const abilityState = world.requireComponent(entity, C.ABILITY_STATE), inventory = world.requireComponent(entity, C.INVENTORY);
@@ -80,9 +80,9 @@ test('Every ability reaches the component-owned activation/runtime path', async 
     player.abilities = [id];
     runtime.componentSystems.updateAbilityRuntime(engine, player, 1 / 60);
   }
-  runtime.componentAdapter.sync(engine);
-  const state = runtime.componentWorld.requireComponent(runtime.componentAdapter.entityFor(player), C.ABILITY_STATE);
-  const loadout = runtime.componentWorld.requireComponent(runtime.componentAdapter.entityFor(player), C.ABILITY_LOADOUT);
+  runtime.componentRegistry.sync(engine);
+  const state = runtime.componentWorld.requireComponent(runtime.componentRegistry.entityFor(player), C.ABILITY_STATE);
+  const loadout = runtime.componentWorld.requireComponent(runtime.componentRegistry.entityFor(player), C.ABILITY_LOADOUT);
   if (loadout.abilities !== player.abilities || state.acd !== player.acd) throw new Error('Ability state escaped component authority');
   equal(new Set(activated).size, active.length, 'Not every active ability produced a fact');
   equal(active.length + passive.length, Object.keys(ABILITIES).length);
@@ -101,9 +101,9 @@ test('Every item kind uses the inventory system and projectiles become component
     if (audio <= audioBefore) throw new Error(`Item produced no audio fact: ${id}`);
   }
   equal(used, Object.keys(ITEMS).length);
-  runtime.componentAdapter.sync(engine);
+  runtime.componentRegistry.sync(engine);
   for (const projectile of engine.itemProjectiles) {
-    const entity = runtime.componentAdapter.entityFor(projectile);
+    const entity = runtime.componentRegistry.entityFor(projectile);
     if (!runtime.componentWorld.hasComponent(entity, C.PROJECTILE)) throw new Error(`Missing Projectile component for ${projectile.type}/${projectile.visual}`);
   }
   destroy(fixture);
@@ -122,12 +122,12 @@ test('Both vehicle catalogs enter, update, fire, take damage, exit and destroy t
       radius: definition.radius, hp: definition.hp, maxHp: definition.hp, weaponCd: 0,
       occupant: null, occupantConn: null, hurt: 0, shotSide: -1, timeLeft: definition.duration,
     });
-    let vehicle = makeVehicle(); engine.vehicles = [vehicle]; runtime.componentAdapter.sync(engine);
+    let vehicle = makeVehicle(); engine.vehicles = [vehicle]; runtime.componentRegistry.sync(engine);
     if (!runtime.componentSystems.toggleVehicle(engine, player)) throw new Error(`Could not enter ${type}`);
     engine.biteHeld = true; runtime.componentSystems.updatePilotedVehicle(engine, player, 1 / 60); engine.biteHeld = false;
     runtime.componentSystems.damageOccupiedVehicle(engine, player, 10);
     runtime.componentSystems.exitVehicle(engine, player);
-    vehicle = makeVehicle(); engine.vehicles = [vehicle]; runtime.componentAdapter.sync(engine);
+    vehicle = makeVehicle(); engine.vehicles = [vehicle]; runtime.componentRegistry.sync(engine);
     runtime.componentSystems.toggleVehicle(engine, player);
     runtime.componentSystems.damageOccupiedVehicle(engine, player, definition.hp + 1);
   }
@@ -135,9 +135,9 @@ test('Both vehicle catalogs enter, update, fire, take damage, exit and destroy t
   for (const event of [GameEvents.VEHICLE_ENTERED, GameEvents.VEHICLE_EXITED, GameEvents.VEHICLE_DAMAGED, GameEvents.VEHICLE_DESTROYED]) {
     if (types.filter(type => type === event).length < Object.keys(VEHICLES).length) throw new Error(`Vehicle fact coverage missing ${event}`);
   }
-  runtime.componentAdapter.sync(engine);
+  runtime.componentRegistry.sync(engine);
   for (const vehicle of engine.vehicles) {
-    const entity = runtime.componentAdapter.entityFor(vehicle);
+    const entity = runtime.componentRegistry.entityFor(vehicle);
     if (!runtime.componentWorld.hasComponent(entity, C.VEHICLE)) throw new Error(`Missing Vehicle component for ${vehicle.type}`);
   }
   destroy(fixture);
@@ -165,10 +165,10 @@ test('Every boss attack timeline starts and resolves through tagged boss compone
       const boss = new Boss(kind, engine); engine.creatures = [boss];
       player.x = boss.x + Math.min(240, boss.sense * .35); player.y = boss.y; player.hp = player.maxHp;
       boss.specialCount = selector; boss.abilT = 0; boss.tailSlapCd = 99;
-      runtime.componentAdapter.sync(engine); boss.update(engine, 0);
+      runtime.componentRegistry.sync(engine); boss.update(engine, 0);
       equal(boss.telegraph?.special, special, `${kind} selected the wrong attack`);
-      runtime.componentAdapter.sync(engine);
-      const entity = runtime.componentAdapter.entityFor(boss);
+      runtime.componentRegistry.sync(engine);
+      const entity = runtime.componentRegistry.entityFor(boss);
       if (!runtime.componentWorld.hasComponent(entity, C.BOSS) || !runtime.componentWorld.hasComponent(entity, C.TELEGRAPH)) throw new Error(`${kind} lacks boss timeline components`);
       const audioBefore = audio; boss.telegraph.t = 0; boss.update(engine, 0);
       if (!resolved.includes(`${kind}:${special}`)) throw new Error(`${kind}:${special} did not resolve`);
@@ -177,7 +177,7 @@ test('Every boss attack timeline starts and resolves through tagged boss compone
   }
   const panderodus = new Boss('panderodus', engine); engine.creatures = [panderodus];
   player.x = panderodus.x + panderodus.radius + player.radius + 60; player.y = panderodus.y;
-  panderodus.tailSlapCd = 0; panderodus.abilT = 99; runtime.componentAdapter.sync(engine); panderodus.update(engine, 0);
+  panderodus.tailSlapCd = 0; panderodus.abilT = 99; runtime.componentRegistry.sync(engine); panderodus.update(engine, 0);
   equal(panderodus.telegraph?.special, 'panderTail'); panderodus.telegraph.t = 0; panderodus.update(engine, 0);
   for (const [kind, cases] of Object.entries(timelines)) for (const [special] of cases) {
     const key = `${kind}:${special}`;

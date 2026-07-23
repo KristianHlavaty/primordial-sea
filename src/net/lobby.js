@@ -12,16 +12,18 @@ export function createLobby(profile, onState, onRelay) {
   const url = proto + location.host + '/ws';
 
   const state = { status: 'connecting', connId: null, rooms: [], room: null, error: null };
-  const emit = () => onState({ ...state });
+  let closed = false;
+  const emit = () => { if (!closed) onState({ ...state }); };
 
   let ws;
   try { ws = new WebSocket(url); }
   catch (e) { state.status = 'error'; state.error = 'Could not reach a host.'; queueMicrotask(emit); return stub(); }
 
-  ws.onopen = () => send({ t: 'hello', profile });   // status flips to 'connected' on welcome
-  ws.onclose = () => { if (state.status !== 'error') { state.status = 'closed'; state.room = null; emit(); } };
-  ws.onerror = () => { if (state.status === 'connecting') { state.status = 'error'; state.error = 'No host on this address. Is the multiplayer host running?'; emit(); } };
+  ws.onopen = () => { if (!closed) send({ t: 'hello', profile }); };   // status flips to 'connected' on welcome
+  ws.onclose = () => { if (!closed && state.status !== 'error') { state.status = 'closed'; state.room = null; emit(); } };
+  ws.onerror = () => { if (!closed && state.status === 'connecting') { state.status = 'error'; state.error = 'No host on this address. Is the multiplayer host running?'; emit(); } };
   ws.onmessage = ev => {
+    if (closed) return;
     let m; try { m = JSON.parse(ev.data); } catch { return; }
     switch (m.t) {
       case 'welcome': state.status = 'connected'; state.connId = m.connId; state.rooms = m.rooms || []; emit(); break;
@@ -36,12 +38,19 @@ export function createLobby(profile, onState, onRelay) {
   };
 
   function send(o, transient = false) {
+    if (closed) return;
     try {
       if (ws && ws.readyState === 1 && (!transient || ws.bufferedAmount < MAX_TRANSIENT_BUFFER)) ws.send(JSON.stringify(o));
     } catch { }
   }
 
-  function stub() { return { getState: () => ({ ...state }), createRoom() { }, joinRoom() { }, setSpecies() { }, leaveRoom() { }, start() { }, raw() { }, rawTransient() { }, close() { } }; }
+  function stub() {
+    return {
+      getState: () => ({ ...state }),
+      createRoom() { }, joinRoom() { }, setSpecies() { }, leaveRoom() { }, start() { }, raw() { }, rawTransient() { },
+      close() { closed = true; },
+    };
+  }
 
   queueMicrotask(emit);   // push the initial 'connecting' state to the UI
 
@@ -56,6 +65,11 @@ export function createLobby(profile, onState, onRelay) {
     // Snapshots/input supersede older copies, so dropping one is better than
     // growing an unbounded WebSocket queue on a slow connection.
     rawTransient: o => send(o, true),
-    close: () => { try { ws && ws.close(); } catch { } },
+    close: () => {
+      if (closed) return;
+      closed = true;
+      if (ws) ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
+      try { ws && ws.close(); } catch { }
+    },
   };
 }

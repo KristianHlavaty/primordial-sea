@@ -11,4 +11,4 @@ const htm = window.htm && window.htm.default ? window.htm.default : window.htm;
 
 export const html = htm.bind(React.createElement);
 export { React, ReactDOM };
-export const { useState, useRef, useLayoutEffect, useEffect, Fragment } = React;
+export const { useState, useRef, useMemo, useLayoutEffect, useEffect, Fragment } = React;

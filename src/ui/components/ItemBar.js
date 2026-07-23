@@ -16,7 +16,7 @@ export function ItemBar({ items, commands }) {
     return Number.isInteger(payloadSlot) ? payloadSlot : dragSlot.current;
   };
 
-  // The canvas and HUD live in separate hit-test layers, and some browsers do
+  // The Pixi world and HUD live in separate hit-test layers, and some browsers do
   // not accept a drop target mounted after dragstart. Capture native DnD at the
   // window instead, which makes releasing anywhere inside the game reliable.
   useEffect(() => {

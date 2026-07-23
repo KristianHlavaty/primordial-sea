@@ -133,7 +133,7 @@ test('Ready negotiation supports current and legacy browsers in the same host', 
   equal([legacyWorld.k, legacyWorld.pv, hostFixture.runtime.engine.mp.peerProtocols.get('2')], ['W', undefined, 1]);
   equal([currentWorld.k, currentWorld.pv, currentWorld.ps, hostFixture.runtime.engine.mp.peerProtocols.get('3')], ['W', 2, MULTIPLAYER_SCHEMA, 2]);
   outgoing.length = 0;
-  const adapter = hostFixture.runtime.componentAdapter, originalSync = adapter.sync.bind(adapter);
+  const adapter = hostFixture.runtime.componentRegistry, originalSync = adapter.sync.bind(adapter);
   let extraProjections = 0;
   adapter.sync = engine => { extraProjections++; return originalSync(engine); };
   hostFixture.runtime.engine.mp.sendAcc = 1;
@@ -169,14 +169,14 @@ test('Synthetic host/client relay projects component authority and replica compo
   equal([pair.client.engine.mp.gotInit, pair.host.engine.mp.peerProtocols.get('2')], [true, 2]);
 
   const remote = pair.host.engine.remotePlayers[0];
-  pair.host.componentAdapter.sync(pair.host.engine);
-  const transform = pair.host.componentAdapter.componentFor(remote, C.TRANSFORM);
-  const health = pair.host.componentAdapter.componentFor(remote, C.HEALTH);
-  const experience = pair.host.componentAdapter.componentFor(remote, C.EXPERIENCE);
-  const inventory = pair.host.componentAdapter.componentFor(remote, C.INVENTORY);
-  const respawn = pair.host.componentAdapter.componentFor(remote, C.RESPAWN);
-  const combat = pair.host.componentAdapter.componentFor(remote, C.COMBAT);
-  const pilot = pair.host.componentAdapter.componentFor(remote, C.VEHICLE_PILOT);
+  pair.host.componentRegistry.sync(pair.host.engine);
+  const transform = pair.host.componentRegistry.componentFor(remote, C.TRANSFORM);
+  const health = pair.host.componentRegistry.componentFor(remote, C.HEALTH);
+  const experience = pair.host.componentRegistry.componentFor(remote, C.EXPERIENCE);
+  const inventory = pair.host.componentRegistry.componentFor(remote, C.INVENTORY);
+  const respawn = pair.host.componentRegistry.componentFor(remote, C.RESPAWN);
+  const combat = pair.host.componentRegistry.componentFor(remote, C.COMBAT);
+  const pilot = pair.host.componentRegistry.componentFor(remote, C.VEHICLE_PILOT);
   transform.x = 1234; transform.y = 987; health.hp = 31; experience.level = 4;
   inventory.items = [{ id: 'bone_club', uses: 3, cd: .4 }, null, null];
   respawn.deadT = 2; combat.kills = 5;
@@ -193,7 +193,7 @@ test('Synthetic host/client relay projects component authority and replica compo
     radius: 48, hp: 300, maxHp: 320, weaponCd: .5,
     occupantConn: 2, hurt: 0, shotSide: -1, timeLeft: 25,
   });
-  pair.host.componentAdapter.sync(pair.host.engine);
+  pair.host.componentRegistry.sync(pair.host.engine);
 
   const snapshot = nextSnapshot(pair);
   equal([snapshot.pv, snapshot.ps, snapshot.map], [2, MULTIPLAYER_SCHEMA, 'sea_shallows']);
@@ -206,8 +206,8 @@ test('Synthetic host/client relay projects component authority and replica compo
   assert(snapshot.itemProjectiles.some(projectile => projectile.n === 800), 'Projectile component was omitted');
   assert(snapshot.vehicles.some(vehicle => vehicle.n === 900 && vehicle.oc === 2), 'Vehicle component was omitted');
   pair.client.receiveNetworkPacket(1, snapshot);
-  pair.client.componentAdapter.sync(pair.client.engine);
-  const replica = pair.client.componentAdapter.componentFor(pair.client.engine.player, C.NETWORK_REPLICA);
+  pair.client.componentRegistry.sync(pair.client.engine);
+  const replica = pair.client.componentRegistry.componentFor(pair.client.engine.player, C.NETWORK_REPLICA);
   equal(
     [pair.client.engine.player.gx, pair.client.engine.player.gy, pair.client.engine.player.hp, pair.client.engine.player.level,
       pair.client.engine.player.items[0].id, pair.client.engine.player.deadT, pair.client.engine.player.mpEvolveChoices[0],
@@ -239,15 +239,15 @@ test('Input and snapshot ordering reject stale packets without rolling state bac
   pair.deliverClient(); pair.deliverHost();
   const remote = pair.host.engine.remotePlayers[0];
   pair.host.receiveNetworkPacket(2, encodeMultiplayerPacket(K.INPUT, { q: 8, tx: 1, ty: 0, m: 1, b: 0 }));
-  pair.host.componentAdapter.sync(pair.host.engine);
+  pair.host.componentRegistry.sync(pair.host.engine);
   equal([
-    pair.host.componentAdapter.componentFor(remote, C.REMOTE_INPUT).state.sequence,
-    pair.host.componentAdapter.componentFor(remote, C.REMOTE_INPUT).state.tx,
+    pair.host.componentRegistry.componentFor(remote, C.REMOTE_INPUT).state.sequence,
+    pair.host.componentRegistry.componentFor(remote, C.REMOTE_INPUT).state.tx,
   ], [8, 1]);
   pair.host.receiveNetworkPacket(2, encodeMultiplayerPacket(K.INPUT, { q: 7, tx: -1, ty: 0, m: 1, b: 0 }));
-  equal(pair.host.componentAdapter.componentFor(remote, C.REMOTE_INPUT).state.tx, 1);
+  equal(pair.host.componentRegistry.componentFor(remote, C.REMOTE_INPUT).state.tx, 1);
 
-  const transform = pair.host.componentAdapter.componentFor(remote, C.TRANSFORM);
+  const transform = pair.host.componentRegistry.componentFor(remote, C.TRANSFORM);
   transform.x = 500;
   const older = nextSnapshot(pair);
   transform.x = 900;
@@ -295,10 +295,10 @@ test('Roster reconnect cleanup and background host stepping keep the session liv
   pair.deliverClient(); pair.deliverHost();
   const departed = pair.host.engine.remotePlayers[0];
   pair.host.setRoster({ 1: roster[1] });
-  pair.host.componentAdapter.sync(pair.host.engine);
+  pair.host.componentRegistry.sync(pair.host.engine);
   equal([
     pair.host.engine.remotePlayers.length,
-    pair.host.componentAdapter.entityFor(departed),
+    pair.host.componentRegistry.entityFor(departed),
     pair.host.engine.mp.peerProtocols.has('2'),
   ], [0, null, false]);
 

@@ -42,12 +42,12 @@ class InputProjectionSystem {
 
 class RespawnSystem {
   constructor(owner) { this.owner = owner; }
-  update(world, dt, { engine, adapter }) {
-    world.forEach([C.LEGACY_IDENTITY, C.RESPAWN, C.MAP_MEMBER], (entity, identity, respawn, member) => {
+  update(world, dt, { engine, registry }) {
+    world.forEach([C.IDENTITY, C.RESPAWN, C.MAP_MEMBER], (entity, identity, respawn, member) => {
       if ((identity.kind !== 'player' && identity.kind !== 'remote-player') || member.mapId !== engine.mapId || respawn.deadT <= 0) return;
       respawn.deadT = Math.max(0, respawn.deadT - dt);
       if (respawn.deadT > 0) return;
-      const player = adapter.sourceFor(entity);
+      const player = registry.sourceFor(entity);
       if (player) this.owner.respawnPlayer(player, engine);
     });
   }
@@ -55,10 +55,10 @@ class RespawnSystem {
 
 class MapCrossingSystem {
   update(world, dt, context) {
-    const { engine, adapter } = context;
+    const { engine, registry } = context;
     if (engine.mp || engine.dead || engine.pendingEvolve) return;
     const player = engine.worldPlayer();
-    const entity = adapter.entityFor(player);
+    const entity = registry.entityFor(player);
     if (!entity) return;
     const transform = world.getComponent(entity, C.TRANSFORM), collider = world.getComponent(entity, C.COLLIDER), motion = world.getComponent(entity, C.MOTION);
     if (!transform || !collider || !motion) return;
@@ -106,16 +106,16 @@ class CurrentSystem {
 }
 
 class ObstacleCollisionSystem {
-  update(world, _dt, { engine, adapter }) {
+  update(world, _dt, { engine, registry }) {
     if (!engine.obstacles.length) return;
     const obstacles = world.query(C.TRANSFORM, C.COLLIDER, C.OBSTACLE, C.MAP_MEMBER)
       .map(entity => ({
         transform: world.getComponent(entity, C.TRANSFORM), collider: world.getComponent(entity, C.COLLIDER),
         member: world.getComponent(entity, C.MAP_MEMBER),
       })).filter(entry => entry.member.mapId === engine.mapId);
-    world.forEach([C.LEGACY_IDENTITY, C.TRANSFORM, C.MOTION, C.COLLIDER, C.MAP_MEMBER], (entity, identity, transform, motion, collider, member) => {
+    world.forEach([C.IDENTITY, C.TRANSFORM, C.MOTION, C.COLLIDER, C.MAP_MEMBER], (entity, identity, transform, motion, collider, member) => {
       if (!ACTIVE_BODY_KINDS.has(identity.kind) || member.mapId !== engine.mapId) return;
-      const source = adapter.sourceFor(entity);
+      const source = registry.sourceFor(entity);
       if (source?.vehicleType === 'helicopter') return;
       for (const obstacle of obstacles) {
         const dx = transform.x - obstacle.transform.x, dy = transform.y - obstacle.transform.y;
@@ -135,7 +135,7 @@ class ObstacleCollisionSystem {
 
 class FoodSystem {
   constructor(owner) { this.owner = owner; }
-  update(_world, dt, { engine, adapter }) {
+  update(_world, dt, { engine, registry }) {
     const focus = engine.worldPlayer();
     const collectors = engine.mp && engine.mp.role === 'host' ? engine.allPlayers() : [focus];
     for (let index = engine.food.length - 1; index >= 0; index--) {
@@ -165,9 +165,9 @@ class FoodSystem {
         this.owner.addXp(eater, engine, food.value * (1 + combo * .06));
         eater.hp = Math.min(eater.maxHp, eater.hp + (filterFeed ? 4 + combo : 3));
         burst(engine, food.x, food.y, food.kind === 'meat' ? '#ff9a8a' : '#8fe89a', 5, 80);
-        engine.sfx.play('eat'); engine.food.splice(index, 1); adapter.forget(food); continue;
+        engine.sfx.play('eat'); engine.food.splice(index, 1); registry.forget(food); continue;
       }
-      if (food.life <= 0) { engine.food.splice(index, 1); adapter.forget(food); }
+      if (food.life <= 0) { engine.food.splice(index, 1); registry.forget(food); }
     }
   }
 }
@@ -186,8 +186,8 @@ class PlantSystem {
 }
 
 class LifetimeSystem {
-  remove(array, index, adapter) { const [source] = array.splice(index, 1); if (source) adapter.forget(source); }
-  update(_world, dt, { engine, adapter }) {
+  remove(array, index, registry) { const [source] = array.splice(index, 1); if (source) registry.forget(source); }
+  update(_world, dt, { engine, registry }) {
     if (!engine.backgrounded) {
       for (let i = engine.particles.length - 1; i >= 0; i--) {
         const particle = engine.particles[i]; particle.life -= dt;
@@ -195,27 +195,27 @@ class LifetimeSystem {
         particle.x += particle.vx * dt; particle.y += particle.vy * dt;
         particle.angle = (particle.angle || 0) + (particle.spin || 0) * dt;
         if (particle.shape === 'tooth') particle.vy += 150 * dt;
-        if (particle.life <= 0) this.remove(engine.particles, i, adapter);
+        if (particle.life <= 0) this.remove(engine.particles, i, registry);
       }
       for (let i = engine.fx.length - 1; i >= 0; i--) {
         const effect = engine.fx[i]; effect.t += dt;
-        if (effect.t >= effect.max) this.remove(engine.fx, i, adapter);
+        if (effect.t >= effect.max) this.remove(engine.fx, i, registry);
       }
       for (let i = engine.floaters.length - 1; i >= 0; i--) {
         const floater = engine.floaters[i]; floater.x += floater.vx * dt; floater.y += floater.vy * dt;
         floater.vy *= Math.exp(-dt * 2.4); floater.vx *= Math.exp(-dt * 3); floater.life -= dt;
-        if (floater.life <= 0) this.remove(engine.floaters, i, adapter);
+        if (floater.life <= 0) this.remove(engine.floaters, i, registry);
       }
     } else {
       for (const collection of [engine.particles, engine.fx, engine.floaters]) {
-        for (const source of collection) adapter.forget(source);
+        for (const source of collection) registry.forget(source);
         collection.length = 0;
       }
     }
     for (const egg of engine.eggs) egg.t += dt;
     for (let i = engine.webs.length - 1; i >= 0; i--) {
       const web = engine.webs[i]; if (web.life == null) continue;
-      web.life -= dt; if (web.life <= 0) this.remove(engine.webs, i, adapter);
+      web.life -= dt; if (web.life <= 0) this.remove(engine.webs, i, registry);
     }
     if (!engine.backgrounded) { engine.updateFlow(dt); engine.updateBubbles(dt); }
   }
@@ -233,12 +233,11 @@ class SpawnPopulationSystem {
   update(_world, dt, { engine }) { spawnMaintain(engine, dt); }
 }
 
-/* Runtime-owned coordinator for the Phase 4 vertical slice. Systems are
-   registered in explicit phases because several legacy combat routines still
-   need the historical ordering between actor movement and environment work. */
+/* Runtime-owned system coordinator. Explicit phases preserve the gameplay
+   ordering between actor movement, environment work and presentation facts. */
 export class CoreComponentSystems {
-  constructor(world, adapter) {
-    this.world = world; this.adapter = adapter; this.disposers = [];
+  constructor(world, registry) {
+    this.world = world; this.registry = registry; this.disposers = [];
     const add = (system, phase, order) => this.disposers.push(world.addSystem(system, { phase, order }));
     add(new PreviousTransformSystem(), CoreSystemPhases.PRE_ACTORS, 0);
     add(new InputProjectionSystem(), CoreSystemPhases.PRE_ACTORS, 10);
@@ -254,15 +253,15 @@ export class CoreComponentSystems {
   }
 
   run(phase, engine, dt, extra = {}) {
-    const context = { engine, adapter: this.adapter, componentSystems: this, ...extra };
+    const context = { engine, registry: this.registry, componentSystems: this, ...extra };
     this.world.updatePhase(phase, dt, context);
     return context;
   }
 
-  prepare(engine) { this.adapter.sync(engine); }
+  prepare(engine) { this.registry.sync(engine); }
 
   attachInput(events, engine) {
-    const input = () => this.world.requireComponent(this.adapter.inputEntity(), C.PLAYER_INPUT);
+    const input = () => this.world.requireComponent(this.registry.inputEntity(), C.PLAYER_INPUT);
     const on = (event, listener) => events.subscribe(event, listener);
     const disposers = [
       on(GameEvents.INPUT_POINTER_MOVED, ({ x, y }) => { const state = input(); state.pointer.x = x; state.pointer.y = y; }),
@@ -298,7 +297,7 @@ export class CoreComponentSystems {
     const reachedMaximum = player.level >= MAX_LEVEL;
     if (reachedMaximum) player.xp = 0;
     engine.events.emit(GameEvents.PROGRESSION_XP_CHANGED, {
-      entity: this.adapter.entityFor(player), amount: value,
+      entity: this.registry.entityFor(player), amount: value,
       level: player.level, xp: player.xp,
     });
     if (reachedMaximum) {
@@ -315,7 +314,7 @@ export class CoreComponentSystems {
     engine.floaters.push({ x: player.x, y: player.y - player.radius - 12, vx: 0, vy: -34, text: `LEVEL ${player.level}`, life: 1.5, max: 1.5, color: '#ffe27a', size: 16 });
     engine.shake = Math.min(10, engine.shake + 3); engine.sfx.play('power');
     engine.events.emit(GameEvents.PROGRESSION_LEVEL_CHANGED, {
-      entity: this.adapter.entityFor(player), level: player.level,
+      entity: this.registry.entityFor(player), level: player.level,
       maxHp: player.maxHp, attackMultiplier: player.atkMul, speedMultiplier: player.spdMul,
     });
   }
@@ -338,7 +337,7 @@ export class CoreComponentSystems {
     player.x = engine.W * (.2 + Math.random() * .6); player.y = engine.H * (.2 + Math.random() * .6); player.spawnProtT = 2.5;
     burst(engine, player.x, player.y, '#a0ffd8', 20, 200);
     engine.events.emit(GameEvents.WORLD_ENTITY_RESPAWNED, {
-      entity: this.adapter.entityFor(player), mapId: player.mapId || engine.mapId,
+      entity: this.registry.entityFor(player), mapId: player.mapId || engine.mapId,
       x: player.x, y: player.y,
     });
   }
@@ -354,7 +353,7 @@ export class CoreComponentSystems {
     engine.eggs.push({ x: engine.player.x, y: engine.player.y + engine.player.radius + 10, t: 0 });
     engine.sfx.play('egg'); engine.pushHud(true);
     engine.events.emit(GameEvents.PROGRESSION_EVOLUTION_OFFERED, {
-      entity: this.adapter.entityFor(engine.player), mode: engine.evolveMode,
+      entity: this.registry.entityFor(engine.player), mode: engine.evolveMode,
       choices: engine.choices.slice(),
     });
   }
@@ -385,7 +384,7 @@ export class CoreComponentSystems {
     }
     engine.pushHud(true);
     engine.events.emit(GameEvents.PROGRESSION_EVOLUTION_CHOSEN, {
-      previousEntity: this.adapter.entityFor(previousPlayer), previousSpeciesId,
+      previousEntity: this.registry.entityFor(previousPlayer), previousSpeciesId,
       speciesId: id, fromStage, toStage,
     });
   }
@@ -408,8 +407,8 @@ export class CoreComponentSystems {
     } else engine.releaseInput();
     burst(engine, victim.x, victim.y, '#ffd2d2', 26, 220); engine.sfx.play('kill'); engine.pushHud(true);
     engine.events.emit(GameEvents.WORLD_ENTITY_DIED, {
-      entity: this.adapter.entityFor(victim),
-      killerEntity: attacker ? this.adapter.entityFor(attacker) : null,
+      entity: this.registry.entityFor(victim),
+      killerEntity: attacker ? this.registry.entityFor(attacker) : null,
       multiplayer: !!multiplayer, mapId: victim.mapId || engine.mapId,
     });
   }

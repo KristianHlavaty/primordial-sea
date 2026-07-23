@@ -579,7 +579,7 @@ export function mpPrepareSnapshot(engine) {
 }
 
 const componentFor = (engine, source, type) =>
-  engine.componentSystems.adapter.componentFor(source, type);
+  engine.componentSystems.registry.componentFor(source, type);
 const componentValue = (component, field, source, sourceField = field, fallback = 0) => {
   const value = component && component[field] !== undefined ? component[field] : source[sourceField];
   return value == null ? fallback : value;

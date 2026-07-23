@@ -5,12 +5,11 @@
    → off-screen boss markers → evolve-modal previews. */
 import { TAU, clamp, hyp } from '../core/math.js';
 import { shade, withA } from '../core/color.js';
-import { drawCreature } from './drawCreature.js';
+import { drawCreaturePlanVisual as drawCreature } from './pixi/PixiVisualFactory.js';
 import { drawPlant } from './drawPlant.js';
 import { drawObstacle } from './drawObstacle.js';
 import { drawWorldItem, drawItemProjectile } from './drawItem.js';
 import { drawVehicle } from './drawVehicle.js';
-import { SPECIES } from '../data/species.js';
 import { ABILITIES } from '../data/abilities.js';
 import { MAPS } from '../data/maps.js';
 
@@ -647,21 +646,6 @@ function drawPlayerTags(E) {
   ctx.textAlign = 'left';
 }
 
-/* Animate the evolve-modal choice canvases (registered by the modal). */
-function drawPreviews(E) {
-  const choices = E.mp && E.player && E.player.mpEvolveChoices
-    ? E.player.mpEvolveChoices
-    : E.choices;
-  for (const id of choices) {
-    const cv = E.previewCanvas[id]; if (!cv) continue;
-    const c2 = cv.getContext('2d'); const w = cv.width, h = cv.height;
-    c2.clearRect(0, 0, w, h); const sp = SPECIES[id];
-    c2.save(); c2.translate(w / 2, h / 2); const scale = Math.min(w, h) / (sp.plan.len * 3.4);
-    c2.scale(scale, scale); const ang = Math.sin(E.time * 1.2) * 0.15; c2.rotate(ang);
-    drawCreature(c2, Object.assign({ t: E.time * 2.5, mouth: 0, hurt: 0 }, sp.plan)); c2.restore();
-  }
-}
-
 export function renderWorld(E) {
   const ctx = E.ctx;
   if (!E.vw) E.resize();
@@ -712,7 +696,7 @@ export function renderWorld(E) {
   }
 
   // eggs (laid when an evolution is pending)
-  // They are drawn after vehicles/projectiles in the legacy order, so keep
+  // They are drawn after vehicles/projectiles in the established order, so keep
   // them in the current layer instead of jumping behind the vehicle layer.
   useLayer(E, 'vehicles');
   for (const e of E.eggs) {
@@ -917,5 +901,4 @@ export function renderWorld(E) {
     ctx.fillText('☠ ' + c.short.toUpperCase(), clamp(mx, 50, E.vw - 50), clamp(my - 15, 12, E.vh - 6)); ctx.textAlign = 'left';
   }
 
-  if (E.pendingEvolve || (E.mp && E.player && E.player.mpEvolveChoices && E.player.mpEvolveChoices.length)) drawPreviews(E);
 }

@@ -1,7 +1,7 @@
 /* React lifecycle adapter for the runtime composition root. Timing, input,
    rendering, audio and component mirroring live in GameRuntime. */
 import { useState, useRef, useLayoutEffect } from './react.js';
-import { GameRuntime, rendererModeFromLocation } from '../runtime/GameRuntime.js';
+import { GameRuntime } from '../runtime/GameRuntime.js';
 import { installDebugApi } from './debug.js';
 
 export function useEngine(canvasRef, uiRef) {
@@ -14,7 +14,6 @@ export function useEngine(canvasRef, uiRef) {
       uiRef,
       onHud: setHud,
       getRenderRate: () => uiRef.current.frameRate,
-      rendererMode: rendererModeFromLocation(),
     });
     runtimeRef.current = runtime;
     engineRef.current = runtime.engine;

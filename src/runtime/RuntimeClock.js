@@ -98,9 +98,10 @@ export class RuntimeClock {
   }
 
   stop() {
-    if (!this.running) return;
+    const wasRunning = this.running;
     this.running = false;
-    cancelAnimationFrame(this.raf);
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
     document.removeEventListener('visibilitychange', this.syncBackgroundLoop);
     if (this.unsubscribeSchedule) this.unsubscribeSchedule();
     this.unsubscribeSchedule = null;
@@ -108,6 +109,16 @@ export class RuntimeClock {
       try { this.worker.postMessage(0); this.worker.terminate(); } catch (error) { }
     }
     this.worker = null; this.workerRunning = false;
-    this.runtime.events.emit(GameEvents.RUNTIME_STOPPED, { runtime: this.runtime });
+    if (wasRunning) this.runtime.events.emit(GameEvents.RUNTIME_STOPPED, { runtime: this.runtime });
+  }
+
+  stats() {
+    return {
+      running: this.running,
+      animationFrameScheduled: !!this.raf,
+      backgroundWorker: !!this.worker,
+      backgroundWorkerRunning: this.workerRunning,
+      scheduleSubscribed: !!this.unsubscribeSchedule,
+    };
   }
 }

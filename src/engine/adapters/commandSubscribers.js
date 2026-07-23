@@ -1,8 +1,8 @@
 import { GameEvents } from '../events.js';
 
-/* Command subscribers are the temporary seam around the class-based engine.
-   They can be removed one by one as component systems take authority. */
-export function attachLegacyCommandHandlers(engine, events, { resize = null } = {}) {
+/* Translates public command events into the simulation API. Keeping this
+   boundary event-driven prevents UI and input adapters from owning Engine. */
+export function attachCommandSubscribers(engine, events, { resize = null } = {}) {
   const on = (event, listener) => events.subscribe(event, listener);
   const unsubscribers = [
     on(GameEvents.INPUT_RESIZE_REQUESTED, () => resize && resize()),

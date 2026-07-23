@@ -1,5 +1,5 @@
-/* Vector icons for the powers — drawn on small canvases in the HUD,
-   evolve cards, tree wiki, perk badges and achievement toasts. */
+/* Vector icons for powers, emitted through the shared Pixi visual factory for
+   the HUD, tree wiki, perk badges, and achievement toasts. */
 import { TAU } from '../core/math.js';
 import { withA } from '../core/color.js';
 

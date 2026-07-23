@@ -1,4 +1,4 @@
-/* The game simulation facade: owns legacy world state and advances it. The
+/* The game simulation facade: owns source-object world collections and advances them. The
    runtime owns clocks, platform adapters and rendering; UI state is published
    through subscriber events as plain snapshot objects.
 
@@ -84,7 +84,6 @@ export class Engine {
     this.itemsEnabled = true;
     this.funItems = false;
     this.cheatsEnabled = false; this.invincible = false;
-    this.previewCanvas = {};   // evolve-modal preview canvases, keyed by species id
 
     // talent trees (per-stage; earned by leveling, spent for boosts; reset each run)
     this.talent = freshTalentState();
@@ -622,8 +621,6 @@ export class Engine {
 
   /* Debug hook (window.__game): damage a creature as if the player did it. */
   debugDamage(c, amt) { c.takeDamage(this, amt, c.x, c.y, true); }
-
-  registerPreview(id, el) { if (el) this.previewCanvas[id] = el; }
 
   /* ---------------- simulation step ---------------- */
 

@@ -1,5 +1,5 @@
-/* Cross-subsystem event names. Keeping them centralized makes subscribers and
-   migration adapters discoverable, while the wire payloads remain plain data. */
+/* Cross-subsystem event names. Keeping them centralized makes publishers and
+   subscribers discoverable, while the wire payloads remain plain data. */
 export const GameEvents = Object.freeze({
   RUNTIME_ERROR: 'runtime:error',
   RUNTIME_READY: 'runtime:ready',

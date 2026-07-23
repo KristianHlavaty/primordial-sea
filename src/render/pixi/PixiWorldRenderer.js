@@ -17,6 +17,7 @@ export class PixiWorldRenderer extends PixiApplication {
 
   async initialize(width, height, resolution) {
     await super.initialize(width, height, resolution);
+    if (!this.app) return this;
     this.surfaces = Object.fromEntries(DRAW_LAYERS.map(name => [name, new PixiLayerSurface(this.layers[name], name)]));
     this.context = new PixiCanvasContext(this.surfaces, { defaultLayer: 'background' });
     return this;

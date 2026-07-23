@@ -1,5 +1,5 @@
 export const ComponentTypes = Object.freeze({
-  LEGACY_IDENTITY: 'legacyIdentity',
+  IDENTITY: 'identity',
   TRANSFORM: 'transform',
   PREVIOUS_TRANSFORM: 'previousTransform',
   MOTION: 'motion',

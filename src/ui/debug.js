@@ -43,7 +43,17 @@ export function installDebugApi(runtime, ui) {
     mpPacket: (from, data) => runtime.receiveNetworkPacket(from, data),
     mpTestClient: room => runtime.startMpClient({ room, profile: { id: 't', name: 'Tester', color: '#8affd0' }, lobby: null, selfConn: 99, hostConn: 1, roster: {} }),
     mpTestHost: room => runtime.startMpHost({ room, profile: { id: 'h', name: 'Host', color: '#8affd0' }, lobby: room.lobby || null, selfConn: 1, roster: room.roster || {} }),
-    renderer: () => ({ mode: runtime.rendererMode, ready: runtime.rendererReady, entities: runtime.componentMirror.size(), resources: runtime.renderer.stats ? runtime.renderer.stats() : null }),
+    renderer: () => ({ mode: runtime.rendererMode, ready: runtime.rendererReady, entities: runtime.componentRegistry.size(), resources: runtime.renderer.stats ? runtime.renderer.stats() : null }),
+    lifecycle: () => ({
+      destroyed: runtime.destroyed,
+      subscribers: runtime.events.totalListenerCount(),
+      world: runtime.componentWorld.stats(),
+      registryEntities: runtime.componentRegistry.size(),
+      clock: runtime.clock.stats(),
+      renderer: { ready: runtime.rendererReady, destroyed: runtime.rendererDestroyed },
+      audio: { context: !!runtime.audio.ac, pendingTimers: runtime.audio.timers.size, destroyed: runtime.audio.destroyed },
+      networkAttached: !!runtime.network.transport,
+    }),
     components: (...types) => runtime.componentWorld.query(...types).map(entity => ({ entity, components: Object.fromEntries(types.map(type => [type, runtime.componentWorld.getComponent(entity, type)])) })),
     abState: () => {
       const p = engine.player;

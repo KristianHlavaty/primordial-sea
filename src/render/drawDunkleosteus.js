@@ -3,7 +3,6 @@
    one visible eye, one cheek, a hinged lower jaw and readable vertical fins. */
 import { TAU, lerp } from '../core/math.js';
 import { shade, withA } from '../core/color.js';
-import { drawStaticLayer, getStaticLayers, staticLayerScale } from './staticLayerCache.js';
 
 function drawEye(ctx, x, y, radius, iris, blind = false) {
   ctx.fillStyle = blind ? '#24282b' : '#edf4ee'; ctx.strokeStyle = '#152127'; ctx.lineWidth = 1.5;
@@ -378,60 +377,6 @@ function drawStaticArmor(ctx, o, g) {
   }
 }
 
-function finReach(style) {
-  if (style === 'sail') return 1.65;
-  if (style === 'banner') return 1.55;
-  if (style === 'spined') return 1.22;
-  if (style === 'blade') return 1.18;
-  if (style === 'torn') return 1.1;
-  if (style === 'reduced') return .55;
-  return 1;
-}
-
-function crestReach(style) {
-  return ({
-    'coral-knobs': 1.24, knobs: 1.08, 'rear-horn': 1.18, 'brow-horn': 1.1,
-    'ice-ridge': 1.34, 'square-ridge': 1.04, 'kelp-fringe': 1.38,
-    'double-crown': 1.68, saw: 1.25, antler: 1.53, cathedral: 1.7, crown: 1.5,
-  })[style] || 1.05;
-}
-
-function staticBounds(o, g, resolution) {
-  const { L, W, headDepth, bodyTop, bodyBottom, arch, profile } = g;
-  const finScale = o.finScale || 1, dorsalScale = (o.dorsalScale || 1) * finScale;
-  const top = Math.max(
-    bodyTop + arch,
-    (bodyTop + arch) * .57 + W * dorsalScale * finReach(o.finStyle),
-    headDepth * Math.max(o.armor === 'crested' ? 1.3 : 1, crestReach(o.crestStyle)),
-  );
-  const analStyle = o.finStyle === 'sail' ? 'swept' : o.finStyle;
-  const bottom = Math.max(bodyBottom, bodyBottom * .52 + W * finScale * .62 * finReach(analStyle), headDepth * .72);
-  const pad = Math.max(4, 12 / resolution);
-  const x = -L * .79 - pad, y = -top - pad;
-  return { x, y, width: Math.max(profile.x, L * 1.13) + pad - x, height: bottom + pad - y };
-}
-
-const STATIC_VISUAL_KEYS = [
-  'len', 'wid', 'body', 'backColor', 'bellyColor', 'bellyLight', 'bellyPatch',
-  'accent', 'plate', 'plateEdge', 'blade', 'eyeColor', 'eyeSize', 'glow', 'gillColor', 'gillSlits',
-  'headLength', 'headDepth', 'bodyDepth', 'bellyDepth', 'backArch', 'snout', 'armor', 'crestStyle',
-  'finStyle', 'finScale', 'dorsalScale', 'pattern',
-];
-
-function staticVisualKey(o) {
-  return JSON.stringify(STATIC_VISUAL_KEYS.map(key => o[key] == null ? null : o[key]));
-}
-
-function cachedStaticLayers(ctx, o, g) {
-  if (o.staticCache === false) return null;
-  const resolution = staticLayerScale(ctx); if (!resolution) return null;
-  const bounds = staticBounds(o, g, resolution);
-  return getStaticLayers('dunkleosteus', staticVisualKey(o), bounds, resolution, [
-    layerCtx => drawStaticBody(layerCtx, o, g),
-    layerCtx => drawStaticArmor(layerCtx, o, g),
-  ]);
-}
-
 function drawGillJoint(ctx, o, g) {
   const { L, headDepth, rearX } = g;
   ctx.fillStyle = withA(o.accent, .34); ctx.strokeStyle = withA(o.plateEdge, .76); ctx.lineWidth = 1.3;
@@ -453,13 +398,12 @@ export function drawDunkleosteus(ctx, o) {
   }
 
   drawTail(ctx, o, L, W, tailX, tailY, wag);
-  const staticLayers = cachedStaticLayers(ctx, o, g);
-  if (!drawStaticLayer(ctx, staticLayers, 0)) drawStaticBody(ctx, o, g);
+  drawStaticBody(ctx, o, g);
 
   // Far pectoral fin sits behind the cheek; the near fin is redrawn later.
   ctx.save(); ctx.globalAlpha = .3; drawPectoralFin(ctx, o, L, W, rearX - L * .02, headDepth * .2, t + 1.2); ctx.restore();
   drawJaw(ctx, o, L, W, hingeX, hingeY, profile, headDepth, gape);
-  if (!drawStaticLayer(ctx, staticLayers, 1)) drawStaticArmor(ctx, o, g);
+  drawStaticArmor(ctx, o, g);
 
   drawPectoralFin(ctx, o, L, W, rearX - L * .01, headDepth * .27, t);
   drawGillJoint(ctx, o, g);

@@ -1,12 +1,12 @@
-/* Standalone visual test bench for the game's plan-driven creature renderer.
-   It intentionally has no React or engine dependency: model-lab.html can load
-   quickly beside the game and exercise animation inputs in isolation. */
+/* Standalone Pixi visual test bench for the game's plan-driven creature
+   renderer. Model Lab and gameplay now consume the same creature factory. */
 import { SPECIES } from './data/species.js';
 import { DUNKLEOSTEUS_VARIANTS } from './data/dunkleosteusVariants.js';
-import { drawCreature } from './render/drawCreature.js';
+import { getPixiDomOverlay } from './render/pixi/PixiDomOverlay.js';
+import { drawCreatureVisual } from './render/pixi/PixiVisualFactory.js';
 
 const $ = selector => document.querySelector(selector);
-const mainCanvas = $('#modelCanvas'), stage = $('#modelStage'), grid = $('#modelGrid');
+const mainView = $('#modelViewport'), stage = $('#modelStage'), grid = $('#modelGrid');
 const animationNames = { idle: 'IDLE', cruise: 'CRUISE', bite: 'BITE TEST', charge: 'CHARGE', hurt: 'DAMAGE READ' };
 
 const gameCreatures = Object.entries(SPECIES)
@@ -23,14 +23,26 @@ const collections = { concepts: DUNKLEOSTEUS_VARIANTS, species: gameCreatures };
 const query = new URLSearchParams(location.search);
 let collection = query.get('collection') === 'species' ? 'species' : 'concepts';
 let models = collections[collection];
-let selected = models.find(model => model.id === query.get('model')) || (collection === 'species' ? models.find(model => model.id === 'dunkleosteus') : models[0]);
+let selected = models.find(model => model.id === query.get('model'))
+  || (collection === 'species' ? models.find(model => model.id === 'dunkleosteus') : models[0]);
 let animation = animationNames[query.get('animation')] ? query.get('animation') : 'cruise';
 let animationTime = 0, previousFrame = performance.now(), paused = false, flipped = false;
-let zoom = 1, theme = 'deep', lastThumbDraw = 0;
+let zoom = 1, theme = 'deep', capturingSnapshot = false;
 const cards = new Map();
 const paletteSelections = new Map();
+const listenerController = new AbortController();
+const listenerOptions = { signal: listenerController.signal };
+let destroyed = false, frameRequest = 0, revealRequest = 0;
 const requestedPalette = Math.max(0, Number.parseInt(query.get('palette'), 10) || 0);
 if (selected.palettes?.length) paletteSelections.set(selected.id, Math.min(requestedPalette, selected.palettes.length - 1));
+
+const overlay = await getPixiDomOverlay({
+  key: 'model-lab-cards', zIndex: 1, className: 'modelLabPixiOverlay', autoDestroy: false,
+});
+const mainOverlay = await getPixiDomOverlay({
+  key: 'model-lab-main', root: stage, zIndex: 1, className: 'modelLabMainPixi', autoDestroy: false,
+});
+document.body.dataset.renderer = 'pixi';
 
 const paletteIndex = model => Math.min(paletteSelections.get(model.id) || 0, Math.max(0, (model.palettes?.length || 1) - 1));
 const resolvedPlan = model => model.palettes?.length
@@ -61,23 +73,23 @@ function animationState(time) {
   return { t: time * 1.12, mouth: 0, hurt: 0, shift: Math.sin(time * 1.5) * 3, tilt: Math.sin(time * 1.1) * .01 };
 }
 
-function canvasSize(canvas) {
-  const rect = canvas.getBoundingClientRect(), ratio = Math.min(2, window.devicePixelRatio || 1);
-  const width = Math.max(1, Math.round(rect.width * ratio)), height = Math.max(1, Math.round(rect.height * ratio));
-  if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-  return { width: rect.width, height: rect.height, ratio };
-}
-
 function drawBackdrop(ctx, width, height, time, compact) {
   const palettes = {
-    deep: ['#04131f', '#0b2c3d', '#3f8a94'], neutral: ['#263139', '#35444d', '#8297a0'], light: ['#c7cfcd', '#e0e5e1', '#718886'],
+    deep: ['#04131f', '#0b2c3d'], neutral: ['#263139', '#35444d'], light: ['#c7cfcd', '#e0e5e1'],
   };
-  const palette = palettes[theme], gradient = ctx.createRadialGradient(width * .5, height * .48, 1, width * .5, height * .48, Math.max(width, height) * .72);
-  gradient.addColorStop(0, palette[1]); gradient.addColorStop(1, palette[0]); ctx.fillStyle = gradient; ctx.fillRect(0, 0, width, height);
-  ctx.strokeStyle = theme === 'light' ? 'rgba(55,75,78,.12)' : 'rgba(120,205,211,.08)'; ctx.lineWidth = 1;
+  const palette = palettes[theme];
+  const gradient = ctx.createRadialGradient(width * .5, height * .48, 1, width * .5, height * .48, Math.max(width, height) * .72);
+  gradient.addColorStop(0, palette[1]); gradient.addColorStop(1, palette[0]);
+  ctx.fillStyle = gradient; ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = theme === 'light' ? 'rgba(55,75,78,.12)' : 'rgba(120,205,211,.08)';
+  ctx.lineWidth = 1;
   const step = compact ? 24 : 48;
-  for (let x = (time * 3) % step; x < width; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
-  for (let y = 0; y < height; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+  for (let x = (time * 3) % step; x < width; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+  }
+  for (let y = 0; y < height; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+  }
   if (!compact) {
     ctx.fillStyle = theme === 'light' ? 'rgba(40,85,88,.18)' : 'rgba(118,225,218,.2)';
     for (let i = 0; i < 18; i++) {
@@ -88,48 +100,41 @@ function drawBackdrop(ctx, width, height, time, compact) {
   }
 }
 
-function modelScale(model, width, height, compact) {
-  const plan = model.plan, concept = plan.kind === 'dunkleosteus';
-  const horizontal = concept ? 3.25 : 3.5;
-  const tallCrest = ['ice-ridge', 'square-ridge', 'double-crown', 'saw', 'antler', 'cathedral', 'crown'].includes(plan.crestStyle);
-  const vertical = !concept ? 5.1
-    : plan.finStyle === 'sail' ? 6.35
-      : plan.finStyle === 'banner' ? 5.75
-        : tallCrest ? 5.85
-          : plan.armor === 'crested' || plan.finStyle === 'spined' ? 5.35 : 4.45;
-  const fit = Math.min(width / Math.max(1, plan.len * horizontal), height / Math.max(1, plan.wid * vertical));
-  return fit * (compact ? .91 : zoom);
-}
-
 function drawWake(ctx, width, height, state, compact) {
   if (!state.charge) return;
   const direction = flipped ? 1 : -1, centerX = width * .5 - direction * 20;
-  ctx.save(); ctx.strokeStyle = theme === 'light' ? 'rgba(41,95,101,.28)' : 'rgba(125,239,235,.28)';
+  ctx.save();
+  ctx.strokeStyle = theme === 'light' ? 'rgba(41,95,101,.28)' : 'rgba(125,239,235,.28)';
   for (let i = 0; i < (compact ? 4 : 8); i++) {
-    const length = (compact ? 30 : 85) + i * (compact ? 7 : 14), y = height * .5 + (i - (compact ? 1.5 : 3.5)) * (compact ? 7 : 12);
-    ctx.globalAlpha = .15 + ((state.charge + i * .13) % 1) * .45; ctx.lineWidth = 1 + i % 2;
-    ctx.beginPath(); ctx.moveTo(centerX, y); ctx.lineTo(centerX + direction * length, y + Math.sin(animationTime * 8 + i) * 4); ctx.stroke();
+    const length = (compact ? 30 : 85) + i * (compact ? 7 : 14);
+    const y = height * .5 + (i - (compact ? 1.5 : 3.5)) * (compact ? 7 : 12);
+    ctx.globalAlpha = .15 + ((state.charge + i * .13) % 1) * .45;
+    ctx.lineWidth = 1 + i % 2;
+    ctx.beginPath(); ctx.moveTo(centerX, y);
+    ctx.lineTo(centerX + direction * length, y + Math.sin(animationTime * 8 + i) * 4);
+    ctx.stroke();
   }
   ctx.restore();
 }
 
-function renderCanvas(canvas, model, compact = false) {
-  if (!canvas || !model) return;
-  const { width, height, ratio } = canvasSize(canvas), ctx = canvas.getContext('2d');
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.clearRect(0, 0, width, height);
-  drawBackdrop(ctx, width, height, animationTime, compact);
-  const state = animationState(animationTime); drawWake(ctx, width, height, state, compact);
-  ctx.save();
-  const scale = modelScale(model, width, height, compact);
-  ctx.translate(width * .5 + state.shift * (compact ? .3 : 1), height * .51);
-  ctx.rotate(state.tilt);
-  ctx.scale((flipped ? -1 : 1) * scale, scale);
-  ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = compact ? 4 / scale : 10 / scale; ctx.shadowOffsetY = compact ? 2 / scale : 4 / scale;
-  drawCreature(ctx, { ...resolvedPlan(model), t: state.t, mouth: state.mouth, hurt: state.hurt });
-  ctx.restore();
-  if (!compact) {
-    const vignette = ctx.createRadialGradient(width * .5, height * .5, Math.min(width, height) * .24, width * .5, height * .5, Math.max(width, height) * .67);
-    vignette.addColorStop(0, 'rgba(0,0,0,0)'); vignette.addColorStop(1, theme === 'light' ? 'rgba(40,55,58,.2)' : 'rgba(0,4,9,.65)');
+function drawModel(ctx, model, { width, height }, compact = false) {
+  if (!model) return;
+  if (capturingSnapshot) drawBackdrop(ctx, width, height, animationTime, compact);
+  const state = animationState(animationTime);
+  drawWake(ctx, width, height, state, compact);
+  drawCreatureVisual(ctx, {
+    plan: resolvedPlan(model), width, height, time: state.t,
+    mouth: state.mouth, hurt: state.hurt, flipped, compact, zoom,
+    shift: state.shift * (compact ? .3 : 1), tilt: state.tilt,
+    centerY: .51,
+  });
+  if (capturingSnapshot && !compact) {
+    const vignette = ctx.createRadialGradient(
+      width * .5, height * .5, Math.min(width, height) * .24,
+      width * .5, height * .5, Math.max(width, height) * .67,
+    );
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, theme === 'light' ? 'rgba(40,55,58,.2)' : 'rgba(0,4,9,.65)');
     ctx.fillStyle = vignette; ctx.fillRect(0, 0, width, height);
   }
 }
@@ -157,7 +162,9 @@ function syncDetails() {
     const item = document.createElement('span'), strong = document.createElement('b');
     item.textContent = label; strong.textContent = value; item.append(strong); return item;
   }));
-  $('#stageIndex').textContent = collection === 'concepts' ? `SIDE PROFILE · ${String(index + 1).padStart(2, '0')} / ${models.length}` : `CREATURE ${String(index + 1).padStart(2, '0')} / ${models.length}`;
+  $('#stageIndex').textContent = collection === 'concepts'
+    ? `SIDE PROFILE · ${String(index + 1).padStart(2, '0')} / ${models.length}`
+    : `CREATURE ${String(index + 1).padStart(2, '0')} / ${models.length}`;
   $('#stageAnimation').textContent = animationNames[animation];
   for (const [id, card] of cards) {
     card.classList.toggle('selected', id === selected.id);
@@ -176,19 +183,21 @@ function syncUrl() {
 
 function paletteDot(model, palette, index, compact = false) {
   const dot = document.createElement('button');
-  dot.type = 'button'; dot.className = `paletteDot${compact ? ' compact' : ''}`; dot.dataset.palette = index;
-  dot.title = palette.name; dot.setAttribute('aria-label', `${model.name}: ${palette.name} colors`);
+  dot.type = 'button';
+  dot.className = `paletteDot${compact ? ' compact' : ''}`;
+  dot.dataset.palette = index;
+  dot.title = palette.name;
+  dot.setAttribute('aria-label', `${model.name}: ${palette.name} colors`);
   const upper = palette.backColor || palette.plate || palette.body || '#526c70';
   const lower = palette.bellyColor || palette.accent || palette.body || '#a8b9a5';
   dot.style.background = `linear-gradient(135deg, ${upper} 0 49%, ${lower} 51% 100%)`;
   dot.classList.toggle('active', index === paletteIndex(model));
-  dot.addEventListener('click', event => { event.stopPropagation(); setPalette(model, index); });
+  dot.addEventListener('click', event => { event.stopPropagation(); setPalette(model, index); }, listenerOptions);
   return dot;
 }
 
 function syncStagePalettes() {
-  const picker = $('#stagePalettePicker');
-  const palettes = selected.palettes || [];
+  const picker = $('#stagePalettePicker'), palettes = selected.palettes || [];
   picker.hidden = palettes.length === 0;
   picker.replaceChildren(...palettes.map((entry, index) => paletteDot(selected, entry, index)));
 }
@@ -200,110 +209,204 @@ function setPalette(model, index) {
 }
 
 function selectModel(model, reveal = false) {
-  if (!model) return; selected = model; animationTime = 0; syncDetails();
+  if (!model) return;
+  selected = model; animationTime = 0; syncDetails();
   if (reveal) cards.get(model.id)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 function makeCard(model, index) {
-  const card = document.createElement('div'); card.className = 'modelCard'; card.dataset.model = model.id;
-  card.tabIndex = 0; card.setAttribute('role', 'group'); card.setAttribute('aria-label', `${model.name} model option`);
-  const canvas = document.createElement('canvas'); canvas.setAttribute('aria-hidden', 'true');
-  const text = document.createElement('span'); text.className = 'modelCardText';
-  const number = document.createElement('span'); number.className = 'modelCardIndex';
-  number.textContent = collection === 'concepts' ? `DIRECTION ${String(index + 1).padStart(2, '0')}` : `TIER ${model.species.tier} · ${model.plan.kind.toUpperCase()}`;
-  const name = document.createElement('span'); name.className = 'modelCardName'; name.textContent = model.name;
-  const direction = document.createElement('span'); direction.className = 'modelCardDirection'; direction.textContent = model.direction;
-  text.append(number, name, direction); card.append(canvas, text);
+  const card = document.createElement('div');
+  card.className = 'modelCard';
+  card.dataset.model = model.id;
+  card.tabIndex = 0;
+  card.setAttribute('role', 'group');
+  card.setAttribute('aria-label', `${model.name} model option`);
+  const preview = document.createElement('div');
+  preview.className = 'modelCardPreview';
+  preview.setAttribute('aria-hidden', 'true');
+  const text = document.createElement('span');
+  text.className = 'modelCardText';
+  const number = document.createElement('span');
+  number.className = 'modelCardIndex';
+  number.textContent = collection === 'concepts'
+    ? `DIRECTION ${String(index + 1).padStart(2, '0')}`
+    : `TIER ${model.species.tier} · ${model.plan.kind.toUpperCase()}`;
+  const name = document.createElement('span');
+  name.className = 'modelCardName'; name.textContent = model.name;
+  const direction = document.createElement('span');
+  direction.className = 'modelCardDirection'; direction.textContent = model.direction;
+  text.append(number, name, direction); card.append(preview, text);
   if (model.palettes?.length) {
-    const picker = document.createElement('span'); picker.className = 'modelCardPalettes'; picker.setAttribute('aria-label', 'Color variants');
-    picker.append(...model.palettes.map((entry, paletteNumber) => paletteDot(model, entry, paletteNumber, true))); card.append(picker);
+    const picker = document.createElement('span');
+    picker.className = 'modelCardPalettes';
+    picker.setAttribute('aria-label', 'Color variants');
+    picker.append(...model.palettes.map((entry, paletteNumber) => paletteDot(model, entry, paletteNumber, true)));
+    card.append(picker);
   }
-  card.addEventListener('click', () => selectModel(model));
+  card.addEventListener('click', () => selectModel(model), listenerOptions);
   card.addEventListener('keydown', event => {
-    if (event.target === card && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); selectModel(model); }
-  });
-  card._canvas = canvas; card._search = `${model.name} ${model.direction} ${model.description} ${model.tags.join(' ')}`.toLowerCase();
-  cards.set(model.id, card); cardObserver?.observe(card); if (!cardObserver) visibleCards.add(card); return card;
+    if (event.target === card && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault(); selectModel(model);
+    }
+  }, listenerOptions);
+  card._search = `${model.name} ${model.direction} ${model.description} ${model.tags.join(' ')}`.toLowerCase();
+  card._unregisterPreview = overlay.register(preview, (ctx, frame) => {
+    if (!visibleCards.has(card) || card.hidden) return;
+    drawModel(ctx, model, frame, true);
+  }, { animated: true, occlusion: false });
+  cards.set(model.id, card);
+  cardObserver?.observe(card);
+  if (!cardObserver) visibleCards.add(card);
+  return card;
 }
 
 function rebuildLibrary() {
-  cardObserver?.disconnect(); visibleCards.clear(); cards.clear(); grid.replaceChildren();
+  cardObserver?.disconnect();
+  visibleCards.clear();
+  for (const card of cards.values()) card._unregisterPreview?.();
+  cards.clear();
+  grid.replaceChildren();
   models.forEach((model, index) => grid.append(makeCard(model, index)));
   $('#libraryEyebrow').textContent = collection === 'concepts' ? 'REDESIGN STUDY' : 'LIVE GAME CATALOGUE';
   $('#libraryTitle').textContent = collection === 'concepts' ? 'Choose a direction' : `${models.length} current creatures`;
   $('#libraryIntro').textContent = collection === 'concepts'
     ? `${models.length} side-profile directions. Directions 31-40 develop Mangrove Shade's dark back, light belly and visible gills.`
     : 'Every current species uses this same renderer path. Filter by name, tier, branch or body plan.';
-  $('#modelSearch').value = ''; filterCards(); syncDetails();
-  requestAnimationFrame(() => cards.get(selected.id)?.scrollIntoView({ block: 'nearest' }));
+  $('#modelSearch').value = '';
+  filterCards();
+  syncDetails();
+  if (revealRequest) cancelAnimationFrame(revealRequest);
+  revealRequest = requestAnimationFrame(() => {
+    revealRequest = 0;
+    if (getComputedStyle(grid).overflowY !== 'visible') {
+      cards.get(selected.id)?.scrollIntoView({ block: 'nearest' });
+    }
+  });
 }
 
 function filterCards() {
-  const term = $('#modelSearch').value.trim().toLowerCase(); let shown = 0;
-  for (const card of cards.values()) { const matches = !term || card._search.includes(term); card.hidden = !matches; if (matches) shown++; }
+  const term = $('#modelSearch').value.trim().toLowerCase();
+  let shown = 0;
+  for (const card of cards.values()) {
+    const matches = !term || card._search.includes(term);
+    card.hidden = !matches;
+    if (matches) shown++;
+  }
   $('#emptyLibrary').hidden = shown !== 0;
 }
 
 function setCollection(next) {
   if (!collections[next] || next === collection) return;
-  collection = next; models = collections[next];
+  collection = next;
+  models = collections[next];
   selected = next === 'concepts' ? models[0] : models.find(model => model.id === 'dunkleosteus') || models[0];
   document.querySelectorAll('[data-collection]').forEach(button => button.classList.toggle('active', button.dataset.collection === collection));
-  animationTime = 0; rebuildLibrary();
+  animationTime = 0;
+  rebuildLibrary();
 }
 
 function setAnimation(next) {
-  if (!animationNames[next]) return; animation = next; animationTime = 0;
+  if (!animationNames[next]) return;
+  animation = next;
+  animationTime = 0;
   document.querySelectorAll('[data-animation]').forEach(button => button.classList.toggle('active', button.dataset.animation === animation));
-  $('#stageAnimation').textContent = animationNames[animation]; syncUrl();
+  $('#stageAnimation').textContent = animationNames[animation];
+  syncUrl();
 }
 
 function stepModel(direction) {
-  const index = models.indexOf(selected), next = (index + direction + models.length) % models.length;
-  selectModel(models[next], true);
+  const index = models.indexOf(selected);
+  selectModel(models[(index + direction + models.length) % models.length], true);
 }
 
 function togglePause() {
-  paused = !paused; $('#pauseButton').textContent = paused ? '▶ Resume' : 'Ⅱ Pause'; $('#pauseButton').setAttribute('aria-pressed', String(paused));
+  paused = !paused;
+  $('#pauseButton').textContent = paused ? '▶ Resume' : 'Ⅱ Pause';
+  $('#pauseButton').setAttribute('aria-pressed', String(paused));
 }
 
 function snapshot() {
-  renderCanvas(mainCanvas, selected, false);
-  mainCanvas.toBlob(blob => {
-    if (!blob) return;
-    const link = document.createElement('a'), url = URL.createObjectURL(blob);
-    link.href = url; link.download = `${selected.id}-${animation}.png`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }, 'image/png');
+  capturingSnapshot = true;
+  try {
+    mainOverlay.download(mainView, `${selected.id}-${animation}.png`);
+  } finally {
+    capturingSnapshot = false;
+    mainOverlay.render(performance.now());
+  }
 }
 
-document.querySelectorAll('[data-collection]').forEach(button => button.addEventListener('click', () => setCollection(button.dataset.collection)));
-document.querySelectorAll('[data-animation]').forEach(button => button.addEventListener('click', () => setAnimation(button.dataset.animation)));
-$('#modelSearch').addEventListener('input', filterCards);
-$('#previousModel').addEventListener('click', () => stepModel(-1)); $('#nextModel').addEventListener('click', () => stepModel(1));
-$('#pauseButton').addEventListener('click', togglePause);
-$('#flipButton').addEventListener('click', () => { flipped = !flipped; $('#flipButton').classList.toggle('active', flipped); $('#flipButton').setAttribute('aria-pressed', String(flipped)); });
-$('#zoomRange').addEventListener('input', event => { zoom = Number(event.target.value) / 100; $('#zoomOutput').textContent = `${event.target.value}%`; });
-$('#themeSelect').addEventListener('change', event => { theme = event.target.value; stage.dataset.theme = theme; });
-$('#snapshotButton').addEventListener('click', snapshot);
+const unregisterMain = mainOverlay.register(
+  mainView,
+  (ctx, frame) => drawModel(ctx, selected, frame, false),
+  { animated: true, occlusion: false },
+);
+document.querySelectorAll('[data-collection]').forEach(button => button.addEventListener('click', () => setCollection(button.dataset.collection), listenerOptions));
+document.querySelectorAll('[data-animation]').forEach(button => button.addEventListener('click', () => setAnimation(button.dataset.animation), listenerOptions));
+$('#modelSearch').addEventListener('input', filterCards, listenerOptions);
+$('#previousModel').addEventListener('click', () => stepModel(-1), listenerOptions);
+$('#nextModel').addEventListener('click', () => stepModel(1), listenerOptions);
+$('#pauseButton').addEventListener('click', togglePause, listenerOptions);
+$('#flipButton').addEventListener('click', () => {
+  flipped = !flipped;
+  $('#flipButton').classList.toggle('active', flipped);
+  $('#flipButton').setAttribute('aria-pressed', String(flipped));
+}, listenerOptions);
+$('#zoomRange').addEventListener('input', event => {
+  zoom = Number(event.target.value) / 100;
+  $('#zoomOutput').textContent = `${event.target.value}%`;
+}, listenerOptions);
+$('#themeSelect').addEventListener('change', event => {
+  theme = event.target.value;
+  stage.dataset.theme = theme;
+}, listenerOptions);
+$('#snapshotButton').addEventListener('click', snapshot, listenerOptions);
 window.addEventListener('keydown', event => {
   if (event.target.matches('input,select,textarea,button,a')) return;
   if (/^[1-5]$/.test(event.key)) setAnimation(Object.keys(animationNames)[Number(event.key) - 1]);
   else if (event.key === 'ArrowLeft') stepModel(-1);
   else if (event.key === 'ArrowRight') stepModel(1);
   else if (event.code === 'Space') { event.preventDefault(); togglePause(); }
-});
+}, listenerOptions);
 
 function frame(now) {
-  const dt = Math.min(.05, Math.max(0, (now - previousFrame) / 1000)); previousFrame = now;
+  if (destroyed) return;
+  const dt = Math.min(.05, Math.max(0, (now - previousFrame) / 1000));
+  previousFrame = now;
   if (!paused) animationTime += dt;
-  renderCanvas(mainCanvas, selected, false);
-  if (now - lastThumbDraw > 66) {
-    for (const card of visibleCards) if (!card.hidden) renderCanvas(card._canvas, models.find(model => model.id === card.dataset.model), true);
-    lastThumbDraw = now;
-  }
-  requestAnimationFrame(frame);
+  frameRequest = requestAnimationFrame(frame);
 }
+
+function destroy() {
+  if (destroyed) return;
+  destroyed = true;
+  listenerController.abort();
+  if (frameRequest) cancelAnimationFrame(frameRequest);
+  if (revealRequest) cancelAnimationFrame(revealRequest);
+  frameRequest = 0; revealRequest = 0;
+  cardObserver?.disconnect();
+  for (const card of cards.values()) card._unregisterPreview?.();
+  cards.clear(); visibleCards.clear();
+  unregisterMain();
+  overlay.destroy();
+  mainOverlay.destroy();
+  document.body.dataset.ready = 'destroyed';
+}
+
+window.addEventListener('pagehide', destroy, { once: true, signal: listenerController.signal });
 
 document.querySelectorAll('[data-collection]').forEach(button => button.classList.toggle('active', button.dataset.collection === collection));
 document.querySelectorAll('[data-animation]').forEach(button => button.classList.toggle('active', button.dataset.animation === animation));
-rebuildLibrary(); requestAnimationFrame(frame);
+rebuildLibrary();
+window.__modelLab = {
+  renderer: 'pixi',
+  overlay,
+  mainOverlay,
+  get state() {
+    return { collection, selected: selected.id, animation, paused, flipped, zoom, theme, visibleCards: visibleCards.size };
+  },
+  setCollection, setAnimation, stepModel, togglePause, selectModel, destroy,
+};
+overlay.render(performance.now());
+mainOverlay.render(performance.now());
+document.body.dataset.ready = 'true';
+frameRequest = requestAnimationFrame(frame);

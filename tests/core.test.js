@@ -143,7 +143,7 @@ test('PixiApplication initializes the planned scene layers without owning a cloc
   equal(lifecycle, ['ready', 'resized', 'destroyed']);
 });
 
-test('GameRuntime keeps the legacy simulation playable behind runtime boundaries', async () => {
+test('GameRuntime keeps the source-object simulation playable behind runtime boundaries', async () => {
   const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
   const runtime = new GameRuntime(canvas, { autoStartClock: false, attachInputHandlers: false });
   await runtime.ready;
@@ -186,7 +186,7 @@ test('Phase 4 command streams produce deterministic component motion', async () 
     engine.player.vx = 0; engine.player.vy = 0; engine.player.angle = 0; engine.player.faceTarget = 0;
     engine.releaseInput(); engine.setKey('right', true);
     for (let i = 0; i < 60; i++) runtime.step(1 / 60);
-    const entity = runtime.componentMirror.entityFor(engine.player);
+    const entity = runtime.componentRegistry.entityFor(engine.player);
     const transform = runtime.componentWorld.requireComponent(entity, ComponentTypes.TRANSFORM);
     const motion = runtime.componentWorld.requireComponent(entity, ComponentTypes.MOTION);
     const previous = runtime.componentWorld.requireComponent(entity, ComponentTypes.PREVIOUS_TRANSFORM);
@@ -220,33 +220,33 @@ test('Presentation interpolation never mutates authoritative entities', async ()
   runtime.destroy(); canvas.remove();
 });
 
-test('LegacyComponentAdapter exposes stable presentation components', async () => {
+test('ComponentEntityRegistry exposes stable presentation components', async () => {
   const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
   const runtime = new GameRuntime(canvas, { autoStartClock: false, attachInputHandlers: false });
   await runtime.ready; runtime.startRun({ items: false }); runtime.render();
-  const player = runtime.engine.player, entity = runtime.componentMirror.entityFor(player);
+  const player = runtime.engine.player, entity = runtime.componentRegistry.entityFor(player);
   if (!entity) throw new Error('Player was not mirrored');
   player.x += 25; runtime.render();
-  equal(runtime.componentMirror.entityFor(player), entity);
+  equal(runtime.componentRegistry.entityFor(player), entity);
   equal(runtime.componentWorld.getComponent(entity, ComponentTypes.TRANSFORM).x, player.x);
   const renderable = runtime.componentWorld.getComponent(entity, ComponentTypes.RENDERABLE);
   if (renderable.plan === player.plan || !Object.isFrozen(renderable.plan)) throw new Error('Mirror leaked the authoritative render plan');
   runtime.componentWorld.destroyEntity(entity); runtime.render();
-  const replacement = runtime.componentMirror.entityFor(player);
+  const replacement = runtime.componentRegistry.entityFor(player);
   if (replacement === entity || !runtime.componentWorld.hasEntity(replacement)) throw new Error('Mirror did not recover an externally destroyed entity');
   const particle = { x: 2, y: 3, vx: 0, vy: 0, life: 1, max: 1, size: 2, color: '#fff' };
   runtime.engine.particles.push(particle); runtime.render();
-  const particleEntity = runtime.componentMirror.entityFor(particle);
+  const particleEntity = runtime.componentRegistry.entityFor(particle);
   runtime.engine.particles.splice(runtime.engine.particles.indexOf(particle), 1); runtime.render();
   equal(runtime.componentWorld.hasEntity(particleEntity), false);
   runtime.destroy(); canvas.remove();
 });
 
-test('Phase 4 component records are authoritative legacy-compatible state', async () => {
+test('Component records stay authoritative through source-object accessors', async () => {
   const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
   const runtime = new GameRuntime(canvas, { autoStartClock: false, attachInputHandlers: false });
   await runtime.ready; runtime.startRun({ items: false }); runtime.render();
-  const player = runtime.engine.player, entity = runtime.componentMirror.entityFor(player), world = runtime.componentWorld;
+  const player = runtime.engine.player, entity = runtime.componentRegistry.entityFor(player), world = runtime.componentWorld;
   const transform = world.requireComponent(entity, ComponentTypes.TRANSFORM);
   const motion = world.requireComponent(entity, ComponentTypes.MOTION);
   const collider = world.requireComponent(entity, ComponentTypes.COLLIDER);
@@ -256,12 +256,12 @@ test('Phase 4 component records are authoritative legacy-compatible state', asyn
   equal([player.x, player.vx, player.radius, player.hp, player.xp], [321, 47, 19, 7, 5]);
   player.y = 654; player.vy = -23; player.maxHp = 81; player.level = 3;
   equal([transform.y, motion.vy, health.maxHp, experience.level], [654, -23, 81, 3]);
-  const input = world.requireComponent(runtime.componentMirror.inputEntity(), ComponentTypes.PLAYER_INPUT);
+  const input = world.requireComponent(runtime.componentRegistry.inputEntity(), ComponentTypes.PLAYER_INPUT);
   input.pointer.x = 12; input.bite = true; input.keys.right = true;
   equal([runtime.engine.mouse.x, runtime.engine.biteHeld, runtime.engine.keys.right], [12, true, true]);
-  const talents = world.requireComponent(runtime.componentMirror.inputEntity(), ComponentTypes.TALENTS);
-  const perks = world.requireComponent(runtime.componentMirror.inputEntity(), ComponentTypes.PERKS);
-  const evolution = world.requireComponent(runtime.componentMirror.inputEntity(), ComponentTypes.EVOLUTION);
+  const talents = world.requireComponent(runtime.componentRegistry.inputEntity(), ComponentTypes.TALENTS);
+  const perks = world.requireComponent(runtime.componentRegistry.inputEntity(), ComponentTypes.PERKS);
+  const evolution = world.requireComponent(runtime.componentRegistry.inputEntity(), ComponentTypes.EVOLUTION);
   if (talents.state !== runtime.engine.talent || talents.bonus !== runtime.engine.talentBonus || perks.state !== runtime.engine.perks) {
     throw new Error('Run progression projections are not component-owned');
   }
@@ -280,7 +280,7 @@ test('Phase 4 systems own resources, lifetimes, progression and map crossing', a
   const plant = { kind: 'algae', x: 500, y: 500, amount: 0, max: 2, value: 1, regen: .01, eatCd: .01 };
   const particle = { x: 2, y: 3, vx: 0, vy: 0, life: .01, max: .01, size: 2, color: '#fff' };
   engine.food.push(food); engine.plants.push(plant); engine.particles.push(particle); runtime.render();
-  const foodEntity = runtime.componentMirror.entityFor(food), particleEntity = runtime.componentMirror.entityFor(particle);
+  const foodEntity = runtime.componentRegistry.entityFor(food), particleEntity = runtime.componentRegistry.entityFor(particle);
   systems.run(CoreSystemPhases.RESOURCES, engine, .1);
   systems.run(CoreSystemPhases.LIFETIMES, engine, .1);
   equal([engine.food.includes(food), plant.amount, engine.particles.includes(particle)], [false, 1, false]);
@@ -348,7 +348,7 @@ test('Multiplayer host actors retain component authority through a fixed step', 
   runtime.step(1 / 60);
   const actors = [runtime.engine.player, runtime.engine.remotePlayers[0]];
   for (const actor of actors) {
-    const entity = runtime.componentMirror.entityFor(actor);
+    const entity = runtime.componentRegistry.entityFor(actor);
     const transform = runtime.componentWorld.requireComponent(entity, ComponentTypes.TRANSFORM);
     const motion = runtime.componentWorld.requireComponent(entity, ComponentTypes.MOTION);
     equal([actor.x, actor.y, actor.vx, actor.vy], [transform.x, transform.y, motion.vx, motion.vy]);
@@ -371,9 +371,9 @@ test('Input, audio and network ingress are subscriber commands', async () => {
   runtime.destroy(); canvas.remove();
 });
 
-test('GameRuntime can explicitly select the Pixi parity renderer', async () => {
+test('GameRuntime initializes the Pixi world renderer', async () => {
   const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
-  const runtime = new GameRuntime(canvas, { rendererMode: 'pixi', autoStartClock: false, attachInputHandlers: false });
+  const runtime = new GameRuntime(canvas, { autoStartClock: false, attachInputHandlers: false });
   await runtime.ready; runtime.resize(640, 360, 1); runtime.startRun({ items: true, funItems: true });
   runtime.step(1 / 60); runtime.render();
   equal([runtime.rendererMode, runtime.renderer.mode, runtime.rendererReady], ['pixi', 'pixi', true]);

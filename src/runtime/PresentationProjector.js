@@ -110,9 +110,6 @@ export class PresentationProjector {
       role: engine.mp.role, self: engine.mp.self,
       selfName: engine.mp.selfName, selfColor: engine.mp.selfColor,
     }) : null;
-    // Evolve previews are canvases the renderer is expected to write into;
-    // they are the one intentional live platform handle on a frame.
-    frame.previewCanvas = engine.previewCanvas;
     frame.renderAlpha = alpha;
     frame.presentationFrame = true;
 

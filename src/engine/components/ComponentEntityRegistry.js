@@ -70,16 +70,11 @@ const BOSS_FIELDS = [
   'tailSlapCd', 'tailSlapT', 'impactT', 'impactX', 'impactY', 'impactAngle', 'impactSeq',
 ];
 
-/* During Phase 4 this adapter has two deliberately separate jobs:
-   1. keep presentation-only legacy descriptions available to the renderer;
-   2. bind migrated mutable fields to the actual component records.
-
-   The accessors mean legacy methods and network serializers still read the
-   same property names, but there is no mirrored second copy: Transform,
-   Motion, Collider, Health, Experience, Respawn, resource and lifetime data in
-   ComponentWorld are the authoritative records. No source object is stored in
-   a component; source/entity bookkeeping remains private to this adapter. */
-export class LegacyComponentAdapter {
+/* Maps the simulation's source objects to component entity IDs and owns the
+   component-backed property accessors used by gameplay methods and network
+   serializers. ComponentWorld remains authoritative for migrated state; no
+   source object is stored inside a component record. */
+export class ComponentEntityRegistry {
   constructor(world) {
     this.world = world;
     this.records = new Map();
@@ -147,7 +142,7 @@ export class LegacyComponentAdapter {
       ['era', 'era'], ['pendingEvolve', 'pending'], ['choices', 'choices'], ['evolveMode', 'mode'],
       ['ascendOffered', 'ascendOffered'], ['ascendAvailable', 'ascendAvailable'], ['advanceAvailable', 'advanceAvailable'],
     ]);
-    this.write(record, C.LEGACY_IDENTITY, { kind: 'runtime', visualKey: 'runtime', speciesId: null, bossKind: null, localPlayer: false });
+    this.write(record, C.IDENTITY, { kind: 'runtime', visualKey: 'runtime', speciesId: null, bossKind: null, localPlayer: false });
   }
 
   syncSource(source, kind, engine, present = null, memberContext = null) {
@@ -299,7 +294,7 @@ export class LegacyComponentAdapter {
     }
 
     const values = {
-      [C.LEGACY_IDENTITY]: {
+      [C.IDENTITY]: {
         kind, visualKey: visualKey(source), speciesId: source.speciesId || null,
         bossKind: source.bossKind || null, localPlayer: source === engine.player,
       },
@@ -428,6 +423,3 @@ export class LegacyComponentAdapter {
     this.records.clear(); this.sources.clear(); this.runtimeRecord = null;
   }
 }
-
-// Kept while debug integrations still use the Phase 2 name.
-export { LegacyComponentAdapter as LegacyComponentMirror };

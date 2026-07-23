@@ -2,13 +2,13 @@
    - normal: pick the next form within your stage.
    - ascend: "crawl ashore" — pick a land pioneer, or stay in the sea for now
      (a button that dismisses the prompt but leaves it re-openable).
-   The preview canvases are registered with the engine, which animates them
-   from the render loop (renderWorld.js). */
+   Creature previews share the Pixi DOM overlay with the rest of the HUD. */
 import { html } from '../react.js';
 import { SPECIES, STAT_MAX } from '../../data/species.js';
 import { ABILITIES, ABILITY_SETS } from '../../data/abilities.js';
 import { BRANCH_WORD } from '../../data/branches.js';
 import { StatRow } from '../components/StatRow.js';
+import { CreatureCanvas } from '../components/CreatureCanvas.js';
 
 const MAX = STAT_MAX;
 
@@ -34,7 +34,7 @@ export function EvolveModal({ engine, commands, hud }) {
             const blabel = BRANCH_WORD[sp.branch] || '';
             return html`
               <div key=${id} className=${'choice ' + bcls} onClick=${() => commands.chooseEvolution(id)}>
-                <canvas width="200" height="120" ref=${el => engine.registerPreview(id, el)}/>
+                <${CreatureCanvas} id=${id} w=${200} h=${120} className="choicePreview" animated=${true}/>
                 <div className="cname">${sp.name}
                   ${bcls && html`<span className=${'ctag ' + bcls}>${blabel}</span>`}</div>
                 <div className="cdesc">${sp.desc}</div>

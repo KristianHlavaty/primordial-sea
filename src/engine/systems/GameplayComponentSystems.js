@@ -22,7 +22,7 @@ const STATUS_FIELDS = Object.freeze([
   'sprintT', 'webT', 'rebirthT',
 ]);
 
-const entityOf = (adapter, source) => source ? adapter.entityFor(source) : null;
+const entityOf = (registry, source) => source ? registry.entityFor(source) : null;
 
 class ItemSystem {
   constructor(owner) { this.owner = owner; }
@@ -44,8 +44,8 @@ class StatusFactSystem {
    This coordinator owns command routing, ordered updates, component-backed
    entity dispatch, and the public fact stream. */
 export class GameplayComponentSystems extends CoreComponentSystems {
-  constructor(world, adapter) {
-    super(world, adapter);
+  constructor(world, registry) {
+    super(world, registry);
     const add = (system, phase, order) => this.disposers.push(world.addSystem(system, { phase, order }));
     add(new ItemSystem(this), GameplaySystemPhases.ITEMS, 0);
     add(new VehicleSystem(this), GameplaySystemPhases.VEHICLES, 0);
@@ -74,7 +74,7 @@ export class GameplayComponentSystems extends CoreComponentSystems {
         const previous = oldState[field] || 0, value = target[field] || 0;
         if (value <= previous) continue;
         game.events.emit(GameEvents.COMBAT_STATUS_APPLIED, {
-          sourceEntity: entityOf(this.adapter, source), targetEntity: entityOf(this.adapter, target),
+          sourceEntity: entityOf(this.registry, source), targetEntity: entityOf(this.registry, target),
           status: field, duration: value, previous,
         });
         oldState[field] = value;
@@ -90,7 +90,7 @@ export class GameplayComponentSystems extends CoreComponentSystems {
     target[status] = mode === 'add' ? previous + duration : Math.max(previous, duration);
     if (target[status] === previous) return false;
     game.events.emit(GameEvents.COMBAT_STATUS_APPLIED, {
-      sourceEntity: entityOf(this.adapter, source), targetEntity: entityOf(this.adapter, target),
+      sourceEntity: entityOf(this.registry, source), targetEntity: entityOf(this.registry, target),
       status, duration: target[status], previous,
     });
     const frameState = this.frameStatuses.get(target);
@@ -102,7 +102,7 @@ export class GameplayComponentSystems extends CoreComponentSystems {
     const before = player.cd;
     const result = player._startBite(game);
     if (player.cd !== before) game.events.emit(GameEvents.COMBAT_BITE_STARTED, {
-      entity: entityOf(this.adapter, player), x: player.x, y: player.y, angle: player.angle,
+      entity: entityOf(this.registry, player), x: player.x, y: player.y, angle: player.angle,
     });
     return result;
   }
@@ -113,7 +113,7 @@ export class GameplayComponentSystems extends CoreComponentSystems {
     for (const target of player.hitSet || []) {
       if (before.has(target)) continue;
       game.events.emit(GameEvents.COMBAT_BITE_HIT, {
-        attackerEntity: entityOf(this.adapter, player), targetEntity: entityOf(this.adapter, target),
+        attackerEntity: entityOf(this.registry, player), targetEntity: entityOf(this.registry, target),
         targetKind: target.speciesId ? 'player' : target.amount != null ? 'plant' : 'creature',
       });
     }
@@ -126,17 +126,17 @@ export class GameplayComponentSystems extends CoreComponentSystems {
     const result = player._takeHit(game, damage, fromX, fromY, attacker);
     const hpDamage = Math.max(0, hp - player.hp), shieldDamage = Math.max(0, shield - (player.shield || 0));
     if (hpDamage || shieldDamage) game.events.emit(GameEvents.COMBAT_DAMAGED, {
-      sourceEntity: entityOf(this.adapter, attacker), targetEntity: entityOf(this.adapter, player),
+      sourceEntity: entityOf(this.registry, attacker), targetEntity: entityOf(this.registry, player),
       requested: damage, damage: hpDamage, absorbed: shieldDamage, hp: player.hp, shield: player.shield || 0,
     });
     else {
       const dodged = (player.evasionFlashT || 0) > evasionFlash;
       game.events.emit(dodged ? GameEvents.COMBAT_DODGED : GameEvents.COMBAT_BLOCKED, {
-        sourceEntity: entityOf(this.adapter, attacker), targetEntity: entityOf(this.adapter, player), requested: damage,
+        sourceEntity: entityOf(this.registry, attacker), targetEntity: entityOf(this.registry, player), requested: damage,
       });
     }
     if (hp > 0 && player.hp <= 0 && !(player.rebirthT > 0)) game.events.emit(GameEvents.COMBAT_KILLED, {
-      sourceEntity: entityOf(this.adapter, attacker), targetEntity: entityOf(this.adapter, player),
+      sourceEntity: entityOf(this.registry, attacker), targetEntity: entityOf(this.registry, player),
       byPlayer: !!attacker?.speciesId, boss: null,
     });
     this.publishStatusChanges(game, statuses, attacker);
@@ -148,7 +148,7 @@ export class GameplayComponentSystems extends CoreComponentSystems {
     const result = creature._takeDamage(game, damage, fromX, fromY, byPlayer);
     const applied = Math.max(0, hp - creature.hp);
     if (applied) game.events.emit(GameEvents.COMBAT_DAMAGED, {
-      sourceEntity: entityOf(this.adapter, attacker), targetEntity: entityOf(this.adapter, creature),
+      sourceEntity: entityOf(this.registry, attacker), targetEntity: entityOf(this.registry, creature),
       requested: damage, damage: applied, absorbed: Math.max(0, damage - applied), hp: creature.hp,
     });
     if (hp > 0 && creature.hp <= 0) this.killCreature(creature, game, byPlayer);
@@ -161,8 +161,8 @@ export class GameplayComponentSystems extends CoreComponentSystems {
     else if (creature._dieEncounter) result = creature._dieEncounter(game, byPlayer);
     else result = creature._die(game, byPlayer);
     game.events.emit(GameEvents.COMBAT_KILLED, {
-      targetEntity: entityOf(this.adapter, creature),
-      sourceEntity: byPlayer ? entityOf(this.adapter, game.worldPlayer()) : null,
+      targetEntity: entityOf(this.registry, creature),
+      sourceEntity: byPlayer ? entityOf(this.registry, game.worldPlayer()) : null,
       byPlayer: !!byPlayer, boss: creature.bossKind || null,
     });
     return result;
@@ -177,7 +177,7 @@ export class GameplayComponentSystems extends CoreComponentSystems {
     const recast = (ability === 'withdraw' && beforeWithdraw > 0 && player.withdrawT <= 0)
       || (ability === 'burrow' && beforeBurrow && !player.burrowActive);
     if (player && ((player.castSeq || 0) !== beforeSeq || recast)) game.events.emit(GameEvents.ABILITY_ACTIVATED, {
-      entity: entityOf(this.adapter, player), index, ability, castSeq: player.castSeq, recast,
+      entity: entityOf(this.registry, player), index, ability, castSeq: player.castSeq, recast,
     });
     this.publishStatusChanges(game, before, player);
     return result;
@@ -190,14 +190,14 @@ export class GameplayComponentSystems extends CoreComponentSystems {
   useItem(game, actor, slot) {
     const held = actor?.items?.[slot], id = held?.id, before = this.captureStatuses(game);
     const used = useHeldItem(game, actor, slot);
-    if (used) game.events.emit(GameEvents.ITEM_USED, { entity: entityOf(this.adapter, actor), slot, item: id });
+    if (used) game.events.emit(GameEvents.ITEM_USED, { entity: entityOf(this.registry, actor), slot, item: id });
     this.publishStatusChanges(game, before, actor);
     return used;
   }
 
   dropItem(game, actor, slot) {
     const id = actor?.items?.[slot]?.id, dropped = dropHeldItem(game, actor, slot);
-    if (dropped) game.events.emit(GameEvents.ITEM_DROPPED, { entity: entityOf(this.adapter, actor), slot, item: id });
+    if (dropped) game.events.emit(GameEvents.ITEM_DROPPED, { entity: entityOf(this.registry, actor), slot, item: id });
     return dropped;
   }
 
@@ -207,7 +207,7 @@ export class GameplayComponentSystems extends CoreComponentSystems {
     updateItems(game, dt);
     for (const [player, slots] of before) player.items.forEach((item, slot) => {
       if (item && !slots[slot]) game.events.emit(GameEvents.ITEM_PICKED_UP, {
-        entity: entityOf(this.adapter, player), slot, item: item.id,
+        entity: entityOf(this.registry, player), slot, item: item.id,
       });
     });
   }
@@ -216,7 +216,7 @@ export class GameplayComponentSystems extends CoreComponentSystems {
     const previous = actor?.vehicle || null, changed = toggleVehicle(game, actor);
     if (!changed) return false;
     game.events.emit(actor.vehicle ? GameEvents.VEHICLE_ENTERED : GameEvents.VEHICLE_EXITED, {
-      entity: entityOf(this.adapter, actor), vehicleEntity: entityOf(this.adapter, actor.vehicle || previous),
+      entity: entityOf(this.registry, actor), vehicleEntity: entityOf(this.registry, actor.vehicle || previous),
       vehicleType: (actor.vehicle || previous)?.type || null,
     });
     return true;
@@ -225,7 +225,7 @@ export class GameplayComponentSystems extends CoreComponentSystems {
   exitVehicle(game, actor, silent = false) {
     const previous = actor?.vehicle || null, changed = exitVehicle(game, actor, silent);
     if (changed) game.events.emit(GameEvents.VEHICLE_EXITED, {
-      entity: entityOf(this.adapter, actor), vehicleEntity: entityOf(this.adapter, previous), vehicleType: previous.type,
+      entity: entityOf(this.registry, actor), vehicleEntity: entityOf(this.registry, previous), vehicleType: previous.type,
     });
     return changed;
   }
@@ -236,11 +236,11 @@ export class GameplayComponentSystems extends CoreComponentSystems {
     const vehicle = actor?.vehicle, hp = vehicle?.hp;
     const handled = damageOccupiedVehicle(game, actor, damage);
     if (handled) game.events.emit(GameEvents.VEHICLE_DAMAGED, {
-      entity: entityOf(this.adapter, vehicle), pilotEntity: entityOf(this.adapter, actor),
+      entity: entityOf(this.registry, vehicle), pilotEntity: entityOf(this.registry, actor),
       damage: Math.max(0, hp - Math.max(0, vehicle.hp)), hp: Math.max(0, vehicle.hp),
     });
     if (handled && vehicle.hp <= 0) game.events.emit(GameEvents.VEHICLE_DESTROYED, {
-      entity: entityOf(this.adapter, vehicle), pilotEntity: entityOf(this.adapter, actor), vehicleType: vehicle.type,
+      entity: entityOf(this.registry, vehicle), pilotEntity: entityOf(this.registry, actor), vehicleType: vehicle.type,
     });
     return handled;
   }
@@ -292,7 +292,7 @@ export class GameplayComponentSystems extends CoreComponentSystems {
     const telegraph = boss.telegraph;
     if (!telegraph) return;
     game.events.emit(GameEvents.BOSS_TELEGRAPH_STARTED, {
-      entity: entityOf(this.adapter, boss), boss: boss.bossKind, special: telegraph.special,
+      entity: entityOf(this.registry, boss), boss: boss.bossKind, special: telegraph.special,
       shape: telegraph.shape, duration: telegraph.max,
     });
   }
@@ -300,13 +300,13 @@ export class GameplayComponentSystems extends CoreComponentSystems {
   bossTelegraphResolved(game, boss, telegraph) {
     if (!telegraph) return;
     game.events.emit(GameEvents.BOSS_TELEGRAPH_RESOLVED, {
-      entity: entityOf(this.adapter, boss), boss: boss.bossKind, special: telegraph.special, shape: telegraph.shape,
+      entity: entityOf(this.registry, boss), boss: boss.bossKind, special: telegraph.special, shape: telegraph.shape,
     });
   }
 
   bossDefeated(game, boss) {
     game.events.emit(GameEvents.BOSS_DEFEATED, {
-      entity: entityOf(this.adapter, boss), boss: boss.bossKind, perk: boss.perk,
+      entity: entityOf(this.registry, boss), boss: boss.bossKind, perk: boss.perk,
     });
   }
 }

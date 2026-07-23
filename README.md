@@ -1,6 +1,6 @@
 # Primordial Sea — an evolution game
 
-A 2D canvas game: you start as a single cell, eat to level up, and evolve
+A 2D PixiJS game: you start as a single cell, eat to level up, and evolve
 along the arthropod / chordate / cnidarian / mollusc branches while the whole
 sea evolves with you. Reach the apex of any sea branch and you can **crawl
 ashore** — onto the **land stage**, a set of walk-between maps with their own
@@ -113,8 +113,8 @@ src/
     progression.js      XP curve, level cap
   engine/
     events.js           cross-subsystem subscriber-event names
-    adapters/           command-event compatibility adapters for legacy simulation calls
-    components/         component world plus the temporary legacy compatibility adapter
+    adapters/           subscriber wiring from public command events to simulation intent
+    components/         component world, component catalog and source/entity registry
     Engine.js           simulation facade: world state, fixed updates, evolution, HUD snapshots
     audio.js            Sfx — tiny WebAudio beep synth
     mp.js               multiplayer netcode — host authority, snapshots, client replica, packets
@@ -133,8 +133,7 @@ src/
     net/
       ComponentSnapshotProtocol.js  v1/v2 multiplayer schemas, negotiation and adapters
   render/
-    canvas/             compatibility world renderer used until Pixi reaches visual parity
-    pixi/               native Pixi world renderer, scene layers, geometry bridge and pools
+    pixi/               native Pixi world/DOM renderers, shared visual factories, scene layers and pools
     drawCreature.js     the one parametric creature renderer (incl. land tetrapods)
     drawPlant.js        sea + land flora (algae/kelp, moss/fern)
     drawAbilityIcon.js  vector icons for powers
@@ -156,33 +155,40 @@ src/
 
 `data/` is pure content — adding a species, power or boss is a data edit.
 `engine/` owns simulation state: `Engine.update()` advances one fixed step, and
-ordered component phases now own spatial/input, world resources, progression,
-combat, abilities, inventory, vehicles, and boss timelines. Compatibility
-entity methods preserve the current debug/render/network-facing object shape.
+ordered component phases own spatial/input, world resources, progression,
+combat, abilities, inventory, vehicles, and boss timelines.
+`ComponentEntityRegistry` maps the source objects used by focused gameplay
+algorithms to stable numeric IDs; component-backed accessors keep one
+authoritative state copy while preserving the debug/network-facing object shape.
 `runtime/` composes the clock, event bus, inputs, audio,
-network ingress, immutable presentation projection and selected renderer.
+network ingress, immutable presentation projection and the Pixi renderer.
 `render/` consumes presentation frames and knows nothing about React. `ui/` is
 React: it publishes commands and renders plain HUD snapshots received through
 subscriber events. The full migration sequence and parity gates are in
 `docs/PIXI_COMPONENT_MIGRATION.md`.
 
-Canvas remains the default gameplay renderer while the Phase 3 parity matrix is
-reviewed. Append `?renderer=pixi` to the game URL to run the complete Pixi world
-path; it draws native Pixi geometry/text and does not upload Canvas frames.
+PixiJS is the only gameplay and preview renderer. The game, HUD icons, evolution
+and tree previews, generated Model Lab cards, and Model Lab inspector all emit
+native Pixi geometry; no gameplay or preview path acquires a Canvas 2D context.
 
 The browser test pages are `tests/core.test.html` (architecture, catalogs and
 runtime), `tests/gameplay-phase5.test.html` (all gameplay catalogs and fact
 streams), `tests/multiplayer-phase6.test.html` (versioned packets, paired
 host/client relay, ordering, maps/settings and reconnect/background behavior),
-`tests/render.test.html` (all Pixi visual catalogs/scenarios), and
-`tests/app-smoke.test.html` (real React startup and run flow). The deterministic
-visual page is `tests/render-smoke.test.html`; add `?renderer=pixi` and optionally
-`&map=spore_marsh` (or another map id). A passing run reports `PASS` in its title.
+`tests/render.test.html` (all Pixi visual catalogs/scenarios),
+`tests/phase7.test.html` (shared preview/icon factories, the no-Canvas gate, and
+Model Lab controls), `tests/phase8.test.html` (runtime/subscriber/resource
+lifecycle and failure cleanup), `tests/phase8-soak.test.html` (populated soak
+and full Model Lab teardown), and `tests/app-smoke.test.html` (real React
+startup and run flow). The deterministic visual page is
+`tests/render-smoke.test.html`; add
+`?map=spore_marsh` (or another map id). A passing run reports `PASS` in its title.
 
 ## How to extend
 
-- **New player species**: add an entry in `data/species.js` (give land forms
-  `stage: 'land'`; land tiers restart at 1), reference it in some `evolvesTo`,
+- **New player species**: add an entry in `data/species.js` (use the matching
+  `stage`, such as `devonian` or `carboniferous`; stage tiers restart at 1),
+  reference it in some `evolvesTo`,
   give it powers in `ABILITY_SETS` (`data/abilities.js`). The tree wiki, evolve
   modal and renderer pick it up automatically. A tier-1 land species is
   auto-added to `LAND_PIONEERS` (the crawl-ashore / skip-to-land roster).
@@ -221,7 +227,24 @@ __game.addXp(500)       // level up fast (triggers evolution at Lv 10)
 __game.choose('trilobite')
 __game.killBoss('bulwark')
 __game.step(60)         // advance 60 sim frames manually
+__game.renderer()       // Pixi pool/gradient and component-entity counts
+__game.lifecycle()      // subscribers, ECS, clock/worker, audio, net and owners
+__game.components('transform', 'health')
 ```
+
+`lifecycle()` is the quickest leak check while developing: subscriber counts,
+pending timers, active systems, and renderer ownership should return to their
+baseline after leaving a mode. The debug API is removed when the React runtime
+unmounts.
+
+## Third-party licenses
+
+The game is offline-capable because its browser dependencies are checked into
+`vendor/`. PixiJS is pinned to 8.18.1; its source URL, SHA-256 checksum, and
+version record are in `vendor/README.md`, and its MIT terms are in
+`vendor/pixi.LICENSE.txt`. The existing React/ReactDOM/htm production bundles
+are documented in the same vendor directory. No dependency is fetched at
+runtime.
 
 ## Changes vs. the original evolution.html
 
@@ -235,3 +258,5 @@ Behavior is a 1:1 port, with these deliberate exceptions:
 - Fixed: `__game.state().phase` always reported `'start'` (stale closure).
 - Removed dead code: `pick()`, `statBar()`, the `.flash` CSS rule, unused
   player fields (`born`, `dashT`).
+- Replaced the Canvas 2D world/preview/icon/Model Lab paths and the
+  Dunkleosteus bitmap cache with shared native Pixi geometry surfaces.

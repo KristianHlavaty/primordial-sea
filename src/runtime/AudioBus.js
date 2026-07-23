@@ -1,6 +1,6 @@
 import { GameEvents } from '../engine/events.js';
 
-/* Simulation-facing audio port. Legacy gameplay calls remain `game.sfx.play()`
+/* Simulation-facing audio port. Gameplay calls remain `game.sfx.play()`
    for now, but those calls publish commands instead of touching WebAudio. */
 export class AudioPort {
   constructor(events) {
@@ -34,4 +34,3 @@ export function attachAudioSubscriber(events, audio) {
   ];
   return () => { for (const unsubscribe of unsubscribers) unsubscribe(); };
 }
-

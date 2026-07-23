@@ -94,6 +94,12 @@ export class EventBus {
     return entries ? entries.filter(entry => entry.active).length : 0;
   }
 
+  totalListenerCount() {
+    let count = 0;
+    for (const entries of this.listeners.values()) count += entries.filter(entry => entry.active).length;
+    return count;
+  }
+
   clear(event) {
     if (arguments.length) {
       const entries = this.listeners.get(event) || [];
@@ -110,4 +116,3 @@ export class EventBus {
     if (entry.signal && entry.abortHandler) entry.signal.removeEventListener('abort', entry.abortHandler);
   }
 }
-

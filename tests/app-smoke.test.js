@@ -20,8 +20,17 @@ try {
   if (!state?.playing || state.phase !== 'play') throw new Error(`Game did not enter play: ${JSON.stringify(state)}`);
   requireElement('#game'); requireElement('.hud');
   if (!renderer?.ready) throw new Error(`Renderer did not initialize: ${JSON.stringify(renderer)}`);
-  const requested = new URLSearchParams(location.search).get('renderer') === 'pixi' ? 'pixi' : 'canvas';
-  if (renderer.mode !== requested) throw new Error(`Expected ${requested}, received ${renderer.mode}`);
+  if (renderer.mode !== 'pixi') throw new Error(`Expected Pixi, received ${renderer.mode}`);
+
+  requireElement('[title^="Evolution tree"]').click();
+  await wait(200);
+  const tree = requireElement('.treeCard');
+  const previews = [...tree.querySelectorAll('.pixiPreview')];
+  if (!previews.length || previews.some(preview => preview.dataset.pixiError)) {
+    throw new Error(`Tree Pixi previews failed: ${previews.map(preview => preview.dataset.pixiError || 'ok').join(', ')}`);
+  }
+  if (tree.querySelector('canvas')) throw new Error('Tree retained a Canvas preview surface');
+  requireElement('.treeClose').click();
 
   document.body.dataset.tests = 'pass';
   document.title = `PASS - app smoke (${renderer.mode})`;

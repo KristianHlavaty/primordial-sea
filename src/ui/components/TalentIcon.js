@@ -1,14 +1,14 @@
-/* A small canvas rendering one talent's vector icon. */
-import { html, useRef, useLayoutEffect } from '../react.js';
-import { drawTalentIcon } from '../../render/drawTalentIcon.js';
+/* A talent icon rendered by the shared Pixi overlay. */
+import { html, useMemo } from '../react.js';
+import { drawTalentIconVisual } from '../../render/pixi/PixiVisualFactory.js';
+import { PixiPreview } from './PixiPreview.js';
 
 export function TalentIcon({ id, color, size = 40 }) {
-  const ref = useRef(null);
-  useLayoutEffect(() => {
-    const cv = ref.current; if (!cv) return;
-    const c = cv.getContext('2d');
-    c.clearRect(0, 0, cv.width, cv.height);
-    drawTalentIcon(c, id, cv.width, color);
-  }, [id, color, size]);
-  return html`<canvas width=${size} height=${size} ref=${ref}/>`;
+  const draw = useMemo(() => (ctx, frame) => drawTalentIconVisual(ctx, {
+    id, color, width: frame.width, height: frame.height,
+  }), [id, color]);
+  return html`<${PixiPreview}
+    draw=${draw} width=${size} height=${size} className="pixiTalentIcon"
+    ariaLabel=${`${id} talent icon`}
+  />`;
 }

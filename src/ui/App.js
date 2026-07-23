@@ -41,6 +41,11 @@ export function App() {
   const engine = engineRef.current;
   const commands = runtime && runtime.commands;
 
+  useEffect(() => () => {
+    lobbyRef.current?.close();
+    lobbyRef.current = null;
+  }, []);
+
   const begin = options => { runtimeRef.current.startRun(options); setMpMenuOpen(false); setPhase('play'); };
   const skipToLand = (id, options) => { runtimeRef.current.startAt(id, options); setMpMenuOpen(false); setPhase('play'); };
   // "Evolve again" from the death screen — keep the run's gameplay settings
